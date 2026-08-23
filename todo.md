@@ -795,3 +795,11 @@
 - [x] Create and verify one isolated QA profile for every role through the application onboarding flow, then capture role workspace evidence.
 
 - [x] QA verification blocker: expose ACCOUNTANT in the Team invitation role selector so the Accountant workspace can be provisioned through the real application flow.
+
+- [ ] Modernize the shared authenticated workspace shell with role-specific command surfaces, clearer active context, and a distinctive VahanSync signal/route mark.
+- [ ] Upgrade workspace typography, small-text contrast, spacing, surface hierarchy, and responsive behavior for 2026 scanability.
+- [ ] Add restrained motion for navigation, state changes, drawers, filters, and successful workflow handoffs with reduced-motion support.
+- [ ] Modernize Superadmin, Fleet Manager, Mechanic, Technician, Inventory Manager, Driver, and Accountant dashboard surfaces without changing RBAC or backend contracts.
+- [ ] Upgrade all workspace forms with grouped sections, richer controls, inline validation, action hierarchy, and clear loading/success/error states.
+- [ ] Upgrade vehicle, component, work-order, inventory, purchase-order, compliance, notification, and financial tables with status rails, timeline context, live signal chips, and stronger row hierarchy.
+- [ ] Add or refine frontend regression tests for the workspace UI modernization and verify desktop/mobile rendering across every role surface.

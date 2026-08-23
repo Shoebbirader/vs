@@ -8,9 +8,20 @@ type Role = "SUPERADMIN" | "FLEET_MANAGER" | "INVENTORY_MANAGER" | "MECHANIC" | 
 
 type Props = { role: Role; organizationName?: string };
 
+const roleJourneys: Record<Role, string[]> = {
+  SUPERADMIN: ["Observe", "Govern", "Decide"],
+  FLEET_MANAGER: ["Detect", "Dispatch", "Protect"],
+  INVENTORY_MANAGER: ["Stock", "Supply", "Reconcile"],
+  MECHANIC: ["Receive", "Repair", "Close"],
+  TECHNICIAN: ["Receive", "Repair", "Close"],
+  DRIVER: ["Inspect", "Report", "Return"],
+  ACCOUNTANT: ["Match", "Review", "Close"],
+};
+
 function RoleHeader({ role, organizationName, title, subtitle, icon: Icon }: Props & { title: string; subtitle: string; icon: typeof Activity }) {
   const roleLabel = role === "SUPERADMIN" ? "Superadmin / Owner" : role.replaceAll("_", " ");
-  return <div className={`role-workspace-header role-${role.toLowerCase()}`}><div><div className="eyebrow"><span className="eyebrow-line" /> {roleLabel} workspace · {organizationName ?? "Loading organization…"}</div><h1>{title}<span className="accent-dot">.</span></h1><p className="hero-copy">{subtitle}</p></div><div className="role-workspace-badge"><Icon size={18} /><span>Organization connected</span><small>Tenant-scoped data</small></div></div>;
+  const journey = roleJourneys[role];
+  return <div className={`role-workspace-header role-${role.toLowerCase()}`}><div><div className="eyebrow"><span className="eyebrow-line" /> {roleLabel} workspace · {organizationName ?? "Loading organization…"}</div><h1>{title}<span className="accent-dot">.</span></h1><p className="hero-copy">{subtitle}</p></div><div className="role-header-side"><div className="role-workspace-badge"><Icon size={18} /><span>Organization connected</span><small>Tenant-scoped data</small></div><div className="role-journey" aria-label={`${roleLabel} workflow`}><span className="role-journey-label">Operating rhythm</span><div>{journey.map((step, index) => <span key={step} className={index === 0 ? "active" : ""}><b>{String(index + 1).padStart(2, "0")}</b>{step}</span>)}</div></div></div></div>;
 }
 
 function Kpi({ label, value, detail, tone = "orange" }: { label: string; value: string; detail: string; tone?: "orange" | "green" | "blue" | "red" }) {

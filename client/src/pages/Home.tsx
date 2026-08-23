@@ -30,6 +30,7 @@ import {
   SquareArrowOutUpRight,
   TrendingUp,
   RefreshCw,
+  Route,
   Users,
   Wrench,
   X,
@@ -56,10 +57,15 @@ const roles = [
 
 const navItems = [
   { label: "Command center", icon: LayoutDashboard },
+  { label: "Fleet manager workspace", icon: Bus },
+  { label: "Inventory manager workspace", icon: Package },
+  { label: "Mechanic workspace", icon: Wrench },
+  { label: "Technician workspace", icon: Wrench },
+  { label: "Driver portal", icon: ClipboardCheck },
+  { label: "Accountant ledger", icon: IndianRupee },
   { label: "Vehicles", icon: Bus },
   { label: "Components", icon: Wrench },
   { label: "Work orders", icon: Wrench },
-  { label: "Inventory manager workspace", icon: Package },
   { label: "Inventory", icon: Package },
   { label: "Vendors", icon: Users },
   { label: "Purchase orders", icon: ClipboardCheck },
@@ -68,9 +74,32 @@ const navItems = [
   { label: "P&L analytics", icon: TrendingUp },
   { label: "Billing", icon: IndianRupee },
   { label: "Team", icon: Users },
-  { label: "Driver portal", icon: ClipboardCheck },
-  { label: "Accountant ledger", icon: IndianRupee },
 ];
+
+const navGroups = [
+  { label: "Command", items: ["Command center", "Fleet manager workspace", "Inventory manager workspace", "Mechanic workspace", "Technician workspace", "Driver portal", "Accountant ledger"] },
+  { label: "Operations", items: ["Vehicles", "Components", "Work orders", "Inventory", "Vendors", "Purchase orders", "Compliance vault"] },
+  { label: "Control", items: ["Notifications", "P&L analytics", "Billing", "Team"] },
+];
+
+const roleDescriptor: Record<string, string> = {
+  SUPERADMIN: "Executive governance",
+  FLEET_MANAGER: "Fleet readiness",
+  INVENTORY_MANAGER: "Parts control",
+  MECHANIC: "Repair execution",
+  TECHNICIAN: "Repair execution",
+  DRIVER: "Route integrity",
+  ACCOUNTANT: "INR finance",
+};
+
+function WorkspaceNav({ items, activeNav, onSelect, onClose }: { items: typeof navItems; activeNav: string; onSelect: (label: string) => void; onClose?: () => void }) {
+  const itemMap = new Map(items.map((item) => [item.label, item]));
+  return <nav className="workspace-nav" aria-label="Workspace navigation">{navGroups.map((group) => {
+    const groupItems = group.items.map((label) => itemMap.get(label)).filter(Boolean) as typeof navItems;
+    if (!groupItems.length) return null;
+    return <div className="nav-group" key={group.label}><div className="nav-group-label">{group.label}</div>{groupItems.map((item) => <button key={item.label} type="button" className={`nav-item ${activeNav === item.label ? "active" : ""}`} aria-current={activeNav === item.label ? "page" : undefined} onClick={() => { onSelect(item.label); onClose?.(); }}><item.icon size={17} /><span>{item.label}</span></button>)}</div>;
+  })}</nav>;
+}
 
 const formatInr = (value: number) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(value);
 
@@ -240,7 +269,7 @@ export default function Home({ initialSection = "Command center", publicMode = "
   if (session && !backendSummary && summaryError) return <main className="auth-page"><section className="auth-card"><div className="panel-kicker">VahanSync connection</div><h1>We could not load your workspace.</h1><p>Your Supabase session is active, but the organization summary did not respond. Refresh the page to retry without losing your session.</p><button className="primary-button" onClick={() => window.location.reload()}>Retry workspace load</button></section></main>;
   if (session && !backendSummary && summaryLoading) return <main className="auth-page"><section className="auth-card"><div className="panel-kicker">VahanSync connection</div><h1>Loading your workspace.</h1><p>We are checking your organization and role before opening operational data.</p><div className="workspace-state"><RefreshCw className="spin" size={18} /> Connecting to Supabase…</div></section></main>;
   if (!authLoading && !session && publicMode === "landing") return <LandingPage />;
-  if (!authLoading && !session) return <div className="auth-page"><div className="auth-card"><div className="brand-lockup auth-brand"><div className="brand-mark"><span aria-hidden="true" className="brand-mark-glyph">V</span></div><div><div className="brand-name">VahanSync</div><div className="brand-tag">Fleet intelligence for India’s operators</div></div></div><div className="panel-kicker">Fleet operations workspace</div><h1>{authMode === "signup" ? "Create your Superadmin account." : authMode === "recover" ? "Recover your VahanSync account." : "Sign in to your fleet ledger."}</h1><p>{authMode === "signup" ? "Start with your name and a secure Supabase Auth account. Organization setup comes immediately after signup." : authMode === "recover" ? "Enter your email and Supabase will send a secure password-reset link if the account exists." : "Use your Supabase Auth account to access vehicles, work orders, inventory, team access, and financial records."}</p><form onSubmit={authMode === "signup" ? handleSignUp : authMode === "recover" ? handleRecoveryRequest : handleSignIn} className="auth-form">{authMode === "signup" && <label>Full name<input required minLength={2} value={authFullName} onChange={(event) => setAuthFullName(event.target.value)} placeholder="Your full name" /></label>}<label>Email<input required type="email" value={authEmail} onChange={(event) => setAuthEmail(event.target.value)} placeholder="you@company.com" /></label>{authMode !== "recover" && <label>Password<input required minLength={8} type="password" value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} placeholder="At least 8 characters" /></label>}{authError && <div className="auth-error">{authError}</div>}<button className="primary-button" disabled={authSubmitting}>{authSubmitting ? authMode === "signup" ? "Creating account…" : authMode === "recover" ? "Sending recovery link…" : "Signing in…" : authMode === "signup" ? "Create Superadmin account" : authMode === "recover" ? "Send recovery link" : "Sign in to VahanSync"}</button></form><button className="auth-switch" onClick={() => { setAuthMode(authMode === "signin" ? "signup" : "signin"); setAuthError(""); }}>{authMode === "recover" ? "Back to sign in" : authMode === "signup" ? "Already have an account? Sign in" : "Forgot your password?"}</button>{authMode === "signin" && <button className="auth-switch" onClick={() => { setAuthMode("recover"); setAuthError(""); }}>Need account recovery?</button>}</div></div>;
+  if (!authLoading && !session) return <div className="auth-page"><div className="auth-card"><div className="brand-lockup auth-brand"><div className="brand-mark" aria-hidden="true"><Route className="brand-mark-route" size={20} strokeWidth={2.4} /></div><div><div className="brand-name">VahanSync</div><div className="brand-tag">Fleet intelligence for India’s operators</div></div></div><div className="panel-kicker">Fleet operations workspace</div><h1>{authMode === "signup" ? "Create your Superadmin account." : authMode === "recover" ? "Recover your VahanSync account." : "Sign in to your fleet ledger."}</h1><p>{authMode === "signup" ? "Start with your name and a secure Supabase Auth account. Organization setup comes immediately after signup." : authMode === "recover" ? "Enter your email and Supabase will send a secure password-reset link if the account exists." : "Use your Supabase Auth account to access vehicles, work orders, inventory, team access, and financial records."}</p><form onSubmit={authMode === "signup" ? handleSignUp : authMode === "recover" ? handleRecoveryRequest : handleSignIn} className="auth-form">{authMode === "signup" && <label>Full name<input required minLength={2} value={authFullName} onChange={(event) => setAuthFullName(event.target.value)} placeholder="Your full name" /></label>}<label>Email<input required type="email" value={authEmail} onChange={(event) => setAuthEmail(event.target.value)} placeholder="you@company.com" /></label>{authMode !== "recover" && <label>Password<input required minLength={8} type="password" value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} placeholder="At least 8 characters" /></label>}{authError && <div className="auth-error">{authError}</div>}<button className="primary-button" disabled={authSubmitting}>{authSubmitting ? authMode === "signup" ? "Creating account…" : authMode === "recover" ? "Sending recovery link…" : "Signing in…" : authMode === "signup" ? "Create Superadmin account" : authMode === "recover" ? "Send recovery link" : "Sign in to VahanSync"}</button></form><button className="auth-switch" onClick={() => { setAuthMode(authMode === "signin" ? "signup" : "signin"); setAuthError(""); }}>{authMode === "recover" ? "Back to sign in" : authMode === "signup" ? "Already have an account? Sign in" : "Forgot your password?"}</button>{authMode === "signin" && <button className="auth-switch" onClick={() => { setAuthMode("recover"); setAuthError(""); }}>Need account recovery?</button>}</div></div>;
 
   const completeOrder = (id?: string) => {
     if (!id || !session) return;
@@ -259,15 +288,15 @@ export default function Home({ initialSection = "Command center", publicMode = "
     setActiveNav("Command center");
   };
 
-  if (activeNav !== "Command center") return <div className="app-shell"><aside className={`sidebar ${showMobileNav ? "mobile-open" : ""}`}><div className="brand-lockup"><div className="brand-mark"><span aria-hidden="true" className="brand-mark-glyph">V</span></div><div><div className="brand-name">VahanSync</div><div className="brand-tag">Fleet intelligence for India’s operators</div></div><button className="mobile-close" onClick={() => setShowMobileNav(false)} aria-label="Close navigation"><X size={18} /></button></div><div className="org-switcher"><div className="org-avatar">{organizationInitials}</div><div className="org-copy"><strong>{organizationLabel}</strong><span>{vehicleCount} vehicles · Supabase</span></div><ChevronDown size={15} /></div>{currentRole === "SUPERADMIN" && <div className="sidebar-scope"><span className="scope-dot" /> Executive governance</div>}<div className="nav-caption">{currentRole === "SUPERADMIN" ? "Governance" : "Workspace"}</div><nav>{allowedNavItems.map((item: any) => <button key={item.label} className={`nav-item ${activeNav === item.label ? "active" : ""}`} onClick={() => setActiveNav(item.label)}><item.icon size={17} /><span>{item.label}</span>{item.count && <em>{item.count}</em>}</button>)}</nav></aside><main className="main-canvas"><header className="topbar"><div className="breadcrumb"><span>{organizationLabel}</span><span>/</span><strong>{activeNav}</strong></div><div className="topbar-actions"><button className="role-select" onClick={handleSignOut}>{session ? "Sign out" : "Sign in"}</button></div></header><section className="page-content"><FunctionalWorkspace section={activeNav} session={Boolean(session)} organizationName={organizationName || undefined} onBack={() => setActiveNav(allowedNavLabels[0] ?? "Command center")} /></section></main></div>;
+  if (activeNav !== "Command center") return <div className="app-shell"><aside className={`sidebar ${showMobileNav ? "mobile-open" : ""}`}><div className="brand-lockup"><div className="brand-mark" aria-hidden="true"><Route className="brand-mark-route" size={20} strokeWidth={2.4} /></div><div><div className="brand-name">VahanSync</div><div className="brand-tag">Fleet intelligence for India’s operators</div></div><button className="mobile-close" onClick={() => setShowMobileNav(false)} aria-label="Close navigation"><X size={18} /></button></div><div className="org-switcher"><div className="org-avatar">{organizationInitials}</div><div className="org-copy"><strong>{organizationLabel}</strong><span>{vehicleCount} vehicles · Supabase</span></div><ChevronDown size={15} /></div><div className="sidebar-scope"><span className="scope-dot" /> {roleDescriptor[currentRole] ?? "Operations workspace"}</div><WorkspaceNav items={allowedNavItems as typeof navItems} activeNav={activeNav} onSelect={setActiveNav} onClose={() => setShowMobileNav(false)} /></aside><main className="main-canvas"><header className="topbar"><div className="breadcrumb"><span>{organizationLabel}</span><span>/</span><strong>{activeNav}</strong></div><div className="topbar-actions"><button className="role-select" onClick={handleSignOut}>{session ? "Sign out" : "Sign in"}</button></div></header><section className="page-content"><FunctionalWorkspace section={activeNav} session={Boolean(session)} organizationName={organizationName || undefined} onBack={() => setActiveNav(allowedNavLabels[0] ?? "Command center")} /></section></main></div>;
 
   return (
     <div className="app-shell">
       <aside className={`sidebar ${showMobileNav ? "mobile-open" : ""}`}>
-        <div className="brand-lockup"><div className="brand-mark"><span aria-hidden="true" className="brand-mark-glyph">V</span></div><div><div className="brand-name">VahanSync</div><div className="brand-tag">Fleet intelligence for India’s operators</div></div><button className="mobile-close" onClick={() => setShowMobileNav(false)} aria-label="Close navigation"><X size={18} /></button></div>
+        <div className="brand-lockup"><div className="brand-mark" aria-hidden="true"><Route className="brand-mark-route" size={20} strokeWidth={2.4} /></div><div><div className="brand-name">VahanSync</div><div className="brand-tag">Fleet intelligence for India’s operators</div></div><button className="mobile-close" onClick={() => setShowMobileNav(false)} aria-label="Close navigation"><X size={18} /></button></div>
         <div className="org-switcher"><div className="org-avatar">{organizationInitials}</div><div className="org-copy"><strong>{organizationLabel}</strong><span>{vehicleCount} vehicles · Supabase</span></div><ChevronDown size={15} /></div>
-        <div className="nav-caption">Workspace</div>
-        <nav>{allowedNavItems.map((item: any) => <button key={item.label} className={`nav-item ${activeNav === item.label ? "active" : ""}`} onClick={() => { setActiveNav(item.label); setShowMobileNav(false); }}><item.icon size={17} /><span>{item.label}</span>{item.count && <em>{item.count}</em>}</button>)}</nav>
+        <div className="sidebar-scope"><span className="scope-dot" /> {roleDescriptor[currentRole] ?? "Operations workspace"}</div>
+        <WorkspaceNav items={allowedNavItems as typeof navItems} activeNav={activeNav} onSelect={setActiveNav} onClose={() => setShowMobileNav(false)} />
         <div className="sidebar-bottom">{currentRole === "SUPERADMIN" && <><div className="trial-card"><div className="trial-kicker"><Sparkles size={13} /> {billingStatus?.planName ?? billingStatus?.tier?.replaceAll("_", " ") ?? "Subscription"} <span>{billingStatus?.lifecycle === "TRIAL" ? `${billingStatus.daysRemaining} days left` : billingStatus?.lifecycle?.replaceAll("_", " ") ?? "—"}</span></div><strong>{billingStatus?.activeVehicles ?? vehicleCount} of {billingStatus?.maxVehicles ?? "—"} vehicles included</strong><div className="trial-progress"><span style={{ width: `${billingStatus?.maxVehicles ? Math.min(100, (vehicleCount / billingStatus.maxVehicles) * 100) : 0}%` }} /></div><div className="billing-mini-summary">Estimated {billingStatus?.currency === "INR" ? "₹" : ""}{billingStatus?.estimatedSubtotalPaise ? (billingStatus.estimatedSubtotalPaise / 100).toLocaleString("en-IN") : "—"} / month{billingStatus?.overageVehicles ? ` · ${billingStatus.overageVehicles} overage` : ""}</div><button onClick={() => setActiveNav("Billing")}>Review plan <SquareArrowOutUpRight size={13} /></button></div><button className="nav-item" onClick={() => setActiveNav("Billing")}><Settings2 size={17} /><span>Workspace settings</span></button></>}<div className="user-chip"><div className="user-avatar">{operatorInitials}</div><div><strong>{operatorName}</strong><span>Authenticated operator</span></div><MoreHorizontal size={16} /></div></div>
       </aside>
 
