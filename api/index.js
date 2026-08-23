@@ -154,9 +154,9 @@ var fuelLogs = (0, import_pg_core.pgTable)("fuel_logs", { id: (0, import_pg_core
 // server/db.ts
 var globalForDb = globalThis;
 var pool = globalForDb.fleetopsPool ?? new import_pg.Pool({ connectionString: process.env.SUPABASE_DATABASE_URL, max: 5, ssl: { rejectUnauthorized: false } });
-if (process.env.NODE_ENV !== "production") globalForDb.fleetopsPool = pool;
+if (false) globalForDb.fleetopsPool = pool;
 var db = globalForDb.fleetopsDb ?? (0, import_node_postgres.drizzle)(pool);
-if (process.env.NODE_ENV !== "production") globalForDb.fleetopsDb = db;
+if (false) globalForDb.fleetopsDb = db;
 var tables = {
   organization: "organizations",
   organizationSetting: "organization_settings",
@@ -308,7 +308,7 @@ var systemRouter = router({
       return { ok: false, release: RELEASE, database: "degraded", checkedAt: (/* @__PURE__ */ new Date()).toISOString(), latencyMs: Date.now() - startedAt, clientTimestamp: input.timestamp, correlationId };
     }
   }),
-  release: publicProcedure.query(() => ({ release: RELEASE, service: "FleetOps API", environment: process.env.NODE_ENV === "production" ? "production" : "development" })),
+  release: publicProcedure.query(() => ({ release: RELEASE, service: "FleetOps API", environment: true ? "production" : "development" })),
   notifyOwner: adminProcedure.input(
     import_zod.z.object({
       title: import_zod.z.string().min(1, "title is required"),
@@ -2350,88 +2350,14 @@ async function createContext(opts) {
   return { req: opts.req, res: opts.res, user, fleetopsUser };
 }
 
-// server/_core/vite.ts
+// server/_core/static.ts
 var import_express = __toESM(require("express"), 1);
 var import_fs = __toESM(require("fs"), 1);
-var import_nanoid = require("nanoid");
 var import_path = __toESM(require("path"), 1);
-var import_vite3 = require("vite");
-
-// vite.config.ts
-var import_vite = __toESM(require("@tailwindcss/vite"), 1);
-var import_plugin_react = __toESM(require("@vitejs/plugin-react"), 1);
-var import_node_path = __toESM(require("node:path"), 1);
-var import_vite2 = require("vite");
-var import_meta = {};
-var vite_config_default = (0, import_vite2.defineConfig)({
-  plugins: [(0, import_plugin_react.default)(), (0, import_vite.default)()],
-  resolve: {
-    alias: {
-      "@": import_node_path.default.resolve(import_meta.dirname, "client", "src"),
-      "@shared": import_node_path.default.resolve(import_meta.dirname, "shared"),
-      "@assets": import_node_path.default.resolve(import_meta.dirname, "attached_assets")
-    }
-  },
-  envDir: import_node_path.default.resolve(import_meta.dirname),
-  root: import_node_path.default.resolve(import_meta.dirname, "client"),
-  publicDir: import_node_path.default.resolve(import_meta.dirname, "client", "public"),
-  build: {
-    outDir: import_node_path.default.resolve(import_meta.dirname, "dist/public"),
-    emptyOutDir: true
-  },
-  server: {
-    host: true,
-    allowedHosts: ["localhost", "127.0.0.1"],
-    fs: {
-      strict: true,
-      deny: ["**/.*"]
-    }
-  }
-});
-
-// server/_core/vite.ts
-var import_meta2 = {};
-async function setupVite(app, server) {
-  const serverOptions = {
-    middlewareMode: true,
-    hmr: { server },
-    allowedHosts: true
-  };
-  const vite = await (0, import_vite3.createServer)({
-    ...vite_config_default,
-    configFile: false,
-    server: serverOptions,
-    appType: "custom"
-  });
-  app.use(vite.middlewares);
-  app.use("*", async (req, res, next) => {
-    const url = req.originalUrl;
-    try {
-      const clientTemplate = import_path.default.resolve(
-        import_meta2.dirname,
-        "../..",
-        "client",
-        "index.html"
-      );
-      let template = await import_fs.default.promises.readFile(clientTemplate, "utf-8");
-      template = template.replace(
-        `src="/src/main.tsx"`,
-        `src="/src/main.tsx?v=${(0, import_nanoid.nanoid)()}"`
-      );
-      const page = await vite.transformIndexHtml(url, template);
-      res.status(200).set({ "Content-Type": "text/html" }).end(page);
-    } catch (e) {
-      vite.ssrFixStacktrace(e);
-      next(e);
-    }
-  });
-}
 function serveStatic(app) {
-  const distPath = process.env.NODE_ENV === "development" ? import_path.default.resolve(import_meta2.dirname, "../..", "dist", "public") : import_path.default.resolve(import_meta2.dirname, "public");
+  const distPath = false ? import_path.default.resolve(process.cwd(), "dist", "public") : import_path.default.resolve(process.cwd(), "api", "public");
   if (!import_fs.default.existsSync(distPath)) {
-    console.error(
-      `Could not find the build directory: ${distPath}, make sure to build the client first`
-    );
+    console.error(`Could not find the build directory: ${distPath}, make sure to build the client first`);
   }
   app.use(import_express.default.static(distPath));
   app.use("*", (_req, res) => {
@@ -2538,14 +2464,15 @@ async function startServer() {
     (0, import_express3.createExpressMiddleware)({
       router: appRouter,
       createContext,
-      onError: ({ path: path3, error, req }) => {
+      onError: ({ path: path2, error, req }) => {
         const requestId = req.res?.locals?.requestId ?? "unknown";
-        logRequestError({ requestId, path: path3, code: error.code, message: error.message });
-        if (error.code === "UNAUTHORIZED") logRequestSignal({ event: "auth_failure", requestId, path: path3, code: error.code, message: error.message });
+        logRequestError({ requestId, path: path2, code: error.code, message: error.message });
+        if (error.code === "UNAUTHORIZED") logRequestSignal({ event: "auth_failure", requestId, path: path2, code: error.code, message: error.message });
       }
     })
   );
-  if (process.env.NODE_ENV === "development") {
+  if (false) {
+    const { setupVite } = await null;
     await setupVite(app, server);
   } else {
     serveStatic(app);
