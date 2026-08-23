@@ -768,3 +768,10 @@
 - [x] Rebrand product-facing FleetOps surfaces to VahanSync across the landing page, authenticated workspaces, browser metadata, email/notification copy, and runtime app title.
 - [x] Update GitHub-facing README/project metadata and preserve repository history; deploy the approved VahanSync branding to Vercel only.
 - [x] Add branding regression coverage and validate the VahanSync build before deployment. 213 Vitest tests passed, TypeScript passed, and the production build completed successfully.
+
+- [x] Remove “Signal ledger” from all customer-facing branding and standardize the VahanSync tagline to “Fleet intelligence for India’s operators.”
+- [x] Modernize public landing, pricing, About, and Security pages with stronger 2026 briefing-sheet composition, operational artifacts, purposeful signal color, and a distinctive VahanSync visual mark.
+- [x] Modernize authenticated workspace shell, sidebar, command center, role headers, vehicle/work-order/inventory tables, forms, and status states without changing RBAC or tRPC contracts.
+- [x] Improve responsive layouts, accessibility, focus states, interaction feedback, and footer/navigation polish across the frontend. Verified desktop and mobile marketing routes, including the stacked mobile About hero.
+- [x] Add or update regression coverage, run Vitest, TypeScript, production build, and visual verification. 213 Vitest tests passed; TypeScript and production build passed.
+- [x] Commit and push the modernization to GitHub with the verified author identity, deploy to Vercel production, and do not publish through Manus.

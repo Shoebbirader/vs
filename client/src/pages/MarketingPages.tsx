@@ -8,7 +8,7 @@ const plans = [
 ];
 
 export function MarketingNav({ active }: { active?: string }) {
-  return <header className="marketing-nav"><a className="brand-lockup" href="/"><span className="brand-mark"><span className="brand-mark-glyph">V</span></span><span><strong>VahanSync</strong><small>Signal ledger</small></span></a><nav className="marketing-links" aria-label="Public navigation"><a className={active === "pricing" ? "active" : ""} href="/pricing">Pricing</a><a className={active === "about" ? "active" : ""} href="/about">About</a><a className={active === "security" ? "active" : ""} href="/security">Security</a></nav><div className="marketing-actions"><a className="secondary-button" href="/login">Sign in</a><a className="primary-button" href="/create-organization">Create organization <ArrowRight size={15} /></a></div></header>;
+  return <header className="marketing-nav"><a className="brand-lockup" href="/"><span className="brand-mark"><span className="brand-mark-glyph">V</span></span><span><strong>VahanSync</strong><small>Fleet intelligence for India’s operators</small></span></a><nav className="marketing-links" aria-label="Public navigation"><a className={active === "pricing" ? "active" : ""} href="/pricing">Pricing</a><a className={active === "about" ? "active" : ""} href="/about">About</a><a className={active === "security" ? "active" : ""} href="/security">Security</a></nav><div className="marketing-actions"><a className="secondary-button" href="/login">Sign in</a><a className="primary-button" href="/create-organization">Create organization <ArrowRight size={15} /></a></div></header>;
 }
 
 export function MarketingFooter() {

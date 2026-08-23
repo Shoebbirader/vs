@@ -9,7 +9,7 @@ describe("VahanSync boot resilience", () => {
     expect(indexHtml).toContain("Loading your fleet ledger");
     expect(indexHtml).toContain("VahanSync requires JavaScript");
     expect(process.env.VITE_APP_TITLE ?? "VahanSync").toBe("VahanSync");
-    expect(indexHtml).toContain("<title>VahanSync — Signal ledger</title>");
+    expect(indexHtml).toContain("<title>VahanSync — Fleet intelligence for India’s operators</title>");
   });
 });
 
