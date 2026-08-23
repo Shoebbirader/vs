@@ -814,3 +814,47 @@ button:active { transform: scale(.975); }
   .workspace-header-foot { position: static; flex-wrap: wrap; gap: 8px 12px; margin-top: 17px; }
   .workspace-header-foot > span:not(.signal-chip)::before { margin-right: 4px; }
 }
+
+
+.governance-signal-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 18px; }
+.governance-signal-grid article { position: relative; display: grid; grid-template-columns: auto 1fr; gap: 3px 9px; min-height: 78px; padding: 13px 14px; overflow: hidden; border: 1px solid #dddcd5; border-radius: 13px; background: #fffdfa; box-shadow: 0 10px 24px #18253608; }
+.governance-signal-grid article::after { content: ""; position: absolute; right: -10px; bottom: -15px; width: 52px; height: 52px; border: 1px solid #ed623428; border-radius: 999px; }
+.governance-signal-grid article > span { display: grid; place-items: center; grid-row: span 3; width: 27px; height: 27px; border-radius: 9px; color: #c45a34; background: #fff0e8; }
+.governance-signal-grid article:nth-child(2) > span { color: #3c8b70; background: #eaf7f0; }
+.governance-signal-grid article:nth-child(3) > span { color: #52739f; background: #edf3fb; }
+.governance-signal-grid article:nth-child(4) > span { color: #926b3d; background: #fbf2e7; }
+.governance-signal-grid small { color: #737e8a; font-size: 9px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.governance-signal-grid strong { color: #182536; font-size: 19px; line-height: 1.1; }
+.governance-signal-grid em { color: #8a9299; font-size: 9px; font-style: normal; }
+@media (max-width: 850px) { .governance-signal-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .governance-signal-grid { grid-template-columns: 1fr; } }
+
+
+.driver-signal-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 18px; }
+.driver-signal-strip article { position: relative; display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; min-height: 83px; padding: 13px; overflow: hidden; border: 1px solid #deddd6; border-radius: 13px; background: #fffdfa; box-shadow: 0 10px 24px #18253608; }
+.driver-signal-strip article::after { content: ""; position: absolute; right: -19px; bottom: -20px; width: 65px; height: 65px; border: 1px solid #ed623426; border-radius: 999px; }
+.driver-signal-icon { display: grid; place-items: center; grid-row: span 3; width: 28px; height: 28px; border-radius: 9px; color: #c65b34; background: #fff0e8; }
+.driver-signal-icon.good { color: #34826a; background: #eaf7f0; }
+.driver-signal-icon.warn { color: #af6838; background: #fff1e5; }
+.driver-signal-icon.blue { color: #5576a4; background: #edf3fb; }
+.driver-signal-strip small { color: #798491; font-size: 9px; font-weight: 850; letter-spacing: .05em; text-transform: uppercase; }
+.driver-signal-strip strong { color: #172436; font-size: 16px; line-height: 1.1; }
+.driver-signal-strip em { color: #8b949c; font-size: 9px; font-style: normal; }
+@media (max-width: 850px) { .driver-signal-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .driver-signal-strip { grid-template-columns: 1fr; } }
+
+
+.accountant-signal-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 18px; }
+.accountant-signal-strip article { position: relative; display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; min-height: 83px; padding: 13px; overflow: hidden; border: 1px solid #deddd6; border-radius: 13px; background: #fffdfa; box-shadow: 0 10px 24px #18253608; }
+.accountant-signal-strip article::after { content: "₹"; position: absolute; right: 14px; bottom: -8px; color: #ed623418; font-size: 43px; font-weight: 900; transform: rotate(-12deg); }
+.finance-signal-icon { display: grid; place-items: center; grid-row: span 3; width: 28px; height: 28px; border-radius: 9px; color: #c65b34; background: #fff0e8; }
+.finance-signal-icon.good { color: #34826a; background: #eaf7f0; }
+.finance-signal-icon.warn { color: #af6838; background: #fff1e5; }
+.finance-signal-icon.blue { color: #5576a4; background: #edf3fb; }
+.accountant-signal-strip small { color: #798491; font-size: 9px; font-weight: 850; letter-spacing: .05em; text-transform: uppercase; }
+.accountant-signal-strip strong { color: #172436; font-size: 16px; line-height: 1.1; }
+.accountant-signal-strip em { color: #8b949c; font-size: 9px; font-style: normal; }
+.accountant-workspace .audit-filter-grid { padding: 12px; border: 1px solid #e1dfd8; border-radius: 12px; background: #faf8f3; }
+.accountant-workspace .expense-breakdown > div { border-left-color: #809abd; }
+@media (max-width: 850px) { .accountant-signal-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .accountant-signal-strip { grid-template-columns: 1fr; } }

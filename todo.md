@@ -803,3 +803,7 @@
 - [ ] Upgrade all workspace forms with grouped sections, richer controls, inline validation, action hierarchy, and clear loading/success/error states.
 - [ ] Upgrade vehicle, component, work-order, inventory, purchase-order, compliance, notification, and financial tables with status rails, timeline context, live signal chips, and stronger row hierarchy.
 - [ ] Add or refine frontend regression tests for the workspace UI modernization and verify desktop/mobile rendering across every role surface.
+
+- [x] Workspace UI modernization increment: add role-aware grouped command navigation, distinctive VahanSync route/signal branding, stronger typography/contrast/motion, and live organization context rails across authenticated pages.
+- [x] Workspace UI modernization increment: add operating-rhythm headers for all seven roles plus Superadmin governance, Driver readiness, and Accountant finance signal strips.
+- [x] Extend workspace UI regression coverage for the shared navigation, route mark, workflow rails, Team governance strip, Driver readiness strip, and Accountant finance strip.
