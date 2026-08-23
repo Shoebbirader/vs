@@ -785,3 +785,13 @@
 - [x] Upgrade role-specific metrics, table row hierarchy, status rails, timeline context, and live signal chips without changing RBAC or data contracts.
 - [x] Upgrade shared navigation, forms, distinctive VahanSync route mark, typography contrast, responsive behavior, and restrained motion across every member workspace.
 - [x] Add role-by-role regression assertions and visual verification, then push the verified upgrade to GitHub and Vercel only. 216 Vitest tests passed; TypeScript and production build passed; public routes were visually checked at desktop width.
+
+- [x] Create an isolated test organization clearly labeled for QA and separate it from all existing customer organizations.
+- [x] Create one test account for each role: Superadmin, Fleet Manager, Mechanic, Technician, Inventory Manager, Driver, and Accountant.
+- [x] Verify each test account’s sign-in, role-scoped navigation, dashboard metrics, tables, and prohibited workspace visibility.
+- [x] Capture representative workspace evidence and document the test credentials securely without exposing passwords in source or public files.
+
+- [x] Use the real VahanSync organization creation and invitation flow for QA instead of direct database provisioning because the live schema differs from the checked-in schema.
+- [x] Create and verify one isolated QA profile for every role through the application onboarding flow, then capture role workspace evidence.
+
+- [x] QA verification blocker: expose ACCOUNTANT in the Team invitation role selector so the Accountant workspace can be provisioned through the real application flow.
