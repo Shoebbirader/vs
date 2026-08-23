@@ -780,3 +780,8 @@
 - [x] Replace the shared workspace-shell-only polish with visibly redesigned page compositions, role-specific command headers, page-specific information hierarchy, and modern tables/forms/detail states across every workspace.
 - [x] Add page-by-page visual regression coverage and capture representative desktop/mobile screens for every role workspace.
 - [x] Re-run all tests, TypeScript, and production build, then push the complete page-by-page redesign to GitHub and Vercel only. 213 Vitest tests passed; TypeScript and production build passed.
+
+- [x] Audit Superadmin, Fleet Manager, Mechanic, Technician, Inventory Manager, Driver, and Accountant dashboard metrics and tables against the supplied 2026 UI standards.
+- [x] Upgrade role-specific metrics, table row hierarchy, status rails, timeline context, and live signal chips without changing RBAC or data contracts.
+- [x] Upgrade shared navigation, forms, distinctive VahanSync route mark, typography contrast, responsive behavior, and restrained motion across every member workspace.
+- [x] Add role-by-role regression assertions and visual verification, then push the verified upgrade to GitHub and Vercel only. 216 Vitest tests passed; TypeScript and production build passed; public routes were visually checked at desktop width.

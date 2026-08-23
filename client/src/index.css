@@ -641,3 +641,20 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .functional-workspace .workspace-page-header h1 { font-size: 36px; }
   .functional-workspace .workspace-page-header p { font-size: 12px; }
 }
+
+.workspace-kpi-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.workspace-kpi-pulse { display: block; width: 7px; height: 7px; border-radius: 999px; background: var(--orange); box-shadow: 0 0 0 4px color-mix(in srgb, var(--orange) 13%, transparent); }
+.workspace-kpi.green .workspace-kpi-pulse { background: var(--green); box-shadow: 0 0 0 4px color-mix(in srgb, var(--green) 13%, transparent); }
+.workspace-kpi.blue .workspace-kpi-pulse { background: var(--blue); box-shadow: 0 0 0 4px color-mix(in srgb, var(--blue) 13%, transparent); }
+.workspace-kpi.red .workspace-kpi-pulse { background: var(--red); box-shadow: 0 0 0 4px color-mix(in srgb, var(--red) 13%, transparent); }
+@media (prefers-reduced-motion: no-preference) { .workspace-kpi-pulse { animation: vahan-pulse 2.4s ease-in-out infinite; } }
+@keyframes vahan-pulse { 0%, 100% { opacity: .55; transform: scale(.88); } 50% { opacity: 1; transform: scale(1); } }
+
+/* VahanSync signal mark: route line + waypoint layered over the V monogram. */
+.brand-mark { position: relative; isolation: isolate; overflow: hidden; }
+.brand-mark::before { content: ""; position: absolute; z-index: -1; left: 7px; bottom: 7px; width: 31px; height: 2px; border-radius: 99px; background: #fff; opacity: .72; transform: rotate(-33deg); transform-origin: left center; }
+.brand-mark::after { content: ""; position: absolute; right: 6px; top: 7px; width: 6px; height: 6px; border: 2px solid var(--orange); border-radius: 50%; background: #fff7ef; box-shadow: 0 0 0 3px #fff7ef55; }
+.marketing-nav .brand-mark::before, .marketing-footer .brand-mark::before { background: var(--orange); opacity: .9; }
+.marketing-nav .brand-mark::after, .marketing-footer .brand-mark::after { background: #fffaf3; }
+.brand-mark.small::before { left: 5px; bottom: 5px; width: 23px; }
+.brand-mark.small::after { right: 4px; top: 4px; width: 4px; height: 4px; border-width: 1px; }
