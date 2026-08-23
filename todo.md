@@ -807,3 +807,5 @@
 - [x] Workspace UI modernization increment: add role-aware grouped command navigation, distinctive VahanSync route/signal branding, stronger typography/contrast/motion, and live organization context rails across authenticated pages.
 - [x] Workspace UI modernization increment: add operating-rhythm headers for all seven roles plus Superadmin governance, Driver readiness, and Accountant finance signal strips.
 - [x] Extend workspace UI regression coverage for the shared navigation, route mark, workflow rails, Team governance strip, Driver readiness strip, and Accountant finance strip.
+
+- [x] Compare FleetGuard and VahanSync across workflows, role boundaries, UI/UX, data architecture, security, reliability, and deployment readiness; document concrete gaps and recommendations.
