@@ -211,7 +211,15 @@ export const appRouter = router({
     list: fleetOpsProcedure.query(async ({ ctx }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER", "MECHANIC", "TECHNICIAN", "DRIVER"]);
       const where = ctx.fleetopsUser.role === "DRIVER" ? { orgId: ctx.fleetopsUser.orgId, id: { in: await assignedVehicleIds(ctx) } } : { orgId: ctx.fleetopsUser.orgId };
-      return fleetDb.vehicle.findMany({ where, include: { components: true }, orderBy: { updatedAt: "desc" } });
+      const vehicles = await fleetDb.vehicle.findMany({ where, include: { components: true }, orderBy: { updatedAt: "desc" } });
+      if (!vehicles.length) return vehicles;
+      const logs = await fleetDb.odometerLog.findMany({ where: { vehicleId: { in: vehicles.map((vehicle: any) => vehicle.id) } }, orderBy: { createdAt: "desc" }, take: Math.min(vehicles.length * 8, 200) });
+      const latestByVehicle = new Map<string, any>();
+      for (const log of logs as any[]) if (!latestByVehicle.has(log.vehicleId)) latestByVehicle.set(log.vehicleId, log);
+      return vehicles.map((vehicle: any) => {
+        const latest = latestByVehicle.get(vehicle.id);
+        return { ...vehicle, latestOdometerReading: latest?.reading ?? vehicle.currentOdometer, latestOdometerAt: latest?.createdAt ?? vehicle.updatedAt, latestOdometerSource: latest?.source ?? "VEHICLE_RECORD" };
+      });
     }),
     create: fleetOpsProcedure.input(z.object({ vin: z.string().min(5), licensePlate: z.string().min(3), make: z.string().min(2), model: z.string().min(2), year: z.number().int().min(1980).max(2100), currentOdometer: z.number().min(0).default(0), maintenanceTemplate: z.enum(["NONE", "CITY_BUS"]).default("NONE") })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER"]);
@@ -241,14 +249,15 @@ export const appRouter = router({
       const current = Number(vehicle.currentOdometer);
       const previousLog = await fleetDb.odometerLog.findFirst({ where: { vehicleId: vehicle.id }, orderBy: { createdAt: "desc" } });
       const elapsedDays = previousLog?.createdAt ? Math.max(1, Math.ceil((Date.now() - new Date(previousLog.createdAt).getTime()) / 86_400_000)) : 1;
-      validateOdometerReading(previousLog ? Number(previousLog.reading) : current, input.reading, elapsedDays);
+      const baseline = Math.max(current, previousLog ? Number(previousLog.reading) : current);
+      validateOdometerReading(baseline, input.reading, elapsedDays);
       const isFlagged = false;
-      const result = await fleetDb.$transaction([
+      const [updatedVehicle, odometerLog] = await fleetDb.$transaction([
         fleetDb.vehicle.update({ where: { id: vehicle.id }, data: { currentOdometer: input.reading } }),
         fleetDb.odometerLog.create({ data: { id: crypto.randomUUID(), vehicleId: vehicle.id, driverId: ctx.fleetopsUser.id, reading: input.reading, source: input.source, isFlagged, createdAt: new Date() } }),
-      ]);
+      ]) as [any, any];
       await evaluateVehicleMaintenance(vehicle.id, ctx.fleetopsUser.orgId);
-      return result;
+      return { vehicle: updatedVehicle, odometerLog };
     }),
   }),
   planning: router({

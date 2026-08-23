@@ -13,6 +13,11 @@ export function useFleetOpsRealtime(orgId?: string) {
         void utils.dashboard.summary.invalidate();
         void utils.vehicles.list.invalidate();
       })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "odometer_logs" }, () => {
+        void utils.dashboard.summary.invalidate();
+        void utils.vehicles.list.invalidate();
+        void utils.vehicles.odometerHistory.invalidate();
+      })
       .on("postgres_changes", { event: "*", schema: "public", table: "work_orders", filter: `orgId=eq.${orgId}` }, () => {
         void utils.dashboard.summary.invalidate();
         void utils.workOrders.list.invalidate();

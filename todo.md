@@ -758,3 +758,9 @@
 
 - [x] Resolve the repeated Vercel deployment block caused by `dev-agent@manus.ai` author metadata on the Driver invitation-flow fix, then push the corrected commit and redeploy production. GitHub main now contains commit `6df88cb` authored by Shoeb Ahmed Birader <shoebahmedbirader4@gmail.com>; Vercel production is live at fleetops-v2.vercel.app.
 - [x] Fix Vercel FUNCTION_INVOCATION_FAILED caused by the API bundle’s ESM dynamic require of Express dependencies for invited Driver sessions. Added an API-local CommonJS package boundary, regenerated `api/index.js` as CommonJS, deployed Vercel production, and verified Driver dashboard and portal API requests returned 200.
+
+- [ ] Fix Driver odometer submission so the validated reading persists to the organization vehicle record and is reflected in Fleet Manager’s Fleet register.
+- [ ] Enhance Fleet Manager vehicle-row odometer presentation with current reading, latest update context, and clear update state.
+- [ ] Add regression coverage for Driver odometer persistence and Fleet Manager fleet-register visibility, then verify and push the release to GitHub and Vercel only.
+
+- [ ] Resolve the Vercel deployment block reporting `dev-agent@manus.ai` by verifying all commits and Git configuration use the authenticated GitHub identity, then redeploy through Vercel only.

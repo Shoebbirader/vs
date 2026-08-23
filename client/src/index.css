@@ -428,3 +428,21 @@ nav { display: grid; gap: 3px; }
 .work-order-row .resource-meta { min-width: 82px; text-align: center; }
 @media (max-width: 1050px) { .work-order-queue .bulk-toolbar { grid-template-columns: minmax(210px, 1fr) minmax(150px, .7fr) auto; } .work-order-queue .bulk-toolbar > label:nth-child(3) { grid-column: 1 / -1; } }
 @media (max-width: 620px) { .work-order-create-hero::after { width: 180px; height: 180px; right: -100px; bottom: -110px; } .work-order-queue .bulk-toolbar { display: flex; } .work-order-queue .bulk-toolbar > label:nth-child(3) { grid-column: auto; } .work-order-queue .panel-heading { gap: 10px; } .work-order-row { border-left-width: 2px; } }
+/* Persisted odometer signal in the Fleet Manager register */
+.vehicle-register-list { display: grid; gap: 8px; }
+.vehicle-register-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(170px, .42fr) auto; align-items: center; gap: 18px; padding: 15px 14px; border: 1px solid transparent; }
+.vehicle-register-row:hover { border-color: #ead6c2; }
+.vehicle-register-identity { min-width: 0; display: grid; gap: 5px; }
+.vehicle-register-title { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.vehicle-register-title strong { font: 600 15px "Space Grotesk", sans-serif; letter-spacing: -.02em; }
+.vehicle-register-title .status-label { margin-left: 0; }
+.vehicle-register-identity > span { color: var(--muted); font-size: 11px; }
+.vehicle-register-identity > small { color: #989187; font-size: 10px; line-height: 1.35; }
+.vehicle-register-odometer { display: grid; gap: 3px; padding-left: 15px; border-left: 1px solid #ebe4d9; }
+.vehicle-register-odometer > span { color: var(--muted); font-size: 9px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.vehicle-register-odometer > strong { font: 600 20px/1.1 "Space Grotesk", sans-serif; letter-spacing: -.04em; }
+.vehicle-register-odometer > strong small { color: var(--muted); font: 500 10px var(--font-sans); letter-spacing: 0; }
+.vehicle-register-odometer > em { font-size: 10px; font-style: normal; font-weight: 700; }
+.vehicle-register-odometer > em.driver-synced { color: var(--green); }
+.vehicle-register-odometer > em.record-synced { color: var(--muted); }
+@media (max-width: 760px) { .vehicle-register-row { grid-template-columns: 1fr auto; gap: 12px; } .vehicle-register-odometer { grid-column: 1 / -1; padding: 10px 0 0; border-top: 1px solid #ebe4d9; border-left: 0; } .vehicle-register-row > .compact-button { grid-column: 2; grid-row: 1; } }
