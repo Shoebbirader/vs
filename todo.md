@@ -764,3 +764,7 @@
 - [x] Add regression coverage for Driver odometer persistence and Fleet Manager fleet-register visibility, then verify and push the release to GitHub and Vercel only. 213 Vitest tests and TypeScript passed; the production API returned HTTP 401 rather than a function crash after deployment.
 
 - [x] Resolve the Vercel deployment block reporting `dev-agent@manus.ai` by verifying all commits and Git configuration use the authenticated GitHub identity, then redeploy through Vercel only. Repository and global Git identity are Shoeb Ahmed Birader <shoebahmedbirader4@gmail.com>; corrected commit `8c8fabb` is on GitHub main and Vercel production is live. A follow-up runtime fix removed Vite/nanoid from the production CommonJS bundle, and the final deployment responds with HTTP 401 authentication required.
+
+- [x] Rebrand product-facing FleetOps surfaces to VahanSync across the landing page, authenticated workspaces, browser metadata, email/notification copy, and runtime app title.
+- [x] Update GitHub-facing README/project metadata and preserve repository history; deploy the approved VahanSync branding to Vercel only.
+- [x] Add branding regression coverage and validate the VahanSync build before deployment. 213 Vitest tests passed, TypeScript passed, and the production build completed successfully.

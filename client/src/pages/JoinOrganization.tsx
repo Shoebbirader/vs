@@ -33,7 +33,7 @@ export default function JoinOrganization() {
   };
 
   if (authLoading || details.isLoading) return <main className="auth-page"><section className="auth-card"><Loader2 className="spin" /><h1>Checking invitation…</h1><p>Validating the secure organization invitation.</p></section></main>;
-  if (details.isError || !details.data) return <main className="auth-page"><section className="auth-card"><ShieldAlert size={28} /><h1>Invitation unavailable</h1><p>{details.error?.message ?? "This invitation is invalid or expired."}</p><a className="primary-button" href="/">Return to FleetOps</a></section></main>;
+  if (details.isError || !details.data) return <main className="auth-page"><section className="auth-card"><ShieldAlert size={28} /><h1>Invitation unavailable</h1><p>{details.error?.message ?? "This invitation is invalid or expired."}</p><a className="primary-button" href="/">Return to VahanSync</a></section></main>;
   if (session && session.user.email?.toLowerCase() !== details.data.email.toLowerCase()) return <main className="auth-page"><section className="auth-card"><ShieldAlert size={28} /><h1>Use the invited email</h1><p>This link is addressed to {details.data.email}, but the browser is signed in as {session.user.email}. Sign out, then create or sign in with the invited email.</p><button className="primary-button" onClick={() => { void signOut(); }}>Sign out and continue</button></section></main>;
   if (submitted) return <main className="auth-page"><section className="auth-card"><Loader2 className="spin" /><h1>Joining {details.data.organization.name}…</h1><p>Your account is being attached to the invited organization and assigned workspace.</p></section></main>;
 

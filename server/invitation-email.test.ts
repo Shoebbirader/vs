@@ -4,9 +4,11 @@ import { renderInvitationEmail, sendInvitationEmail } from "./invitation-email";
 describe("invitation email template", () => {
   it("renders branded secure join content without operational data", () => {
     const result = renderInvitationEmail({ organizationName: "Transit <Ops>", inviteeEmail: "driver@example.com", role: "FLEET_MANAGER", joinUrl: "https://fleetops.example/join/token", expiresAt: new Date("2026-09-01T00:00:00Z") });
-    expect(result.subject).toContain("Transit <Ops>");
+    expect(result.subject).toContain("on VahanSync");
+    expect(result.text).toContain("on VahanSync");
     expect(result.text).toContain("https://fleetops.example/join/token");
     expect(result.html).toContain("Transit &lt;Ops&gt;");
+    expect(result.html).toContain("VahanSync");
     expect(result.html).toContain("Join organization");
     expect(result.html).not.toContain("vehicle");
     expect(result.html).not.toContain("work order");
@@ -27,6 +29,7 @@ describe("invitation email template", () => {
     const [url, request] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe("https://api.resend.com/emails");
     expect(request.headers).toMatchObject({ Authorization: "Bearer re_test_key" });
+    expect(String(request.body)).toContain("VahanSync");
     expect(String(request.body)).toContain("FleetOps Test");
   });
 });
