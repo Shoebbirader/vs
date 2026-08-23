@@ -12,7 +12,7 @@ export function MarketingNav({ active }: { active?: string }) {
 }
 
 export function MarketingFooter() {
-  return <footer className="marketing-footer"><div><a className="brand-lockup" href="/"><span className="brand-mark small"><span className="brand-mark-glyph">V</span></span><span><strong>VahanSync</strong><small>Operational clarity</small></span></a><p>Connected fleet operations for India’s transport organizations.</p></div><div className="footer-links"><a href="/pricing">Pricing</a><a href="/about">About</a><a href="/security">Security</a><a href="/login">Sign in</a></div><small>© {new Date().getFullYear()} VahanSync. Built for accountable operations.</small></footer>;
+  return <footer className="marketing-footer"><div><a className="brand-lockup" href="/"><span className="brand-mark small"><span className="brand-mark-glyph">V</span></span><span><strong>VahanSync</strong><small>Fleet intelligence for India’s operators</small></span></a><p>Connected fleet operations for India’s transport organizations.</p></div><div className="footer-links"><a href="/pricing">Pricing</a><a href="/about">About</a><a href="/security">Security</a><a href="/login">Sign in</a></div><small>© {new Date().getFullYear()} VahanSync. Built for accountable operations.</small></footer>;
 }
 
 export function PricingPage() {

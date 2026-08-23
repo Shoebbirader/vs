@@ -10,7 +10,7 @@ type Props = { role: Role; organizationName?: string };
 
 function RoleHeader({ role, organizationName, title, subtitle, icon: Icon }: Props & { title: string; subtitle: string; icon: typeof Activity }) {
   const roleLabel = role === "SUPERADMIN" ? "Superadmin / Owner" : role.replaceAll("_", " ");
-  return <div className="role-workspace-header"><div><div className="eyebrow"><span className="eyebrow-line" /> {roleLabel} workspace · {organizationName ?? "Loading organization…"}</div><h1>{title}<span className="accent-dot">.</span></h1><p className="hero-copy">{subtitle}</p></div><div className="role-workspace-badge"><Icon size={18} /><span>Organization connected</span><small>Tenant-scoped data</small></div></div>;
+  return <div className={`role-workspace-header role-${role.toLowerCase()}`}><div><div className="eyebrow"><span className="eyebrow-line" /> {roleLabel} workspace · {organizationName ?? "Loading organization…"}</div><h1>{title}<span className="accent-dot">.</span></h1><p className="hero-copy">{subtitle}</p></div><div className="role-workspace-badge"><Icon size={18} /><span>Organization connected</span><small>Tenant-scoped data</small></div></div>;
 }
 
 function Kpi({ label, value, detail, tone = "orange" }: { label: string; value: string; detail: string; tone?: "orange" | "green" | "blue" | "red" }) {
