@@ -8,6 +8,16 @@ import { supabase } from "@/lib/supabase";
 import "./index.css";
 import "./redesign.css";
 import "./frontend-replacement.css";
+import "./accountant-replacement.css";
+import "./driver-replacement.css";
+import "./mechanic-replacement.css";
+import "./team-replacement.css";
+import "./notification-replacement.css";
+import "./executive-replacement.css";
+import "./fallback-replacement.css";
+import "./procurement-replacement.css";
+import "./billing-replacement.css";
+import "./compliance-replacement.css";
 
 const queryClient = new QueryClient();
 const API_TIMEOUT_MS = 15_000;

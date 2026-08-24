@@ -8,7 +8,13 @@ const marketing = readFileSync("client/src/pages/MarketingPages.tsx", "utf8");
 const team = readFileSync("client/src/components/workspaces/TeamWorkspace.tsx", "utf8");
 const driver = readFileSync("client/src/components/workspaces/DriverWorkspace.tsx", "utf8");
 const accountant = readFileSync("client/src/components/workspaces/AccountantWorkspace.tsx", "utf8");
-const styles = `${readFileSync("client/src/index.css", "utf8")}\n${readFileSync("client/src/frontend-replacement.css", "utf8")}`;
+const mechanic = readFileSync("client/src/components/workspaces/MechanicExecutionWorkspace.tsx", "utf8");
+const notifications = readFileSync("client/src/components/workspaces/NotificationWorkspace.tsx", "utf8");
+const executive = readFileSync("client/src/components/workspaces/ExecutiveOverviewWorkspace.tsx", "utf8");
+const procurement = readFileSync("client/src/components/workspaces/ProcurementWorkspace.tsx", "utf8");
+const billing = readFileSync("client/src/components/workspaces/BillingWorkspace.tsx", "utf8");
+const compliance = readFileSync("client/src/components/workspaces/ComplianceWorkspace.tsx", "utf8");
+const styles = `${readFileSync("client/src/index.css", "utf8")}\n${readFileSync("client/src/frontend-replacement.css", "utf8")}\n${readFileSync("client/src/accountant-replacement.css", "utf8")}\n${readFileSync("client/src/driver-replacement.css", "utf8")}\n${readFileSync("client/src/mechanic-replacement.css", "utf8")}\n${readFileSync("client/src/team-replacement.css", "utf8")}\n${readFileSync("client/src/notification-replacement.css", "utf8")}\n${readFileSync("client/src/executive-replacement.css", "utf8")}\n${readFileSync("client/src/procurement-replacement.css", "utf8")}\n${readFileSync("client/src/billing-replacement.css", "utf8")}\n${readFileSync("client/src/compliance-replacement.css", "utf8")}`;
 
 describe("VahanSync 2026 workspace UI contract", () => {
   it("gives every role a distinct header and surface class", () => {
@@ -45,15 +51,37 @@ describe("VahanSync 2026 workspace UI contract", () => {
     expect(marketing).not.toContain("brand-mark-glyph");
   });
 
-  it("gives governance, driver, and finance workspaces a first-class signal strip", () => {
+  it("gives governance, driver, and finance workspaces first-class operational signals", () => {
     expect(team).toContain("governance-signal-grid");
     expect(team).toContain("activeRoles");
     expect(driver).toContain("driver-signal-strip");
     expect(driver).toContain("issueDraftStatus");
-    expect(accountant).toContain("accountant-signal-strip");
+    expect(accountant).toContain("replacement-finance-signals");
     expect(accountant).toContain("mismatchCount");
     expect(styles).toContain(".governance-signal-grid");
     expect(styles).toContain(".driver-signal-strip");
-    expect(styles).toContain(".accountant-signal-strip");
+    expect(styles).toContain(".replacement-finance-signals");
+  });
+
+  it("routes active specialist pages through dedicated replacement compositions", () => {
+    expect(functionalWorkspace).toContain("MechanicExecutionWorkspace");
+    expect(functionalWorkspace).toContain("ExecutiveOverviewWorkspace");
+    expect(functionalWorkspace).toContain("NotificationWorkspace");
+    expect(functionalWorkspace).toContain("ProcurementWorkspace");
+    expect(mechanic).toContain("replacement-mechanic-execution");
+    expect(mechanic).toContain("workOrders.reservePart.useMutation");
+    expect(team).toContain("replacement-team-governance");
+    expect(notifications).toContain("replacement-notification-center");
+    expect(executive).toContain("replacement-executive-overview");
+    expect(executive).toContain("trpc.audit.list.useQuery");
+    expect(procurement).toContain("replacement-procurement");
+    expect(procurement).toContain("purchaseOrders.receivePartial.useMutation");
+    expect(billing).toContain("replacement-billing");
+    expect(billing).toContain("billingTest.activateStarter.useMutation");
+    expect(compliance).toContain("replacement-compliance");
+    expect(compliance).toContain("trpc.documents.versions.useQuery");
+    for (const selector of [".replacement-mechanic-execution", ".replacement-team-governance", ".replacement-notification-center", ".replacement-executive-overview", ".replacement-procurement", ".replacement-billing", ".replacement-compliance"]) {
+      expect(styles).toContain(selector);
+    }
   });
 });

@@ -12,10 +12,11 @@ describe("compliance status summaries", () => {
   });
 
   it("renders explicit status labels rather than a single due/current flag", () => {
-    expect(source).toContain('Kpi label="Valid"');
-    expect(source).toContain('Kpi label="Expiring"');
-    expect(source).toContain('Kpi label="Expired"');
-    expect(source).toContain('Kpi label="Missing file"');
+    expect(source).toContain('className="replacement-compliance-metrics"');
+    expect(source).toContain('<span>Valid</span>');
+    expect(source).toContain('<span>Expiring</span>');
+    expect(source).toContain('<span>Expired</span>');
+    expect(source).toContain('<span>Missing file</span>');
     expect(source).toContain('isMissing ? "File missing"');
   });
 
