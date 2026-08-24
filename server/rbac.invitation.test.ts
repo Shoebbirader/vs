@@ -5,7 +5,7 @@ const mocks = vi.hoisted(() => ({
   invitation: { create: vi.fn(), findFirst: vi.fn() },
   organization: { findFirst: vi.fn() },
   vehicleAssignment: { findFirst: vi.fn() },
-  vehicle: { count: vi.fn(), create: vi.fn(), findFirst: vi.fn() },
+  vehicle: { count: vi.fn(), create: vi.fn(), findFirst: vi.fn(), findMany: vi.fn() },
   workOrder: { create: vi.fn() },
   inventoryPart: { findMany: vi.fn() },
 }));
@@ -66,6 +66,7 @@ describe("RBAC and invitation procedures", () => {
   it("supplies a live-schema status when Fleet Manager creates a vehicle", async () => {
     mocks.user.count.mockResolvedValue(1);
     mocks.vehicle.count.mockResolvedValue(0);
+    mocks.vehicle.findMany.mockResolvedValue([]);
     mocks.vehicle.create.mockResolvedValue({ id: "vehicle-1", status: "ACTIVE" });
     const fleetManagerContext = { ...baseContext, fleetopsUser: { ...baseContext.fleetopsUser!, role: "FLEET_MANAGER" } } as TrpcContext;
     await appRouter.createCaller(fleetManagerContext).vehicles.create({ vin: "E2E12345VIN", licensePlate: "E2E-123", make: "Tata", model: "Prima", year: 2024, currentOdometer: 1000 });

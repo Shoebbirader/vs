@@ -43,7 +43,7 @@ describe("component maintenance automation", () => {
     }) });
     expect(mocks.notification.createMany).toHaveBeenCalledWith({ data: [expect.objectContaining({
       recipientId: "fleet-manager-1",
-      title: "Predictive maintenance alert",
+      title: "Maintenance lifecycle alert",
       type: "MAINTENANCE_THRESHOLD",
       referenceId: "work-order-1",
     })] });

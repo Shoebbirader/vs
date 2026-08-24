@@ -4,6 +4,8 @@ import { fleetDb } from "./db";
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const authSupabaseUrl = process.env.VITE_SUPABASE_URL ?? supabaseUrl;
+const authAnonKey = process.env.VITE_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY ?? serviceRoleKey;
 
 if (!supabaseUrl || !serviceRoleKey) {
   console.warn("[Supabase] SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is not configured");
@@ -12,6 +14,15 @@ if (!supabaseUrl || !serviceRoleKey) {
 export const supabaseAdmin = createClient(
   supabaseUrl ?? "http://localhost:54321",
   serviceRoleKey ?? "development-placeholder",
+  { auth: { autoRefreshToken: false, persistSession: false } },
+);
+
+// Validating a bearer token is a public Auth operation. Keep it separate from
+// privileged service operations so the Vercel request boundary remains aligned
+// with the same Supabase project configuration used by the browser client.
+export const supabaseAuth = createClient(
+  authSupabaseUrl ?? "http://localhost:54321",
+  authAnonKey ?? "development-placeholder",
   { auth: { autoRefreshToken: false, persistSession: false } },
 );
 
@@ -28,7 +39,7 @@ export async function getSupabaseAuthIdentity(req: Request) {
     console.warn("[Supabase] No bearer token on protected request", { path: req?.path ?? req?.url ?? "unknown" });
     return null;
   }
-  const { data, error } = await supabaseAdmin.auth.getUser(token);
+  const { data, error } = await supabaseAuth.auth.getUser(token);
   if (error || !data.user) {
     console.warn("[Supabase] Bearer token rejected", { path: req?.path ?? req?.url ?? "unknown", reason: error?.message ?? "user_not_found" });
     return null;
