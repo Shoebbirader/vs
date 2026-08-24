@@ -1643,7 +1643,7 @@ var appRouter = router({
       return fleetDb.inventoryPart.findMany({ where: { orgId: ctx.fleetopsUser.orgId }, orderBy: { name: "asc" } });
     }),
     references: fleetOpsProcedure.query(({ ctx }) => {
-      requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "INVENTORY_MANAGER", "FLEET_MANAGER"]);
+      requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "INVENTORY_MANAGER", "FLEET_MANAGER", "MECHANIC", "TECHNICIAN"]);
       return fleetDb.inventoryPart.findMany({ where: { orgId: ctx.fleetopsUser.orgId }, select: { id: true, sku: true, name: true }, orderBy: { name: "asc" } });
     }),
     movements: fleetOpsProcedure.input(import_zod2.z.object({ partId: import_zod2.z.string().uuid().optional(), workOrderId: import_zod2.z.string().uuid().optional() }).optional()).query(async ({ ctx, input }) => {
