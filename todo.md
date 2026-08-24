@@ -831,3 +831,4 @@
 - [x] Repair the threshold automation work-order payload to include required `id`, `status`, and creation metadata so a valid Driver odometer update completes instead of failing after a due component is evaluated.
 - [x] Repair the Supabase PostgreSQL adapter’s `contains` and `notIn` filter translation so maintenance deduplication and Fleet Manager triage generate valid SQL instead of object-string predicates.
 - [ ] Repair the Mechanic work-order part-reservation selector to use a tenant-scoped read-only inventory reference list, then reserve and issue the linked tire part through the live maintenance handoff.
+- [ ] Add the missing Fleet Manager approval control for READY_FOR_REVIEW work orders, then approve the live tire repair and verify completion, component baseline reset, issued inventory, and maintenance-derived financial records.
