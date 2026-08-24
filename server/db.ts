@@ -24,6 +24,8 @@ function condition(field: string, value: unknown): string {
   if (value && typeof value === "object" && !Array.isArray(value)) {
     const o = value as AnyRecord;
     if (o.in) return `${c} IN (${o.in.map((v: unknown) => `'${String(v).replaceAll("'", "''")}'`).join(",")})`;
+    if (o.notIn) return `${c} NOT IN (${o.notIn.map((v: unknown) => `'${String(v).replaceAll("'", "''")}'`).join(",")})`;
+    if (o.contains !== undefined) return `${c} ILIKE '%${String(o.contains).replaceAll("'", "''")}%'`;
     if (o.gt !== undefined) return `${c} > '${String(normalize(o.gt)).replaceAll("'", "''")}'`;
     if (o.gte !== undefined) return `${c} >= '${String(normalize(o.gte)).replaceAll("'", "''")}'`;
     if (o.lt !== undefined) return `${c} < '${String(normalize(o.lt)).replaceAll("'", "''")}'`;

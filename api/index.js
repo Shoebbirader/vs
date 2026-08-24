@@ -309,6 +309,8 @@ function condition(field, value) {
   if (value && typeof value === "object" && !Array.isArray(value)) {
     const o = value;
     if (o.in) return `${c} IN (${o.in.map((v) => `'${String(v).replaceAll("'", "''")}'`).join(",")})`;
+    if (o.notIn) return `${c} NOT IN (${o.notIn.map((v) => `'${String(v).replaceAll("'", "''")}'`).join(",")})`;
+    if (o.contains !== void 0) return `${c} ILIKE '%${String(o.contains).replaceAll("'", "''")}%'`;
     if (o.gt !== void 0) return `${c} > '${String(normalize(o.gt)).replaceAll("'", "''")}'`;
     if (o.gte !== void 0) return `${c} >= '${String(normalize(o.gte)).replaceAll("'", "''")}'`;
     if (o.lt !== void 0) return `${c} < '${String(normalize(o.lt)).replaceAll("'", "''")}'`;
