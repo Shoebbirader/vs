@@ -42,6 +42,9 @@ describe("component maintenance automation", () => {
       vehicleId: "vehicle-1",
       title: "Left tire service threshold reached",
       priority: "CRITICAL",
+      status: "OPEN",
+      id: expect.any(String),
+      createdAt: expect.any(Date),
     }) });
     expect(mocks.notification.createMany).toHaveBeenCalledWith({ data: [expect.objectContaining({
       recipientId: "fleet-manager-1",
