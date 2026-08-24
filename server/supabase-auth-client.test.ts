@@ -13,7 +13,7 @@ describe("Supabase bearer-token verifier", () => {
   });
 
   it("verifies the current ES256 bearer token against the project JWKS before relying on an API key", () => {
-    expect(source).toContain('import { createRemoteJWKSet, jwtVerify } from "jose"');
+    expect(source).toContain('await import("jose")');
     expect(source).toContain("createRemoteJWKSet(new URL(`${authIssuer}/.well-known/jwks.json`))");
     expect(source).toContain('jwtVerify(token, supabaseJwks, { issuer: authIssuer, audience: "authenticated", algorithms: ["ES256"] })');
   });

@@ -1,5 +1,4 @@
 import { createClient } from "@supabase/supabase-js";
-import { createRemoteJWKSet, jwtVerify } from "jose";
 import type { Request } from "express";
 import { fleetDb } from "./db";
 
@@ -8,7 +7,7 @@ const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const authSupabaseUrl = supabaseUrl ?? process.env.VITE_SUPABASE_URL;
 const authAnonKey = process.env.SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY ?? serviceRoleKey;
 const authIssuer = authSupabaseUrl ? `${authSupabaseUrl.replace(/\/$/, "")}/auth/v1` : null;
-const supabaseJwks = authIssuer ? createRemoteJWKSet(new URL(`${authIssuer}/.well-known/jwks.json`)) : null;
+let supabaseJwks: any = null;
 
 if (!supabaseUrl || !serviceRoleKey) {
   console.warn("[Supabase] SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is not configured");
@@ -42,8 +41,10 @@ export async function getSupabaseAuthIdentity(req: Request) {
     console.warn("[Supabase] No bearer token on protected request", { path: req?.path ?? req?.url ?? "unknown" });
     return null;
   }
-  if (supabaseJwks && authIssuer) {
+  if (authIssuer) {
     try {
+      const { createRemoteJWKSet, jwtVerify } = await import("jose");
+      supabaseJwks ??= createRemoteJWKSet(new URL(`${authIssuer}/.well-known/jwks.json`));
       const { payload } = await jwtVerify(token, supabaseJwks, { issuer: authIssuer, audience: "authenticated", algorithms: ["ES256"] });
       if (typeof payload.sub === "string" && payload.sub.length > 0) {
         const userMetadata = payload.user_metadata && typeof payload.user_metadata === "object" && !Array.isArray(payload.user_metadata)
