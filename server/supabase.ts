@@ -83,7 +83,8 @@ export async function getFleetOpsUserFromRequest(req: Request) {
   const authUser = await getSupabaseAuthIdentity(req);
   if (!authUser) return null;
 
-  const user = await fleetDb.user.findUnique({ where: { authUserId: authUser.id } });
+  const user = await fleetDb.user.findUnique({ where: { authUserId: authUser.id } })
+    ?? (authUser.email ? await fleetDb.user.findFirst({ where: { email: authUser.email } }) : null);
   if (!user) return null;
   const org = await fleetDb.organization.findFirst({ where: { id: user.orgId } });
   if (!org) return null;

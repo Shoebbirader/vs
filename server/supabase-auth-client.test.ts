@@ -24,4 +24,9 @@ describe("Supabase bearer-token verifier", () => {
     expect(source).toContain("export const supabaseAdmin = createClient(");
     expect(source).not.toContain("supabaseAdmin.auth.getUser(token)");
   });
+
+  it("recovers an invitation profile by its verified email when its old auth-user binding is stale", () => {
+    expect(source).toContain('fleetDb.user.findUnique({ where: { authUserId: authUser.id } })');
+    expect(source).toContain('fleetDb.user.findFirst({ where: { email: authUser.email } })');
+  });
 });
