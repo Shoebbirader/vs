@@ -5,6 +5,7 @@ import path from "node:path";
 const root = path.resolve(import.meta.dirname, "..");
 const authHook = fs.readFileSync(path.join(root, "client/src/hooks/useFleetOpsAuth.ts"), "utf8");
 const transport = fs.readFileSync(path.join(root, "client/src/main.tsx"), "utf8");
+const home = fs.readFileSync(path.join(root, "client/src/pages/Home.tsx"), "utf8");
 
 describe("Supabase session recovery", () => {
   it("clears local auth state when the initial session or refresh is invalid", () => {
@@ -26,5 +27,13 @@ describe("Supabase session recovery", () => {
     expect(transport).toContain('window.dispatchEvent(new CustomEvent("fleetops-session-expired"))');
     expect(transport).toContain('throw new Error("FleetOps session expired. Please sign in again.")');
     expect(transport).toContain("if (response.status === 401 && data.session)");
+  });
+
+  it("resets the selected route and protected client caches when a different authenticated user signs in", () => {
+    expect(home).toContain("const sessionUserId = session?.user.id ?? \"\"");
+    expect(home).toContain("setActiveNav(initialSection)");
+    expect(home).toContain("trpcUtils.dashboard.summary.reset()");
+    expect(home).toContain("trpcUtils.inventory.list.reset()");
+    expect(home).toContain("Securing your role workspace.");
   });
 });

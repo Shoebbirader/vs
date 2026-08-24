@@ -160,6 +160,9 @@ export default function Home({ initialSection = "Command center", publicMode = "
   const persistedVehicles = useMemo(() => liveVehicles?.map((vehicle: any) => ({ id: vehicle.id, identity: formatVehicleIdentity(vehicle), name: `${vehicle.make} ${vehicle.model} · ${vehicle.year}`, health: vehicle.status === "ACTIVE" ? 100 : 0, status: vehicle.status === "ACTIVE" ? "On route" : "At depot", odo: `${Number(vehicle.currentOdometer).toLocaleString("en-IN")} km`, service: vehicle.nextServiceAt ? `Next service ${new Date(vehicle.nextServiceAt).toLocaleDateString("en-IN")}` : "No service date recorded", tone: vehicle.status === "ACTIVE" ? "good" : "warn" })) ?? [], [liveVehicles]);
   const persistedOrders = useMemo(() => liveOrders?.filter((order: any) => order?.id).map((order: any) => ({ id: order.id.slice(0, 8).toUpperCase(), sourceId: order.id, title: order.title ?? "Untitled work order", vehicle: formatVehicleIdentity(order.vehicle), owner: order.assignedMechanic?.fullName ?? "Unassigned", priority: order.priority ? order.priority[0] + order.priority.slice(1).toLowerCase() : "Unspecified", due: order.status === "COMPLETED" ? "Completed" : order.dueDate ? new Date(order.dueDate).toLocaleDateString("en-IN") : "No due date", status: order.status === "COMPLETED" ? "Completed" : order.status ?? "OPEN" })) ?? [], [liveOrders]);
   const [activeNav, setActiveNav] = useState(initialSection);
+  const sessionUserId = session?.user.id ?? "";
+  const priorSessionUserId = useRef(sessionUserId);
+  const [sessionTransition, setSessionTransition] = useState(false);
   const currentRole = backendRole || "SUPERADMIN";
   const [role, setRole] = useState(roles[0]);
   useEffect(() => {
@@ -184,6 +187,30 @@ export default function Home({ initialSection = "Command center", publicMode = "
   const allowedNavLabels = roleNavAccess[currentRole] ?? roleNavAccess.SUPERADMIN;
   const allowedNavItems = navItems.filter((item) => allowedNavLabels.includes(item.label));
   const roleMenuOptions = currentRole === "SUPERADMIN" ? roles.filter((item) => item.short === "Owner") : roles.filter((item) => item.short === role.short);
+  useEffect(() => {
+    if (priorSessionUserId.current === sessionUserId) return;
+    priorSessionUserId.current = sessionUserId;
+    setActiveNav(initialSection);
+    setShowMobileNav(false);
+    setQuickFindOpen(false);
+    setQuery("");
+    if (!sessionUserId) {
+      setSessionTransition(false);
+      return;
+    }
+    setSessionTransition(true);
+    void trpcUtils.dashboard.summary.reset();
+    void trpcUtils.vehicles.list.reset();
+    void trpcUtils.workOrders.list.reset();
+    void trpcUtils.inventory.list.reset();
+    void trpcUtils.notifications.list.reset();
+    void trpcUtils.activity.recent.reset();
+    void trpcUtils.financials.list.reset();
+    void trpcUtils.billing.status.reset();
+  }, [initialSection, sessionUserId, trpcUtils]);
+  useEffect(() => {
+    if (sessionTransition && backendSummary) setSessionTransition(false);
+  }, [backendSummary, sessionTransition]);
   useEffect(() => {
     if (session && !allowedNavLabels.includes(activeNav)) setActiveNav(allowedNavLabels[0] ?? "Command center");
     if (session && currentRole === "SUPERADMIN" && window.localStorage.getItem("fleetops.openTeam") === "1") { window.localStorage.removeItem("fleetops.openTeam"); setActiveNav("Team"); }
@@ -266,6 +293,7 @@ export default function Home({ initialSection = "Command center", publicMode = "
   const operatorInitials = operatorName.slice(0, 2).toUpperCase();
 
   if (session && isRecoveryFlow) return <main className="auth-page"><section className="auth-card"><div className="panel-kicker">Account recovery</div><h1>Choose a new password.</h1><p>Set a new password for your VahanSync account, then continue to your organization workspace.</p><form className="auth-form" onSubmit={handlePasswordUpdate}><label>New password<input required minLength={8} type="password" value={recoveryPassword} onChange={(event) => setRecoveryPassword(event.target.value)} placeholder="At least 8 characters" /></label>{authError && <div className="auth-error">{authError}</div>}<button className="primary-button" disabled={authSubmitting}>{authSubmitting ? "Updating password…" : "Update password"}</button></form></section></main>;
+  if (session && sessionTransition) return <main className="auth-page"><section className="auth-card"><div className="panel-kicker">VahanSync connection</div><h1>Securing your role workspace.</h1><p>We are clearing the previous session context before opening data for this authenticated account.</p><div className="workspace-state"><RefreshCw className="spin" size={18} /> Connecting to the assigned organization…</div></section></main>;
   if (session && (metadataNeedsOnboarding || backendSummary?.needsOnboarding)) return <OrganizationOnboarding initialName={String(session.user.user_metadata?.fullName ?? backendSummary?.org?.name ?? "")} initialOrganization={String(session.user.user_metadata?.orgName ?? "")} onComplete={async () => { const { error } = await refreshSession(); if (error) { toast.error("Session refresh failed", { description: error.message }); return; } window.localStorage.setItem("fleetops.openTeam", "1"); window.location.reload(); }} />;
   if (session && staleSessionRecoveryAttempted && !backendSummary) return <main className="auth-page"><section className="auth-card"><div className="panel-kicker">VahanSync connection</div><h1>Refreshing your session.</h1><p>The previous session no longer maps to an active VahanSync organization. We are signing it out safely so you can start or join the correct workspace.</p><div className="workspace-state"><RefreshCw className="spin" size={18} /> Returning to secure entry…</div></section></main>;
   if (session && !backendSummary && summaryError) return <main className="auth-page"><section className="auth-card"><div className="panel-kicker">VahanSync connection</div><h1>We could not load your workspace.</h1><p>Your Supabase session is active, but the organization summary did not respond. Refresh the page to retry without losing your session.</p><button className="primary-button" onClick={() => window.location.reload()}>Retry workspace load</button></section></main>;
