@@ -1023,6 +1023,32 @@ async function assertDriverVehicle(ctx, vehicleId) {
   const assigned = await fleetDb.vehicleAssignment.findFirst({ where: { orgId: ctx.fleetopsUser.orgId, driverId: ctx.fleetopsUser.id, vehicleId, active: true } });
   if (!assigned) throw new import_server3.TRPCError({ code: "FORBIDDEN", message: "Drivers may only access their currently assigned vehicle." });
 }
+async function hydrateVehiclesWithComponents(vehicles2) {
+  if (!vehicles2.length) return vehicles2;
+  const components2 = await fleetDb.component.findMany({ where: { vehicleId: { in: vehicles2.map((vehicle) => vehicle.id) } }, orderBy: { name: "asc" } });
+  const componentsByVehicle = /* @__PURE__ */ new Map();
+  for (const component of components2) componentsByVehicle.set(component.vehicleId, [...componentsByVehicle.get(component.vehicleId) ?? [], component]);
+  return vehicles2.map((vehicle) => ({ ...vehicle, components: componentsByVehicle.get(vehicle.id) ?? [] }));
+}
+async function hydrateWorkOrders(orders, orgId) {
+  if (!orders.length) return orders;
+  const vehicleIds = Array.from(new Set(orders.map((order) => order.vehicleId).filter(Boolean)));
+  const assigneeIds = Array.from(new Set(orders.map((order) => order.assignedMechanicId).filter(Boolean)));
+  const orderIds = orders.map((order) => order.id);
+  const [vehicles2, assignees, partsUsed] = await Promise.all([
+    fleetDb.vehicle.findMany({ where: { orgId, id: { in: vehicleIds } } }),
+    assigneeIds.length ? fleetDb.user.findMany({ where: { orgId, id: { in: assigneeIds } } }) : [],
+    fleetDb.workOrderPart.findMany({ where: { workOrderId: { in: orderIds } } })
+  ]);
+  const partIds = Array.from(new Set(partsUsed.map((part) => part.partId).filter(Boolean)));
+  const parts = partIds.length ? await fleetDb.inventoryPart.findMany({ where: { orgId, id: { in: partIds } } }) : [];
+  const vehicleById = new Map(vehicles2.map((vehicle) => [vehicle.id, vehicle]));
+  const assigneeById = new Map(assignees.map((assignee) => [assignee.id, assignee]));
+  const partById = new Map(parts.map((part) => [part.id, part]));
+  const partsByOrder = /* @__PURE__ */ new Map();
+  for (const partUse of partsUsed) partsByOrder.set(partUse.workOrderId, [...partsByOrder.get(partUse.workOrderId) ?? [], { ...partUse, part: partById.get(partUse.partId) ?? null }]);
+  return orders.map((order) => ({ ...order, vehicle: vehicleById.get(order.vehicleId) ?? null, assignedMechanic: order.assignedMechanicId ? assigneeById.get(order.assignedMechanicId) ?? null : null, partsUsed: partsByOrder.get(order.id) ?? [] }));
+}
 function validateOdometerReading(current, reading, elapsedDays = 1) {
   if (reading < current) throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: "Odometer readings cannot move backwards." });
   if (reading - current > Math.max(1, elapsedDays) * 1e3) throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: `Odometer increase exceeds the ${Math.max(1, elapsedDays) * 1e3} km limit for the elapsed period.` });
@@ -1192,7 +1218,8 @@ var appRouter = router({
     list: fleetOpsProcedure.query(async ({ ctx }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER", "MECHANIC", "TECHNICIAN", "DRIVER"]);
       const where = ctx.fleetopsUser.role === "DRIVER" ? { orgId: ctx.fleetopsUser.orgId, id: { in: await assignedVehicleIds(ctx) } } : { orgId: ctx.fleetopsUser.orgId };
-      const vehicles2 = await fleetDb.vehicle.findMany({ where, include: { components: true }, orderBy: { updatedAt: "desc" } });
+      const vehicleRows = await fleetDb.vehicle.findMany({ where, orderBy: { updatedAt: "desc" } });
+      const vehicles2 = await hydrateVehiclesWithComponents(vehicleRows);
       if (!vehicles2.length) return vehicles2;
       const logs = await fleetDb.odometerLog.findMany({ where: { vehicleId: { in: vehicles2.map((vehicle) => vehicle.id) } }, orderBy: { createdAt: "desc" }, take: Math.min(vehicles2.length * 8, 200) });
       const latestByVehicle = /* @__PURE__ */ new Map();
@@ -1254,12 +1281,13 @@ var appRouter = router({
     health: fleetOpsProcedure.input(import_zod2.z.object({ vehicleId: import_zod2.z.string().uuid() })).query(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER", "MECHANIC", "TECHNICIAN", "DRIVER"]);
       await assertDriverVehicle(ctx, input.vehicleId);
-      const vehicle = await fleetDb.vehicle.findFirst({ where: { id: input.vehicleId, orgId: ctx.fleetopsUser.orgId }, include: { components: true } });
+      const vehicle = await fleetDb.vehicle.findFirst({ where: { id: input.vehicleId, orgId: ctx.fleetopsUser.orgId } });
       if (!vehicle) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Vehicle not found in your organization scope." });
-      const [odometers, workOrders2, documents2] = await Promise.all([fleetDb.odometerLog.findMany({ where: { vehicleId: vehicle.id, vehicle: { orgId: ctx.fleetopsUser.orgId } }, orderBy: { createdAt: "desc" }, take: 12 }), fleetDb.workOrder.findMany({ where: { vehicleId: vehicle.id, orgId: ctx.fleetopsUser.orgId, ...["MECHANIC", "TECHNICIAN"].includes(ctx.fleetopsUser.role) ? { assignedMechanicId: ctx.fleetopsUser.id } : {} }, orderBy: { updatedAt: "desc" }, take: 12 }), fleetDb.document.findMany({ where: { vehicleId: vehicle.id, orgId: ctx.fleetopsUser.orgId }, orderBy: { expiryDate: "asc" }, take: 12 })]);
-      const dueComponents = vehicle.components.filter((item) => Number(vehicle.currentOdometer) - Number(item.lastServicedOdometer) >= Number(item.alertThresholdKm));
+      const [components2, odometers, workOrderRows, documents2] = await Promise.all([fleetDb.component.findMany({ where: { vehicleId: vehicle.id }, orderBy: { name: "asc" } }), fleetDb.odometerLog.findMany({ where: { vehicleId: vehicle.id, vehicle: { orgId: ctx.fleetopsUser.orgId } }, orderBy: { createdAt: "desc" }, take: 12 }), fleetDb.workOrder.findMany({ where: { vehicleId: vehicle.id, orgId: ctx.fleetopsUser.orgId, ...["MECHANIC", "TECHNICIAN"].includes(ctx.fleetopsUser.role) ? { assignedMechanicId: ctx.fleetopsUser.id } : {} }, orderBy: { updatedAt: "desc" }, take: 12 }), fleetDb.document.findMany({ where: { vehicleId: vehicle.id, orgId: ctx.fleetopsUser.orgId }, orderBy: { expiryDate: "asc" }, take: 12 })]);
+      const workOrders2 = await hydrateWorkOrders(workOrderRows, ctx.fleetopsUser.orgId);
+      const dueComponents = components2.filter((item) => Number(vehicle.currentOdometer) - Number(item.lastServicedOdometer) >= Number(item.alertThresholdKm));
       const dueDocuments = documents2.filter((item) => new Date(item.expiryDate).getTime() < Date.now() + 30 * 864e5);
-      return { vehicle, odometers, workOrders: workOrders2, documents: documents2, health: { componentCount: vehicle.components.length, dueComponents: dueComponents.length, openWorkOrders: workOrders2.filter((item) => !["COMPLETED", "CANCELLED"].includes(item.status)).length, dueDocuments: dueDocuments.length, readiness: vehicle.status === "ACTIVE" && dueComponents.length === 0 && dueDocuments.length === 0 ? "READY" : "REVIEW" } };
+      return { vehicle: { ...vehicle, components: components2 }, odometers, workOrders: workOrders2, documents: documents2, health: { componentCount: components2.length, dueComponents: dueComponents.length, openWorkOrders: workOrders2.filter((item) => !["COMPLETED", "CANCELLED"].includes(item.status)).length, dueDocuments: dueDocuments.length, readiness: vehicle.status === "ACTIVE" && dueComponents.length === 0 && dueDocuments.length === 0 ? "READY" : "REVIEW" } };
     }),
     updateOdometer: fleetOpsProcedure.input(import_zod2.z.object({ vehicleId: import_zod2.z.string().uuid(), reading: import_zod2.z.number().min(0), source: import_zod2.z.enum(["MANUAL_DRIVER", "GPS_API", "MECHANIC"]) })).mutation(async ({ ctx, input }) => {
       assertWritable(ctx.fleetopsUser.org);
@@ -1287,11 +1315,15 @@ var appRouter = router({
       const from = input?.from ?? /* @__PURE__ */ new Date();
       const to = input?.to ?? new Date(from.getTime() + 90 * 864e5);
       if (to < from) throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: "The planning end date must be on or after the start date." });
-      const [vehicles2, documents2, workOrders2] = await Promise.all([
-        fleetDb.vehicle.findMany({ where: { orgId: ctx.fleetopsUser.orgId }, include: { components: true }, orderBy: { licensePlate: "asc" } }),
-        fleetDb.document.findMany({ where: { orgId: ctx.fleetopsUser.orgId }, include: { vehicle: true }, orderBy: { expiryDate: "asc" } }),
-        fleetDb.workOrder.findMany({ where: { orgId: ctx.fleetopsUser.orgId, status: { in: ["OPEN", "IN_PROGRESS", "WAITING_FOR_PARTS", "READY_FOR_REVIEW", "REWORK"] } }, include: { vehicle: true, assignedMechanic: true }, orderBy: { updatedAt: "desc" } })
+      const [vehicleRows, documentRows, workOrderRows] = await Promise.all([
+        fleetDb.vehicle.findMany({ where: { orgId: ctx.fleetopsUser.orgId }, orderBy: { licensePlate: "asc" } }),
+        fleetDb.document.findMany({ where: { orgId: ctx.fleetopsUser.orgId }, orderBy: { expiryDate: "asc" } }),
+        fleetDb.workOrder.findMany({ where: { orgId: ctx.fleetopsUser.orgId, status: { in: ["OPEN", "IN_PROGRESS", "WAITING_FOR_PARTS", "READY_FOR_REVIEW", "REWORK"] } }, orderBy: { updatedAt: "desc" } })
       ]);
+      const vehicles2 = await hydrateVehiclesWithComponents(vehicleRows);
+      const vehicleById = new Map(vehicles2.map((vehicle) => [vehicle.id, vehicle]));
+      const documents2 = documentRows.map((document) => ({ ...document, vehicle: document.vehicleId ? vehicleById.get(document.vehicleId) ?? null : null }));
+      const workOrders2 = await hydrateWorkOrders(workOrderRows, ctx.fleetopsUser.orgId);
       const items = [
         ...vehicles2.flatMap((vehicle) => (vehicle.components ?? []).filter((component) => Number(vehicle.currentOdometer) - Number(component.lastServicedOdometer) >= Number(component.alertThresholdKm)).map((component) => ({ id: component.id, kind: "COMPONENT_DUE", title: `${component.name} service due`, vehicleId: vehicle.id, vehicleLabel: vehicleIdentity(vehicle), dueDate: /* @__PURE__ */ new Date(), priority: "HIGH", detail: `${Math.max(0, Number(vehicle.currentOdometer) - Number(component.lastServicedOdometer)).toLocaleString("en-IN")} km since last service`, sourceId: component.id }))),
         ...documents2.filter((document) => {
@@ -1310,20 +1342,22 @@ var appRouter = router({
     list: fleetOpsProcedure.query(async ({ ctx }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER", "MECHANIC", "TECHNICIAN"]);
       const where = ["MECHANIC", "TECHNICIAN"].includes(ctx.fleetopsUser.role) ? { orgId: ctx.fleetopsUser.orgId, assignedMechanicId: ctx.fleetopsUser.id } : { orgId: ctx.fleetopsUser.orgId };
-      return fleetDb.workOrder.findMany({ where, include: { vehicle: true, assignedMechanic: true, partsUsed: { include: { part: true } } }, orderBy: { createdAt: "desc" } });
+      const orders = await fleetDb.workOrder.findMany({ where, orderBy: { createdAt: "desc" } });
+      return hydrateWorkOrders(orders, ctx.fleetopsUser.orgId);
     }),
     detail: fleetOpsProcedure.input(import_zod2.z.object({ workOrderId: import_zod2.z.string().uuid() })).query(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER", "MECHANIC", "TECHNICIAN", "ACCOUNTANT"]);
-      const order = await fleetDb.workOrder.findFirst({ where: { id: input.workOrderId, orgId: ctx.fleetopsUser.orgId, ...["MECHANIC", "TECHNICIAN"].includes(ctx.fleetopsUser.role) ? { assignedMechanicId: ctx.fleetopsUser.id } : {} }, include: { vehicle: { include: { components: true } }, assignedMechanic: true, partsUsed: { include: { part: true } }, evidence: true } });
+      const order = await fleetDb.workOrder.findFirst({ where: { id: input.workOrderId, orgId: ctx.fleetopsUser.orgId, ...["MECHANIC", "TECHNICIAN"].includes(ctx.fleetopsUser.role) ? { assignedMechanicId: ctx.fleetopsUser.id } : {} } });
       if (!order) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Work order is outside your organization or role scope." });
-      const activity = await fleetDb.auditEvent.findMany({ where: { orgId: ctx.fleetopsUser.orgId, entityType: "WORK_ORDER", entityId: order.id }, orderBy: { createdAt: "desc" }, take: 100 });
-      return { order, activity };
+      const [hydratedRows, vehicleComponents, evidence, activity] = await Promise.all([hydrateWorkOrders([order], ctx.fleetopsUser.orgId), fleetDb.component.findMany({ where: { vehicleId: order.vehicleId }, orderBy: { name: "asc" } }), fleetDb.workOrderEvidence.findMany({ where: { orgId: ctx.fleetopsUser.orgId, workOrderId: order.id }, orderBy: { createdAt: "desc" } }), fleetDb.auditEvent.findMany({ where: { orgId: ctx.fleetopsUser.orgId, entityType: "WORK_ORDER", entityId: order.id }, orderBy: { createdAt: "desc" }, take: 100 })]);
+      const hydratedOrder = hydratedRows[0];
+      return { order: { ...hydratedOrder, vehicle: hydratedOrder.vehicle ? { ...hydratedOrder.vehicle, components: vehicleComponents } : null, evidence }, activity };
     }),
     handoffTimeline: fleetOpsProcedure.query(async ({ ctx }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER", "MECHANIC", "TECHNICIAN", "ACCOUNTANT"]);
       const where = ["MECHANIC", "TECHNICIAN"].includes(ctx.fleetopsUser.role) ? { orgId: ctx.fleetopsUser.orgId, assignedMechanicId: ctx.fleetopsUser.id } : { orgId: ctx.fleetopsUser.orgId };
-      const orders = await fleetDb.workOrder.findMany({ where, include: { vehicle: true, assignedMechanic: true }, orderBy: { updatedAt: "desc" }, take: 100 });
-      const events = await fleetDb.auditEvent.findMany({ where: { orgId: ctx.fleetopsUser.orgId, entityType: "WORK_ORDER" }, orderBy: { createdAt: "desc" }, take: 500 });
+      const orderRows = await fleetDb.workOrder.findMany({ where, orderBy: { updatedAt: "desc" }, take: 100 });
+      const [orders, events] = await Promise.all([hydrateWorkOrders(orderRows, ctx.fleetopsUser.orgId), fleetDb.auditEvent.findMany({ where: { orgId: ctx.fleetopsUser.orgId, entityType: "WORK_ORDER" }, orderBy: { createdAt: "desc" }, take: 500 })]);
       const eventsByOrder = /* @__PURE__ */ new Map();
       for (const event of events) {
         const list = eventsByOrder.get(event.entityId) ?? [];
@@ -1335,7 +1369,8 @@ var appRouter = router({
     board: fleetOpsProcedure.query(async ({ ctx }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER", "MECHANIC", "TECHNICIAN"]);
       const where = ["MECHANIC", "TECHNICIAN"].includes(ctx.fleetopsUser.role) ? { orgId: ctx.fleetopsUser.orgId, assignedMechanicId: ctx.fleetopsUser.id } : { orgId: ctx.fleetopsUser.orgId };
-      const orders = await fleetDb.workOrder.findMany({ where, include: { vehicle: true, assignedMechanic: true }, orderBy: { updatedAt: "desc" } });
+      const orderRows = await fleetDb.workOrder.findMany({ where, orderBy: { updatedAt: "desc" } });
+      const orders = await hydrateWorkOrders(orderRows, ctx.fleetopsUser.orgId);
       return { columns: ["OPEN", "IN_PROGRESS", "WAITING_FOR_PARTS", "READY_FOR_REVIEW", "REWORK", "COMPLETED", "CANCELLED"].map((status) => ({ status, items: orders.filter((order) => order.status === status) })), totals: { all: orders.length, open: orders.filter((order) => order.status === "OPEN").length, inProgress: orders.filter((order) => order.status === "IN_PROGRESS").length, completed: orders.filter((order) => order.status === "COMPLETED").length } };
     }),
     updateStatus: fleetOpsProcedure.input(import_zod2.z.object({ workOrderId: import_zod2.z.string().uuid(), status: import_zod2.z.enum(["OPEN", "IN_PROGRESS", "WAITING_FOR_PARTS", "READY_FOR_REVIEW", "REWORK", "CANCELLED"]), expectedUpdatedAt: import_zod2.z.coerce.date().optional() })).mutation(async ({ ctx, input }) => {
