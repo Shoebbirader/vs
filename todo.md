@@ -824,4 +824,5 @@
 - [x] Apply the missing Supabase PostgreSQL migration for organization billing lifecycle columns (`subscriptionStartedAt`, `renewalAt`, `paymentFailedAt`, `billingStatus`, and `suspendedAt`) before retrying the approved test-mode Starter activation.
 - [x] Extend the historical Supabase `SubscriptionTier` enum with the current Starter, Growth, Scale, and Enterprise plan identifiers before the activation procedure writes the Starter tenant tier.
 - [x] Correct billing status derivation so an organization activated from `TRIAL_FREE` to Starter is displayed as active and no longer receives a redundant test-plan activation control.
-- [ ] Repair the live Inventory Manager vendor creation path to match the Supabase PostgreSQL `vendors` table, then re-run the supplier and purchase-order workflow through the application.
+- [x] Repair the live Inventory Manager vendor creation path to match the Supabase PostgreSQL `vendors` table, then re-run the supplier and purchase-order workflow through the application. The corrected live workflow created the Pune Fleet Spares vendor and a ₹38,000 draft PO.
+- [ ] Repair the Accountant vehicle selector so the role can create a scoped financial record against an organization VIN, then verify ledger and maintenance-derived financial visibility through the live application.

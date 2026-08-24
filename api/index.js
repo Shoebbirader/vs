@@ -2311,6 +2311,10 @@ var appRouter = router({
     })
   }),
   financials: router({
+    vehicles: fleetOpsProcedure.query(async ({ ctx }) => {
+      requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "ACCOUNTANT"]);
+      return fleetDb.vehicle.findMany({ where: { orgId: ctx.fleetopsUser.orgId }, select: { id: true, vin: true, licensePlate: true, make: true, model: true, currentOdometer: true }, orderBy: { licensePlate: "asc" } });
+    }),
     exportPdf: fleetOpsProcedure.input(import_zod2.z.object({ vehicleId: import_zod2.z.string().uuid().optional(), type: import_zod2.z.enum(["REVENUE", "EXPENSE"]).optional(), category: import_zod2.z.string().optional(), from: import_zod2.z.coerce.date().optional(), to: import_zod2.z.coerce.date().optional() }).optional()).query(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "ACCOUNTANT"]);
       const where = { orgId: ctx.fleetopsUser.orgId, ...input?.vehicleId ? { vehicleId: input.vehicleId } : {}, ...input?.type ? { type: input.type } : {}, ...input?.category ? { category: input.category } : {}, ...input?.from ? { transactionDate: { gte: input.from } } : {}, ...input?.to ? { transactionDate: { lte: input.to } } : {} };
