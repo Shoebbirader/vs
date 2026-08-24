@@ -13,5 +13,7 @@ describe("work-order lifecycle RBAC", () => {
     expect(source).toContain('const roleAllowed = ctx.fleetopsUser.role === "FLEET_MANAGER"');
     expect(source).toContain('code: "FORBIDDEN", message: `Cannot move work order');
     expect(source).toContain('status: "READY_FOR_REVIEW"');
+    expect(source).toContain('const vehicle = await fleetDb.vehicle.findFirst({ where: { id: order.vehicleId, orgId: ctx.fleetopsUser.orgId } })');
+    expect(source).toContain('lastServicedOdometer: vehicle.currentOdometer');
   });
 });

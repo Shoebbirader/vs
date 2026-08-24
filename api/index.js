@@ -1556,6 +1556,8 @@ var appRouter = router({
       assertWritable(ctx.fleetopsUser.org);
       const order = await fleetDb.workOrder.findFirst({ where: { id: input.workOrderId, orgId: ctx.fleetopsUser.orgId, status: "READY_FOR_REVIEW" }, include: { vehicle: true, partsUsed: true } });
       if (!order) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Only work orders ready for review can be approved." });
+      const vehicle = await fleetDb.vehicle.findFirst({ where: { id: order.vehicleId, orgId: ctx.fleetopsUser.orgId } });
+      if (!vehicle) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "The work order vehicle is not available in this organization." });
       const checklistEvents = await fleetDb.auditEvent.findMany({ where: { orgId: ctx.fleetopsUser.orgId, entityType: "WORK_ORDER", entityId: order.id, action: "WORK_ORDER_CHECKLIST_UPDATED" }, orderBy: { createdAt: "desc" }, take: 1 });
       let items = [];
       try {
@@ -1621,8 +1623,8 @@ var appRouter = router({
         }
         const components2 = await tx.component.findMany({ where: { vehicleId: order.vehicleId } });
         const matching = components2.filter((component) => order.title.toLowerCase().includes(String(component.name).toLowerCase()));
-        for (const component of matching) await tx.component.update({ where: { id: component.id }, data: { lastServicedOdometer: order.vehicle.currentOdometer } });
-        if (matching.length && order.vehicle.status === "MAINTENANCE") await tx.vehicle.update({ where: { id: order.vehicleId }, data: { status: "ACTIVE" } });
+        for (const component of matching) await tx.component.update({ where: { id: component.id }, data: { lastServicedOdometer: vehicle.currentOdometer } });
+        if (matching.length && vehicle.status === "MAINTENANCE") await tx.vehicle.update({ where: { id: order.vehicleId }, data: { status: "ACTIVE" } });
         if (partsCost + reservedPartsCost > 0 && tx.financialRecord?.create) await tx.financialRecord.create({ data: { id: crypto.randomUUID(), orgId: ctx.fleetopsUser.orgId, vehicleId: order.vehicleId, type: "EXPENSE", category: "MAINTENANCE_PARTS", amount: partsCost + reservedPartsCost, transactionDate: /* @__PURE__ */ new Date(), costCenterType: "WORK_ORDER", costCenterId: order.id, vendor: "Inventory", approvalStatus: "APPROVED", approvedById: ctx.fleetopsUser.id, approvalReason: `Approved parts used for ${order.title}`, createdAt: /* @__PURE__ */ new Date() } });
         if (laborCost > 0 && tx.financialRecord?.create) await tx.financialRecord.create({ data: { id: crypto.randomUUID(), orgId: ctx.fleetopsUser.orgId, vehicleId: order.vehicleId, type: "EXPENSE", category: "MAINTENANCE_LABOR", amount: laborCost, transactionDate: /* @__PURE__ */ new Date(), costCenterType: "WORK_ORDER", costCenterId: order.id, vendor: "Internal labor", approvalStatus: "APPROVED", approvedById: ctx.fleetopsUser.id, approvalReason: `Labor cost for ${order.title} at \u20B9${laborRatePerHour.toLocaleString("en-IN")}/hour`, createdAt: /* @__PURE__ */ new Date() } });
         return { completed, servicedComponents: matching.length, partsCost: partsCost + reservedPartsCost, laborCost };

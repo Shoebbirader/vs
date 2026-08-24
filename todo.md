@@ -833,3 +833,4 @@
 - [ ] Repair the Mechanic work-order part-reservation selector to use a tenant-scoped read-only inventory reference list, then reserve and issue the linked tire part through the live maintenance handoff.
 - [ ] Add the missing Fleet Manager approval control for READY_FOR_REVIEW work orders, then approve the live tire repair and verify completion, component baseline reset, issued inventory, and maintenance-derived financial records.
 - [ ] Repair Supabase PostgreSQL bulk-update numeric decrement translation so approval can consume a reserved part and complete the live work-order handoff without a malformed value or stalled response.
+- [ ] Repair work-order approval’s ignored vehicle relation include by explicitly loading the tenant-scoped vehicle before resetting the completed component baseline and vehicle status.
