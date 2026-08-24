@@ -6,6 +6,7 @@ import superjson from "superjson";
 import App from "./App";
 import { supabase } from "@/lib/supabase";
 import "./index.css";
+import "./redesign.css";
 
 const queryClient = new QueryClient();
 const API_TIMEOUT_MS = 15_000;

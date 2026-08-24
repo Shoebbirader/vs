@@ -145,11 +145,12 @@ export default function Home({ initialSection = "Command center", publicMode = "
   const canReadWorkOrders = ["SUPERADMIN", "FLEET_MANAGER", "MECHANIC", "TECHNICIAN"].includes(backendRole);
   const canReadInventory = ["SUPERADMIN", "INVENTORY_MANAGER"].includes(backendRole);
   const canReadFinancials = ["SUPERADMIN", "ACCOUNTANT"].includes(backendRole);
+  const canReadActivity = ["SUPERADMIN", "FLEET_MANAGER", "MECHANIC", "TECHNICIAN", "DRIVER"].includes(backendRole);
   const { data: liveVehicles, isLoading: vehiclesLoading, isError: vehiclesError } = trpc.vehicles.list.useQuery(undefined, { enabled: operationalEnabled && canReadVehicles, retry: false });
   const { data: liveOrders, isLoading: ordersLoading, isError: ordersError } = trpc.workOrders.list.useQuery(undefined, { enabled: operationalEnabled && canReadWorkOrders, retry: false });
   const { data: liveInventory, isLoading: inventoryLoading, isError: inventoryError } = trpc.inventory.list.useQuery(undefined, { enabled: operationalEnabled && canReadInventory, retry: false });
   const { data: liveNotifications, isLoading: notificationsLoading, isError: notificationsError } = trpc.notifications.list.useQuery(undefined, { enabled: operationalEnabled, retry: false });
-  const { data: liveActivity, isLoading: activityLoading, isError: activityError } = trpc.activity.recent.useQuery(undefined, { enabled: operationalEnabled, retry: false });
+  const { data: liveActivity, isLoading: activityLoading, isError: activityError } = trpc.activity.recent.useQuery(undefined, { enabled: operationalEnabled && canReadActivity, retry: false });
   const { data: liveFinancials } = trpc.financials.list.useQuery(undefined, { enabled: operationalEnabled && canReadFinancials, retry: false });
   const { data: billingStatus } = trpc.billing.status.useQuery(undefined, { enabled: operationalEnabled && backendRole === "SUPERADMIN", retry: false });
   const trpcUtils = trpc.useUtils();
