@@ -5,6 +5,13 @@ var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __esm = (fn, res) => function __init() {
+  return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+};
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
 var __copyProps = (to, from, except, desc) => {
   if (from && typeof from === "object" || typeof from === "function") {
     for (let key of __getOwnPropNames(from))
@@ -22,12 +29,117 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   mod
 ));
 
+// vite.config.ts
+var import_vite, import_plugin_react, import_node_path, import_vite2, import_meta, vite_config_default;
+var init_vite_config = __esm({
+  "vite.config.ts"() {
+    "use strict";
+    import_vite = __toESM(require("@tailwindcss/vite"), 1);
+    import_plugin_react = __toESM(require("@vitejs/plugin-react"), 1);
+    import_node_path = __toESM(require("node:path"), 1);
+    import_vite2 = require("vite");
+    import_meta = {};
+    vite_config_default = (0, import_vite2.defineConfig)({
+      plugins: [(0, import_plugin_react.default)(), (0, import_vite.default)()],
+      resolve: {
+        alias: {
+          "@": import_node_path.default.resolve(import_meta.dirname, "client", "src"),
+          "@shared": import_node_path.default.resolve(import_meta.dirname, "shared"),
+          "@assets": import_node_path.default.resolve(import_meta.dirname, "attached_assets")
+        }
+      },
+      envDir: import_node_path.default.resolve(import_meta.dirname),
+      root: import_node_path.default.resolve(import_meta.dirname, "client"),
+      publicDir: import_node_path.default.resolve(import_meta.dirname, "client", "public"),
+      build: {
+        outDir: import_node_path.default.resolve(import_meta.dirname, "dist/public"),
+        emptyOutDir: true
+      },
+      server: {
+        host: true,
+        allowedHosts: ["localhost", "127.0.0.1"],
+        fs: {
+          strict: true,
+          deny: ["**/.*"]
+        }
+      }
+    });
+  }
+});
+
+// server/_core/vite.ts
+var vite_exports = {};
+__export(vite_exports, {
+  serveStatic: () => serveStatic2,
+  setupVite: () => setupVite
+});
+async function setupVite(app, server) {
+  const serverOptions = {
+    middlewareMode: true,
+    hmr: { server },
+    allowedHosts: true
+  };
+  const vite = await (0, import_vite3.createServer)({
+    ...vite_config_default,
+    configFile: false,
+    server: serverOptions,
+    appType: "custom"
+  });
+  app.use(vite.middlewares);
+  app.use("*", async (req, res, next) => {
+    const url = req.originalUrl;
+    try {
+      const clientTemplate = import_path2.default.resolve(
+        import_meta2.dirname,
+        "../..",
+        "client",
+        "index.html"
+      );
+      let template = await import_fs2.default.promises.readFile(clientTemplate, "utf-8");
+      template = template.replace(
+        `src="/src/main.tsx"`,
+        `src="/src/main.tsx?v=${(0, import_node_crypto4.randomUUID)()}"`
+      );
+      const page = await vite.transformIndexHtml(url, template);
+      res.status(200).set({ "Content-Type": "text/html" }).end(page);
+    } catch (e) {
+      vite.ssrFixStacktrace(e);
+      next(e);
+    }
+  });
+}
+function serveStatic2(app) {
+  const distPath = process.env.NODE_ENV === "development" ? import_path2.default.resolve(import_meta2.dirname, "../..", "dist", "public") : import_path2.default.resolve(import_meta2.dirname, "public");
+  if (!import_fs2.default.existsSync(distPath)) {
+    console.error(
+      `Could not find the build directory: ${distPath}, make sure to build the client first`
+    );
+  }
+  app.use(import_express2.default.static(distPath));
+  app.use("*", (_req, res) => {
+    res.sendFile(import_path2.default.resolve(distPath, "index.html"));
+  });
+}
+var import_express2, import_fs2, import_node_crypto4, import_path2, import_vite3, import_meta2;
+var init_vite = __esm({
+  "server/_core/vite.ts"() {
+    "use strict";
+    import_express2 = __toESM(require("express"), 1);
+    import_fs2 = __toESM(require("fs"), 1);
+    import_node_crypto4 = require("node:crypto");
+    import_path2 = __toESM(require("path"), 1);
+    import_vite3 = require("vite");
+    init_vite_config();
+    import_meta2 = {};
+  }
+});
+
 // server/_core/index.ts
 var import_config = require("dotenv/config");
-var import_express2 = __toESM(require("express"), 1);
+var import_express3 = __toESM(require("express"), 1);
 var import_http = require("http");
 var import_net = __toESM(require("net"), 1);
-var import_express3 = require("@trpc/server/adapters/express");
+var import_express4 = require("@trpc/server/adapters/express");
 
 // server/routers.ts
 var import_server3 = require("@trpc/server");
@@ -128,9 +240,9 @@ var organizations = (0, import_pg_core.pgTable)("organizations", { id: (0, impor
 var organizationSettings = (0, import_pg_core.pgTable)("organization_settings", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), orgId: (0, import_pg_core.uuid)("orgId").notNull(), timezone: (0, import_pg_core.text)("timezone").notNull().default("Asia/Kolkata"), odometerMaxDailyKm: (0, import_pg_core.integer)("odometerMaxDailyKm").notNull().default(1e3), laborRatePerHour: (0, import_pg_core.numeric)("laborRatePerHour").notNull().default("0"), safetyContactName: (0, import_pg_core.text)("safetyContactName"), safetyContactPhone: (0, import_pg_core.text)("safetyContactPhone"), ...audit });
 var users = (0, import_pg_core.pgTable)("users", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), authUserId: (0, import_pg_core.uuid)("authUserId").notNull(), orgId: (0, import_pg_core.uuid)("orgId").notNull(), email: (0, import_pg_core.text)("email").notNull(), fullName: (0, import_pg_core.text)("fullName").notNull(), role: (0, import_pg_core.text)("role").notNull(), ...audit });
 var invitations = (0, import_pg_core.pgTable)("invitations", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), orgId: (0, import_pg_core.uuid)("orgId").notNull(), email: (0, import_pg_core.text)("email").notNull(), role: (0, import_pg_core.text)("role").notNull(), tokenHash: (0, import_pg_core.text)("tokenHash").notNull(), expiresAt: (0, import_pg_core.timestamp)("expiresAt", { withTimezone: true }).notNull(), acceptedAt: (0, import_pg_core.timestamp)("acceptedAt", { withTimezone: true }), revokedAt: (0, import_pg_core.timestamp)("revokedAt", { withTimezone: true }), revokedById: (0, import_pg_core.uuid)("revokedById"), resendCount: (0, import_pg_core.integer)("resendCount").notNull().default(0), lastSentAt: (0, import_pg_core.timestamp)("lastSentAt", { withTimezone: true }), createdAt: (0, import_pg_core.timestamp)("createdAt", { withTimezone: true }).defaultNow().notNull() });
-var vehicles = (0, import_pg_core.pgTable)("vehicles", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), orgId: (0, import_pg_core.uuid)("orgId").notNull(), vin: (0, import_pg_core.text)("vin").notNull(), licensePlate: (0, import_pg_core.text)("licensePlate").notNull(), make: (0, import_pg_core.text)("make").notNull(), model: (0, import_pg_core.text)("model").notNull(), year: (0, import_pg_core.integer)("year").notNull(), currentOdometer: (0, import_pg_core.numeric)("currentOdometer").notNull(), status: (0, import_pg_core.text)("status").notNull(), ...audit });
+var vehicles = (0, import_pg_core.pgTable)("vehicles", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), orgId: (0, import_pg_core.uuid)("orgId").notNull(), vin: (0, import_pg_core.text)("vin").notNull(), licensePlate: (0, import_pg_core.text)("licensePlate").notNull(), chassisNumber: (0, import_pg_core.text)("chassisNumber"), engineNumber: (0, import_pg_core.text)("engineNumber"), vehicleType: (0, import_pg_core.text)("vehicleType"), assignedRoute: (0, import_pg_core.text)("assignedRoute"), depotLocation: (0, import_pg_core.text)("depotLocation"), make: (0, import_pg_core.text)("make").notNull(), model: (0, import_pg_core.text)("model").notNull(), year: (0, import_pg_core.integer)("year").notNull(), currentOdometer: (0, import_pg_core.numeric)("currentOdometer").notNull(), status: (0, import_pg_core.text)("status").notNull(), ...audit });
 var vehicleAssignments = (0, import_pg_core.pgTable)("vehicle_assignments", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), orgId: (0, import_pg_core.uuid)("orgId").notNull(), vehicleId: (0, import_pg_core.uuid)("vehicleId").notNull(), driverId: (0, import_pg_core.uuid)("driverId").notNull(), active: (0, import_pg_core.boolean)("active").notNull().default(true), ...audit });
-var components = (0, import_pg_core.pgTable)("components", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), vehicleId: (0, import_pg_core.uuid)("vehicleId").notNull(), name: (0, import_pg_core.text)("name").notNull(), expectedLifeKm: (0, import_pg_core.numeric)("expectedLifeKm").notNull(), lastServicedOdometer: (0, import_pg_core.numeric)("lastServicedOdometer").notNull(), alertThresholdKm: (0, import_pg_core.numeric)("alertThresholdKm").notNull() });
+var components = (0, import_pg_core.pgTable)("components", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), vehicleId: (0, import_pg_core.uuid)("vehicleId").notNull(), inventoryPartId: (0, import_pg_core.uuid)("inventoryPartId"), name: (0, import_pg_core.text)("name").notNull(), componentType: (0, import_pg_core.text)("componentType").notNull().default("OTHER"), componentSubtype: (0, import_pg_core.text)("componentSubtype"), brand: (0, import_pg_core.text)("brand"), partNumber: (0, import_pg_core.text)("partNumber"), serialNumber: (0, import_pg_core.text)("serialNumber"), installationDate: (0, import_pg_core.timestamp)("installationDate", { withTimezone: true }).notNull().defaultNow(), expectedLifeKm: (0, import_pg_core.numeric)("expectedLifeKm").notNull(), expectedLifeDays: (0, import_pg_core.integer)("expectedLifeDays"), lastServicedOdometer: (0, import_pg_core.numeric)("lastServicedOdometer").notNull(), alertThresholdKm: (0, import_pg_core.numeric)("alertThresholdKm").notNull(), alertThresholdDays: (0, import_pg_core.integer)("alertThresholdDays"), notes: (0, import_pg_core.text)("notes"), status: (0, import_pg_core.text)("status").notNull().default("ACTIVE") });
 var odometerLogs = (0, import_pg_core.pgTable)("odometer_logs", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), vehicleId: (0, import_pg_core.uuid)("vehicleId").notNull(), driverId: (0, import_pg_core.uuid)("driverId"), reading: (0, import_pg_core.numeric)("reading").notNull(), source: (0, import_pg_core.text)("source").notNull(), isFlagged: (0, import_pg_core.boolean)("isFlagged").notNull(), ...audit });
 var workOrders = (0, import_pg_core.pgTable)("work_orders", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), orgId: (0, import_pg_core.uuid)("orgId").notNull(), vehicleId: (0, import_pg_core.uuid)("vehicleId").notNull(), assignedMechanicId: (0, import_pg_core.uuid)("assignedMechanicId"), title: (0, import_pg_core.text)("title").notNull(), description: (0, import_pg_core.text)("description"), priority: (0, import_pg_core.text)("priority").notNull(), status: (0, import_pg_core.text)("status").notNull(), scheduledFor: (0, import_pg_core.timestamp)("scheduledFor", { withTimezone: true }), archivedAt: (0, import_pg_core.timestamp)("archivedAt", { withTimezone: true }), startedAt: (0, import_pg_core.timestamp)("startedAt", { withTimezone: true }), completedAt: (0, import_pg_core.timestamp)("completedAt", { withTimezone: true }), laborHours: (0, import_pg_core.numeric)("laborHours"), repairNotes: (0, import_pg_core.text)("repairNotes"), ...audit });
 var workOrderEvidence = (0, import_pg_core.pgTable)("work_order_evidence", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), orgId: (0, import_pg_core.uuid)("orgId").notNull(), workOrderId: (0, import_pg_core.uuid)("workOrderId").notNull(), uploadedById: (0, import_pg_core.uuid)("uploadedById").notNull(), fileUrl: (0, import_pg_core.text)("fileUrl").notNull(), fileKey: (0, import_pg_core.text)("fileKey"), caption: (0, import_pg_core.text)("caption"), createdAt: (0, import_pg_core.timestamp)("createdAt", { withTimezone: true }).defaultNow().notNull() });
@@ -154,9 +266,9 @@ var fuelLogs = (0, import_pg_core.pgTable)("fuel_logs", { id: (0, import_pg_core
 // server/db.ts
 var globalForDb = globalThis;
 var pool = globalForDb.fleetopsPool ?? new import_pg.Pool({ connectionString: process.env.SUPABASE_DATABASE_URL, max: 5, ssl: { rejectUnauthorized: false } });
-if (false) globalForDb.fleetopsPool = pool;
+if (process.env.NODE_ENV !== "production") globalForDb.fleetopsPool = pool;
 var db = globalForDb.fleetopsDb ?? (0, import_node_postgres.drizzle)(pool);
-if (false) globalForDb.fleetopsDb = db;
+if (process.env.NODE_ENV !== "production") globalForDb.fleetopsDb = db;
 var tables = {
   organization: "organizations",
   organizationSetting: "organization_settings",
@@ -308,7 +420,7 @@ var systemRouter = router({
       return { ok: false, release: RELEASE, database: "degraded", checkedAt: (/* @__PURE__ */ new Date()).toISOString(), latencyMs: Date.now() - startedAt, clientTimestamp: input.timestamp, correlationId };
     }
   }),
-  release: publicProcedure.query(() => ({ release: RELEASE, service: "FleetOps API", environment: true ? "production" : "development" })),
+  release: publicProcedure.query(() => ({ release: RELEASE, service: "FleetOps API", environment: process.env.NODE_ENV === "production" ? "production" : "development" })),
   notifyOwner: adminProcedure.input(
     import_zod.z.object({
       title: import_zod.z.string().min(1, "title is required"),
@@ -326,12 +438,19 @@ var systemRouter = router({
 var import_supabase_js = require("@supabase/supabase-js");
 var supabaseUrl = process.env.SUPABASE_URL;
 var serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+var authSupabaseUrl = process.env.VITE_SUPABASE_URL ?? supabaseUrl;
+var authAnonKey = process.env.VITE_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY ?? serviceRoleKey;
 if (!supabaseUrl || !serviceRoleKey) {
   console.warn("[Supabase] SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is not configured");
 }
 var supabaseAdmin = (0, import_supabase_js.createClient)(
   supabaseUrl ?? "http://localhost:54321",
   serviceRoleKey ?? "development-placeholder",
+  { auth: { autoRefreshToken: false, persistSession: false } }
+);
+var supabaseAuth = (0, import_supabase_js.createClient)(
+  authSupabaseUrl ?? "http://localhost:54321",
+  authAnonKey ?? "development-placeholder",
   { auth: { autoRefreshToken: false, persistSession: false } }
 );
 function getBearerToken(req) {
@@ -346,7 +465,7 @@ async function getSupabaseAuthIdentity(req) {
     console.warn("[Supabase] No bearer token on protected request", { path: req?.path ?? req?.url ?? "unknown" });
     return null;
   }
-  const { data, error } = await supabaseAdmin.auth.getUser(token);
+  const { data, error } = await supabaseAuth.auth.getUser(token);
   if (error || !data.user) {
     console.warn("[Supabase] Bearer token rejected", { path: req?.path ?? req?.url ?? "unknown", reason: error?.message ?? "user_not_found" });
     return null;
@@ -549,15 +668,15 @@ function renderInvitationEmail(input) {
   const joinUrl = escapeHtml(input.joinUrl);
   const expiry = escapeHtml(input.expiresAt.toLocaleDateString("en-IN", { dateStyle: "long", timeZone: "Asia/Kolkata" }));
   return {
-    subject: `Join ${input.organizationName} on FleetOps`,
-    text: `You have been invited to join ${input.organizationName} on FleetOps as ${input.role.replaceAll("_", " ")}. Open this secure link to create your account: ${input.joinUrl}. This invitation expires on ${expiry}. If you were not expecting this invitation, you can ignore it.`,
-    html: `<!doctype html><html><body style="margin:0;background:#f7f1e8;color:#182033;font-family:Arial,sans-serif"><main style="max-width:560px;margin:32px auto;padding:32px;background:#fffdf8;border:1px solid #eadfd4;border-radius:16px"><p style="color:#f26b38;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase">FleetOps</p><h1 style="font-size:28px;margin:24px 0 12px">Join ${organization}</h1><p style="color:#5f6875;line-height:1.6">You have been invited to join this organization as <strong>${role}</strong>. Create your FleetOps account using the secure button below.</p><p><a href="${joinUrl}" style="display:inline-block;padding:13px 18px;background:#f26b38;color:#fff;text-decoration:none;border-radius:8px;font-weight:700">Join organization</a></p><p style="color:#7b8490;font-size:13px;line-height:1.6">This link was sent to ${email} and expires on ${expiry}. FleetOps will only use this invitation to establish your organization membership and role.</p><p style="color:#9aa1aa;font-size:12px">If you were not expecting this invitation, you can ignore this email.</p></main></body></html>`
+    subject: `Join ${input.organizationName} on VahanSync`,
+    text: `You have been invited to join ${input.organizationName} on VahanSync as ${input.role.replaceAll("_", " ")}. Open this secure link to create your account: ${input.joinUrl}. This invitation expires on ${expiry}. If you were not expecting this invitation, you can ignore it.`,
+    html: `<!doctype html><html><body style="margin:0;background:#f7f1e8;color:#182033;font-family:Arial,sans-serif"><main style="max-width:560px;margin:32px auto;padding:32px;background:#fffdf8;border:1px solid #eadfd4;border-radius:16px"><p style="color:#f26b38;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase">VahanSync</p><h1 style="font-size:28px;margin:24px 0 12px">Join ${organization}</h1><p style="color:#5f6875;line-height:1.6">You have been invited to join this organization as <strong>${role}</strong>. Create your VahanSync account using the secure button below.</p><p><a href="${joinUrl}" style="display:inline-block;padding:13px 18px;background:#f26b38;color:#fff;text-decoration:none;border-radius:8px;font-weight:700">Join organization</a></p><p style="color:#7b8490;font-size:13px;line-height:1.6">This link was sent to ${email} and expires on ${expiry}. VahanSync will only use this invitation to establish your organization membership and role.</p><p style="color:#9aa1aa;font-size:12px">If you were not expecting this invitation, you can ignore this email.</p></main></body></html>`
   };
 }
 async function sendInvitationEmail(input) {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) return { error: { message: "RESEND_API_KEY is not configured." } };
-  const from = process.env.RESEND_FROM_EMAIL ?? "FleetOps <onboarding@resend.dev>";
+  const from = process.env.RESEND_FROM_EMAIL ?? "VahanSync <onboarding@resend.dev>";
   const email = renderInvitationEmail(input);
   try {
     const response = await fetch("https://api.resend.com/emails", {
@@ -573,6 +692,16 @@ async function sendInvitationEmail(input) {
   }
 }
 
+// server/vehicle-identity.ts
+function vehicleIdentity(vehicle) {
+  const vin = String(vehicle?.vin ?? "").trim().toUpperCase();
+  const registration = String(vehicle?.licensePlate ?? "").trim().toUpperCase();
+  if (vin && registration) return `VIN ${vin} \xB7 Reg ${registration}`;
+  if (vin) return `VIN ${vin}`;
+  if (registration) return `Reg ${registration}`;
+  return "Vehicle unavailable";
+}
+
 // server/automation.ts
 async function notifyRoles(orgId, roles, title, message, type, referenceId) {
   const recipients = await fleetDb.user.findMany({ where: { orgId, role: { in: roles } } });
@@ -585,8 +714,13 @@ async function evaluateVehicleMaintenance(vehicleId, orgId) {
   let createdWorkOrders = 0;
   const components2 = Array.isArray(vehicle.components) ? vehicle.components : [];
   for (const component of components2) {
+    if (String(component.status ?? "ACTIVE") !== "ACTIVE") continue;
     const consumed = Number(vehicle.currentOdometer) - Number(component.lastServicedOdometer);
-    if (consumed < Number(component.alertThresholdKm)) continue;
+    const installationAt = new Date(component.installationDate ?? Date.now()).getTime();
+    const elapsedDays = Math.max(0, Math.floor((Date.now() - installationAt) / 864e5));
+    const dueByKm = consumed >= Number(component.alertThresholdKm);
+    const dueByDays = Number(component.alertThresholdDays ?? 0) > 0 && elapsedDays >= Number(component.alertThresholdDays);
+    if (!dueByKm && !dueByDays) continue;
     const existing = await fleetDb.workOrder.findFirst({ where: { orgId, vehicleId, status: { in: ["OPEN", "IN_PROGRESS", "WAITING_FOR_PARTS", "READY_FOR_REVIEW", "REWORK"] }, title: { contains: component.name } } });
     if (existing) continue;
     const priorTriggers = fleetDb.auditEvent?.findMany ? await fleetDb.auditEvent.findMany({ where: { orgId, entityType: "COMPONENT", entityId: component.id, action: "MAINTENANCE_THRESHOLD_TRIGGERED" }, orderBy: { createdAt: "desc" }, take: 10 }) : [];
@@ -598,9 +732,13 @@ async function evaluateVehicleMaintenance(vehicleId, orgId) {
       }
     });
     if (sameServiceBaselineAlreadyTriggered) continue;
-    const workOrder = await fleetDb.workOrder.create({ data: { orgId, vehicleId, title: `${component.name} service threshold reached`, description: `${component.name} has consumed ${Math.round(consumed / Number(component.expectedLifeKm) * 100)}% of expected life.`, priority: consumed >= Number(component.expectedLifeKm) ? "CRITICAL" : "HIGH" } });
-    await notifyRoles(orgId, ["SUPERADMIN", "FLEET_MANAGER"], "Predictive maintenance alert", `${vehicle.licensePlate}: ${component.name} crossed its service threshold.`, "MAINTENANCE_THRESHOLD", workOrder.id);
-    if (fleetDb.auditEvent?.create) await fleetDb.auditEvent.create({ data: { id: crypto.randomUUID(), orgId, actorId: null, action: "MAINTENANCE_THRESHOLD_TRIGGERED", entityType: "COMPONENT", entityId: component.id, summary: `Threshold triggered for ${component.name}`, metadata: JSON.stringify({ workOrderId: workOrder.id, serviceBaseline: Number(component.lastServicedOdometer), currentOdometer: Number(vehicle.currentOdometer), alertThresholdKm: Number(component.alertThresholdKm) }), createdAt: /* @__PURE__ */ new Date() } });
+    const consumedPercent = Number(component.expectedLifeKm) > 0 ? Math.round(consumed / Number(component.expectedLifeKm) * 100) : 0;
+    const elapsedPercent = Number(component.expectedLifeDays ?? 0) > 0 ? Math.round(elapsedDays / Number(component.expectedLifeDays) * 100) : 0;
+    const priority = consumed >= Number(component.expectedLifeKm) || Number(component.expectedLifeDays ?? 0) > 0 && elapsedDays >= Number(component.expectedLifeDays) ? "CRITICAL" : "HIGH";
+    const lifecycleDetail = [dueByKm ? `${consumedPercent}% of odometer life consumed` : null, dueByDays ? `${elapsedPercent}% of time life elapsed` : null].filter(Boolean).join("; ");
+    const workOrder = await fleetDb.workOrder.create({ data: { orgId, vehicleId, title: `${component.name} service threshold reached`, description: `${component.name}: ${lifecycleDetail}.`, priority } });
+    await notifyRoles(orgId, ["SUPERADMIN", "FLEET_MANAGER"], "Maintenance lifecycle alert", `${vehicleIdentity(vehicle)}: ${component.name} crossed its service threshold.`, "MAINTENANCE_THRESHOLD", workOrder.id);
+    if (fleetDb.auditEvent?.create) await fleetDb.auditEvent.create({ data: { id: crypto.randomUUID(), orgId, actorId: null, action: "MAINTENANCE_THRESHOLD_TRIGGERED", entityType: "COMPONENT", entityId: component.id, summary: `Threshold triggered for ${component.name}`, metadata: JSON.stringify({ workOrderId: workOrder.id, serviceBaseline: Number(component.lastServicedOdometer), currentOdometer: Number(vehicle.currentOdometer), elapsedDays, expectedLifeKm: Number(component.expectedLifeKm), expectedLifeDays: Number(component.expectedLifeDays ?? 0), alertThresholdKm: Number(component.alertThresholdKm), alertThresholdDays: Number(component.alertThresholdDays ?? 0), dueByKm, dueByDays }), createdAt: /* @__PURE__ */ new Date() } });
     createdWorkOrders += 1;
   }
   return { createdWorkOrders };
@@ -690,6 +828,28 @@ var CITY_BUS_MAINTENANCE_TEMPLATE = [
   { name: "Engine Oil", expectedLifeKm: 1e4, alertThresholdKm: 8e3 },
   { name: "Brakes", expectedLifeKm: 5e4, alertThresholdKm: 4e4 },
   { name: "Tires", expectedLifeKm: 6e4, alertThresholdKm: 5e4 }
+];
+var COMPONENT_CATALOG = [
+  "ENGINE",
+  "TRANSMISSION",
+  "BRAKE_SYSTEM",
+  "SUSPENSION",
+  "TIRE",
+  "BATTERY",
+  "ALTERNATOR",
+  "STARTER",
+  "AIR_FILTER",
+  "OIL_FILTER",
+  "FUEL_FILTER",
+  "SPARK_PLUG",
+  "BELT",
+  "HOSE",
+  "LIGHT",
+  "WIPER",
+  "CLUTCH",
+  "RADIATOR",
+  "EXHAUST",
+  "OTHER"
 ];
 function assertWritable(org) {
   if (!billingWriteAllowed(org.billingStatus)) throw new import_server3.TRPCError({ code: "FORBIDDEN", message: org.billingStatus === "CANCELLED" ? "The subscription is cancelled. Historical data and exports remain available, but operational writes are paused." : "Billing is suspended. Historical data and exports remain available, but operational writes are paused until payment is restored." });
@@ -868,8 +1028,8 @@ var appRouter = router({
       const existing = await fleetDb.component.findMany({ where: { vehicleId: vehicle.id } });
       const names = new Set(existing.map((item) => item.name));
       const added = CITY_BUS_MAINTENANCE_TEMPLATE.filter((template) => !names.has(template.name));
-      await Promise.all(added.map((template) => fleetDb.component.create({ data: { id: crypto.randomUUID(), vehicleId: vehicle.id, name: template.name, expectedLifeKm: template.expectedLifeKm, lastServicedOdometer: Number(vehicle.currentOdometer), alertThresholdKm: template.alertThresholdKm } })));
-      await recordAudit(ctx, { action: "MAINTENANCE_TEMPLATE_APPLIED", entityType: "VEHICLE", entityId: vehicle.id, summary: `Applied CITY_BUS maintenance template to ${vehicle.licensePlate}`, metadata: { templateId: input.templateId, added: added.map((item) => item.name), skippedExisting: CITY_BUS_MAINTENANCE_TEMPLATE.length - added.length } });
+      await Promise.all(added.map((template) => fleetDb.component.create({ data: { id: crypto.randomUUID(), vehicleId: vehicle.id, name: template.name, componentType: template.name === "Engine Oil" ? "OIL_FILTER" : template.name === "Brakes" ? "BRAKE_SYSTEM" : "TIRE", installationDate: /* @__PURE__ */ new Date(), expectedLifeKm: template.expectedLifeKm, lastServicedOdometer: Number(vehicle.currentOdometer), alertThresholdKm: template.alertThresholdKm } })));
+      await recordAudit(ctx, { action: "MAINTENANCE_TEMPLATE_APPLIED", entityType: "VEHICLE", entityId: vehicle.id, summary: `Applied CITY_BUS maintenance template to ${vehicleIdentity(vehicle)}`, metadata: { templateId: input.templateId, added: added.map((item) => item.name), skippedExisting: CITY_BUS_MAINTENANCE_TEMPLATE.length - added.length } });
       return { vehicleId: vehicle.id, templateId: input.templateId, added: added.length, skippedExisting: CITY_BUS_MAINTENANCE_TEMPLATE.length - added.length };
     })
   }),
@@ -960,24 +1120,28 @@ var appRouter = router({
   }),
   components: router({
     list: fleetOpsProcedure.input(import_zod2.z.object({ vehicleId: import_zod2.z.string().uuid().optional() }).optional()).query(({ ctx, input }) => fleetDb.component.findMany({ where: { vehicle: { orgId: ctx.fleetopsUser.orgId }, ...input?.vehicleId ? { vehicleId: input.vehicleId } : {} }, orderBy: { name: "asc" } })),
-    create: fleetOpsProcedure.input(import_zod2.z.object({ vehicleId: import_zod2.z.string().uuid(), name: import_zod2.z.string().min(2), expectedLifeKm: import_zod2.z.number().positive(), lastServicedOdometer: import_zod2.z.number().nonnegative(), alertThresholdKm: import_zod2.z.number().positive() })).mutation(async ({ ctx, input }) => {
+    create: fleetOpsProcedure.input(import_zod2.z.object({ vehicleId: import_zod2.z.string().uuid(), inventoryPartId: import_zod2.z.string().uuid().optional(), name: import_zod2.z.string().min(2), componentType: import_zod2.z.enum(COMPONENT_CATALOG).default("OTHER"), componentSubtype: import_zod2.z.string().trim().max(120).optional(), brand: import_zod2.z.string().trim().max(120).optional(), partNumber: import_zod2.z.string().trim().max(120).optional(), serialNumber: import_zod2.z.string().trim().max(120).optional(), installationDate: import_zod2.z.coerce.date().optional(), expectedLifeKm: import_zod2.z.number().positive(), expectedLifeDays: import_zod2.z.number().int().positive().optional(), lastServicedOdometer: import_zod2.z.number().nonnegative(), alertThresholdKm: import_zod2.z.number().positive(), alertThresholdDays: import_zod2.z.number().int().positive().optional(), notes: import_zod2.z.string().trim().max(2e3).optional(), status: import_zod2.z.enum(["ACTIVE", "REPLACED", "REMOVED"]).default("ACTIVE") })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER", "MECHANIC"]);
       assertWritable(ctx.fleetopsUser.org);
       const vehicle = await fleetDb.vehicle.findFirst({ where: { id: input.vehicleId, orgId: ctx.fleetopsUser.orgId } });
       if (!vehicle) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Vehicle not found." });
-      const created = await fleetDb.component.create({ data: { id: crypto.randomUUID(), ...input } });
-      await recordAudit(ctx, { action: "COMPONENT_CREATED", entityType: "COMPONENT", entityId: created.id, summary: `Component ${created.name} added to ${vehicle.licensePlate}`, metadata: { vehicleId: vehicle.id, expectedLifeKm: created.expectedLifeKm, lastServicedOdometer: created.lastServicedOdometer, alertThresholdKm: created.alertThresholdKm } });
+      if (input.inventoryPartId) {
+        const part = await fleetDb.inventoryPart.findFirst({ where: { id: input.inventoryPartId, orgId: ctx.fleetopsUser.orgId } });
+        if (!part) throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: "Linked inventory part is outside this organization." });
+      }
+      const created = await fleetDb.component.create({ data: { id: crypto.randomUUID(), ...input, installationDate: input.installationDate ?? /* @__PURE__ */ new Date() } });
+      await recordAudit(ctx, { action: "COMPONENT_CREATED", entityType: "COMPONENT", entityId: created.id, summary: `${created.name} installed on ${vehicleIdentity(vehicle)}`, metadata: { vehicleId: vehicle.id, componentType: created.componentType, inventoryPartId: created.inventoryPartId, expectedLifeKm: created.expectedLifeKm, expectedLifeDays: created.expectedLifeDays, lastServicedOdometer: created.lastServicedOdometer, alertThresholdKm: created.alertThresholdKm, alertThresholdDays: created.alertThresholdDays } });
       await evaluateVehicleMaintenance(vehicle.id, ctx.fleetopsUser.orgId);
       return created;
     }),
-    update: fleetOpsProcedure.input(import_zod2.z.object({ id: import_zod2.z.string().uuid(), name: import_zod2.z.string().min(2).optional(), expectedLifeKm: import_zod2.z.number().positive().optional(), lastServicedOdometer: import_zod2.z.number().nonnegative().optional(), alertThresholdKm: import_zod2.z.number().positive().optional() })).mutation(async ({ ctx, input }) => {
+    update: fleetOpsProcedure.input(import_zod2.z.object({ id: import_zod2.z.string().uuid(), inventoryPartId: import_zod2.z.string().uuid().nullable().optional(), name: import_zod2.z.string().min(2).optional(), componentType: import_zod2.z.enum(COMPONENT_CATALOG).optional(), componentSubtype: import_zod2.z.string().trim().max(120).nullable().optional(), brand: import_zod2.z.string().trim().max(120).nullable().optional(), partNumber: import_zod2.z.string().trim().max(120).nullable().optional(), serialNumber: import_zod2.z.string().trim().max(120).nullable().optional(), installationDate: import_zod2.z.coerce.date().optional(), expectedLifeKm: import_zod2.z.number().positive().optional(), expectedLifeDays: import_zod2.z.number().int().positive().nullable().optional(), lastServicedOdometer: import_zod2.z.number().nonnegative().optional(), alertThresholdKm: import_zod2.z.number().positive().optional(), alertThresholdDays: import_zod2.z.number().int().positive().nullable().optional(), notes: import_zod2.z.string().trim().max(2e3).nullable().optional(), status: import_zod2.z.enum(["ACTIVE", "REPLACED", "REMOVED"]).optional() })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER", "MECHANIC"]);
       assertWritable(ctx.fleetopsUser.org);
       const component = await fleetDb.component.findFirst({ where: { id: input.id, vehicle: { orgId: ctx.fleetopsUser.orgId } } });
       if (!component) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Component not found." });
       const { id, ...data } = input;
       const updated = await fleetDb.component.update({ where: { id }, data });
-      await recordAudit(ctx, { action: Number(updated.lastServicedOdometer) !== Number(component.lastServicedOdometer) ? "COMPONENT_SERVICE_BASELINE_RESET" : "COMPONENT_UPDATED", entityType: "COMPONENT", entityId: updated.id, summary: `Component ${updated.name} updated`, metadata: { vehicleId: updated.vehicleId, previousLastServicedOdometer: component.lastServicedOdometer, lastServicedOdometer: updated.lastServicedOdometer, previousExpectedLifeKm: component.expectedLifeKm, expectedLifeKm: updated.expectedLifeKm, alertThresholdKm: updated.alertThresholdKm } });
+      await recordAudit(ctx, { action: Number(updated.lastServicedOdometer) !== Number(component.lastServicedOdometer) ? "COMPONENT_SERVICE_BASELINE_RESET" : "COMPONENT_UPDATED", entityType: "COMPONENT", entityId: updated.id, summary: `Component ${updated.name} updated`, metadata: { vehicleId: updated.vehicleId, componentType: updated.componentType, inventoryPartId: updated.inventoryPartId, previousLastServicedOdometer: component.lastServicedOdometer, lastServicedOdometer: updated.lastServicedOdometer, previousExpectedLifeKm: component.expectedLifeKm, expectedLifeKm: updated.expectedLifeKm, expectedLifeDays: updated.expectedLifeDays, alertThresholdKm: updated.alertThresholdKm, alertThresholdDays: updated.alertThresholdDays, status: updated.status } });
       await evaluateVehicleMaintenance(component.vehicleId, ctx.fleetopsUser.orgId);
       return updated;
     }),
@@ -1005,30 +1169,40 @@ var appRouter = router({
         return { ...vehicle, latestOdometerReading: latest?.reading ?? vehicle.currentOdometer, latestOdometerAt: latest?.createdAt ?? vehicle.updatedAt, latestOdometerSource: latest?.source ?? "VEHICLE_RECORD" };
       });
     }),
-    create: fleetOpsProcedure.input(import_zod2.z.object({ vin: import_zod2.z.string().min(5), licensePlate: import_zod2.z.string().min(3), make: import_zod2.z.string().min(2), model: import_zod2.z.string().min(2), year: import_zod2.z.number().int().min(1980).max(2100), currentOdometer: import_zod2.z.number().min(0).default(0), maintenanceTemplate: import_zod2.z.enum(["NONE", "CITY_BUS"]).default("NONE") })).mutation(async ({ ctx, input }) => {
+    create: fleetOpsProcedure.input(import_zod2.z.object({ vin: import_zod2.z.string().trim().min(5).max(32), licensePlate: import_zod2.z.string().trim().min(3).max(32), chassisNumber: import_zod2.z.string().trim().max(80).optional(), engineNumber: import_zod2.z.string().trim().max(80).optional(), vehicleType: import_zod2.z.enum(["BUS", "MINIBUS", "TRUCK", "VAN", "CAR", "OTHER"]).optional(), assignedRoute: import_zod2.z.string().trim().max(120).optional(), depotLocation: import_zod2.z.string().trim().max(120).optional(), make: import_zod2.z.string().trim().min(2), model: import_zod2.z.string().trim().min(2), year: import_zod2.z.number().int().min(1980).max(2100), currentOdometer: import_zod2.z.number().min(0).default(0), maintenanceTemplate: import_zod2.z.enum(["NONE", "CITY_BUS"]).default("NONE") })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER"]);
       assertWritable(ctx.fleetopsUser.org);
       await assertVehicleCapacity(ctx.fleetopsUser.orgId, ctx.fleetopsUser.org.maxVehicles);
       const count = await fleetDb.vehicle.count({ where: { orgId: ctx.fleetopsUser.orgId } });
       if (ctx.fleetopsUser.org.subscriptionTier === "TRIAL_FREE" && count >= ctx.fleetopsUser.org.maxVehicles) throw new import_server3.TRPCError({ code: "FORBIDDEN", message: "Trial limit reached: maximum 3 vehicles." });
       const { maintenanceTemplate, ...vehicleInput } = input;
-      const vehicle = await fleetDb.vehicle.create({ data: { id: crypto.randomUUID(), ...vehicleInput, status: "ACTIVE", orgId: ctx.fleetopsUser.orgId, createdAt: /* @__PURE__ */ new Date(), updatedAt: /* @__PURE__ */ new Date() } });
+      const vin = input.vin.toUpperCase();
+      const licensePlate = input.licensePlate.toUpperCase();
+      const existingVehicles = await fleetDb.vehicle.findMany({ where: { orgId: ctx.fleetopsUser.orgId } });
+      if (existingVehicles.some((item) => String(item.vin).toUpperCase() === vin)) throw new import_server3.TRPCError({ code: "CONFLICT", message: "A vehicle with this VIN already exists in the organization." });
+      if (existingVehicles.some((item) => String(item.licensePlate).toUpperCase() === licensePlate)) throw new import_server3.TRPCError({ code: "CONFLICT", message: "A vehicle with this registration number already exists in the organization." });
+      const vehicle = await fleetDb.vehicle.create({ data: { id: crypto.randomUUID(), ...vehicleInput, vin, licensePlate, status: "ACTIVE", orgId: ctx.fleetopsUser.orgId, createdAt: /* @__PURE__ */ new Date(), updatedAt: /* @__PURE__ */ new Date() } });
       if (maintenanceTemplate === "CITY_BUS") {
         const odometer = Number(input.currentOdometer ?? 0);
         await Promise.all(CITY_BUS_MAINTENANCE_TEMPLATE.map((template) => fleetDb.component.create({ data: { id: crypto.randomUUID(), vehicleId: vehicle.id, name: template.name, expectedLifeKm: template.expectedLifeKm, lastServicedOdometer: odometer, alertThresholdKm: template.alertThresholdKm } })));
       }
-      await recordAudit(ctx, { action: "VEHICLE_CREATED", entityType: "VEHICLE", entityId: vehicle.id, summary: `Vehicle ${vehicle.licensePlate} added to the fleet`, metadata: { maintenanceTemplate } });
+      await recordAudit(ctx, { action: "VEHICLE_CREATED", entityType: "VEHICLE", entityId: vehicle.id, summary: `${vehicleIdentity(vehicle)} added to the fleet`, metadata: { maintenanceTemplate, vin: vehicle.vin, licensePlate: vehicle.licensePlate, vehicleType: vehicle.vehicleType, assignedRoute: vehicle.assignedRoute, depotLocation: vehicle.depotLocation } });
       return { ...vehicle, maintenanceTemplate };
     }),
-    update: fleetOpsProcedure.input(import_zod2.z.object({ id: import_zod2.z.string().uuid(), vin: import_zod2.z.string().min(5), licensePlate: import_zod2.z.string().min(3), make: import_zod2.z.string().min(2), model: import_zod2.z.string().min(2), year: import_zod2.z.number().int().min(1980).max(2100), currentOdometer: import_zod2.z.number().min(0), status: import_zod2.z.enum(["ACTIVE", "OUT_OF_SERVICE", "MAINTENANCE"]).optional() })).mutation(async ({ ctx, input }) => {
+    update: fleetOpsProcedure.input(import_zod2.z.object({ id: import_zod2.z.string().uuid(), vin: import_zod2.z.string().trim().min(5).max(32), licensePlate: import_zod2.z.string().trim().min(3).max(32), chassisNumber: import_zod2.z.string().trim().max(80).nullable().optional(), engineNumber: import_zod2.z.string().trim().max(80).nullable().optional(), vehicleType: import_zod2.z.enum(["BUS", "MINIBUS", "TRUCK", "VAN", "CAR", "OTHER"]).nullable().optional(), assignedRoute: import_zod2.z.string().trim().max(120).nullable().optional(), depotLocation: import_zod2.z.string().trim().max(120).nullable().optional(), make: import_zod2.z.string().trim().min(2), model: import_zod2.z.string().trim().min(2), year: import_zod2.z.number().int().min(1980).max(2100), currentOdometer: import_zod2.z.number().min(0), status: import_zod2.z.enum(["ACTIVE", "OUT_OF_SERVICE", "MAINTENANCE"]).optional() })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["FLEET_MANAGER"]);
       assertWritable(ctx.fleetopsUser.org);
       const vehicle = await fleetDb.vehicle.findFirst({ where: { id: input.id, orgId: ctx.fleetopsUser.orgId } });
       if (!vehicle) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Vehicle not found in your organization." });
+      const vin = input.vin.toUpperCase();
+      const licensePlate = input.licensePlate.toUpperCase();
+      const existingVehicles = await fleetDb.vehicle.findMany({ where: { orgId: ctx.fleetopsUser.orgId } });
+      if (existingVehicles.some((item) => item.id !== vehicle.id && String(item.vin).toUpperCase() === vin)) throw new import_server3.TRPCError({ code: "CONFLICT", message: "Another vehicle already uses this VIN." });
+      if (existingVehicles.some((item) => item.id !== vehicle.id && String(item.licensePlate).toUpperCase() === licensePlate)) throw new import_server3.TRPCError({ code: "CONFLICT", message: "Another vehicle already uses this registration number." });
       const { id, ...data } = input;
-      const updated = await fleetDb.vehicle.update({ where: { id }, data });
+      const updated = await fleetDb.vehicle.update({ where: { id }, data: { ...data, vin, licensePlate } });
       if (Number(input.currentOdometer) > Number(vehicle.currentOdometer)) await evaluateVehicleMaintenance(vehicle.id, ctx.fleetopsUser.orgId);
-      await recordAudit(ctx, { action: "VEHICLE_UPDATED", entityType: "VEHICLE", entityId: vehicle.id, summary: `Vehicle ${updated.licensePlate} details updated`, metadata: { previousOdometer: vehicle.currentOdometer, currentOdometer: updated.currentOdometer } });
+      await recordAudit(ctx, { action: "VEHICLE_UPDATED", entityType: "VEHICLE", entityId: vehicle.id, summary: `${vehicleIdentity(updated)} details updated`, metadata: { previousOdometer: vehicle.currentOdometer, currentOdometer: updated.currentOdometer, vin: updated.vin, licensePlate: updated.licensePlate } });
       return updated;
     }),
     remove: fleetOpsProcedure.input(import_zod2.z.object({ id: import_zod2.z.string().uuid() })).mutation(async ({ ctx, input }) => {
@@ -1037,7 +1211,7 @@ var appRouter = router({
       const vehicle = await fleetDb.vehicle.findFirst({ where: { id: input.id, orgId: ctx.fleetopsUser.orgId } });
       if (!vehicle) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Vehicle not found in your organization." });
       const deleted = await fleetDb.vehicle.delete({ where: { id: vehicle.id } });
-      await recordAudit(ctx, { action: "VEHICLE_DELETED", entityType: "VEHICLE", entityId: vehicle.id, summary: `Vehicle ${vehicle.licensePlate} deleted from the fleet`, metadata: { vin: vehicle.vin } });
+      await recordAudit(ctx, { action: "VEHICLE_DELETED", entityType: "VEHICLE", entityId: vehicle.id, summary: `${vehicleIdentity(vehicle)} deleted from the fleet`, metadata: { vin: vehicle.vin, licensePlate: vehicle.licensePlate } });
       return deleted;
     }),
     odometerHistory: fleetOpsProcedure.query(({ ctx }) => {
@@ -2355,7 +2529,7 @@ var import_express = __toESM(require("express"), 1);
 var import_fs = __toESM(require("fs"), 1);
 var import_path = __toESM(require("path"), 1);
 function serveStatic(app) {
-  const distPath = false ? import_path.default.resolve(process.cwd(), "dist", "public") : import_path.default.resolve(process.cwd(), "api", "public");
+  const distPath = process.env.NODE_ENV === "development" ? import_path.default.resolve(process.cwd(), "dist", "public") : import_path.default.resolve(process.cwd(), "api", "public");
   if (!import_fs.default.existsSync(distPath)) {
     console.error(`Could not find the build directory: ${distPath}, make sure to build the client first`);
   }
@@ -2401,9 +2575,9 @@ async function findAvailablePort(startPort = 3e3) {
   throw new Error(`No available port found starting from ${startPort}`);
 }
 async function startServer() {
-  const app = (0, import_express2.default)();
+  const app = (0, import_express3.default)();
   const server = (0, import_http.createServer)(app);
-  app.post("/api/razorpay/webhook", import_express2.default.raw({ type: "application/json", limit: "2mb" }), async (req, res) => {
+  app.post("/api/razorpay/webhook", import_express3.default.raw({ type: "application/json", limit: "2mb" }), async (req, res) => {
     if (!isRazorpayWebhookEnabled()) {
       res.status(404).json({ error: "Webhook processing is disabled" });
       return;
@@ -2432,8 +2606,8 @@ async function startServer() {
     }
     res.status(200).json({ received: true, eventId, mode: "TEST" });
   });
-  app.use(import_express2.default.json({ limit: "50mb" }));
-  app.use(import_express2.default.urlencoded({ limit: "50mb", extended: true }));
+  app.use(import_express3.default.json({ limit: "50mb" }));
+  app.use(import_express3.default.urlencoded({ limit: "50mb", extended: true }));
   app.use((req, res, next) => {
     const requestId = req.header("x-request-id") || createRequestId();
     res.locals.requestId = requestId;
@@ -2461,19 +2635,19 @@ async function startServer() {
       });
       next();
     },
-    (0, import_express3.createExpressMiddleware)({
+    (0, import_express4.createExpressMiddleware)({
       router: appRouter,
       createContext,
-      onError: ({ path: path2, error, req }) => {
+      onError: ({ path: path4, error, req }) => {
         const requestId = req.res?.locals?.requestId ?? "unknown";
-        logRequestError({ requestId, path: path2, code: error.code, message: error.message });
-        if (error.code === "UNAUTHORIZED") logRequestSignal({ event: "auth_failure", requestId, path: path2, code: error.code, message: error.message });
+        logRequestError({ requestId, path: path4, code: error.code, message: error.message });
+        if (error.code === "UNAUTHORIZED") logRequestSignal({ event: "auth_failure", requestId, path: path4, code: error.code, message: error.message });
       }
     })
   );
-  if (false) {
-    const { setupVite } = await null;
-    await setupVite(app, server);
+  if (process.env.NODE_ENV === "development") {
+    const { setupVite: setupVite2 } = await Promise.resolve().then(() => (init_vite(), vite_exports));
+    await setupVite2(app, server);
   } else {
     serveStatic(app);
   }
