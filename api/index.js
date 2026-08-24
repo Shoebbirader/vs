@@ -2436,11 +2436,13 @@ var appRouter = router({
     plans: publicProcedure.query(() => Object.values(BILLING_PLANS).map((plan) => ({ ...plan, platformFeeInr: plan.platformFeePaise / 100, overageVehicleFeeInr: plan.overageVehicleFeePaise / 100 }))),
     status: fleetOpsProcedure.query(async ({ ctx }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN"]);
-      const plan = BILLING_PLANS[normalizePlan(ctx.fleetopsUser.org.subscriptionTier === "TRIAL_FREE" ? "STARTER" : ctx.fleetopsUser.org.subscriptionTier)];
+      const isTrial = ctx.fleetopsUser.org.subscriptionTier === "TRIAL_FREE";
+      const plan = BILLING_PLANS[normalizePlan(isTrial ? "STARTER" : ctx.fleetopsUser.org.subscriptionTier)];
       const activeVehicles = await fleetDb.vehicle.count({ where: { orgId: ctx.fleetopsUser.orgId } });
       const bill = calculateMonthlyBill(plan.id, activeVehicles);
-      const lifecycle = billingLifecycle(ctx.fleetopsUser.org.trialEndsAt);
-      return { tier: plan.id, planName: plan.name, planDescription: plan.description, trialEndsAt: ctx.fleetopsUser.org.trialEndsAt, daysRemaining: Math.max(0, Math.ceil((ctx.fleetopsUser.org.trialEndsAt.getTime() - Date.now()) / 864e5)), maxVehicles: plan.includedVehicles, maxUsers: plan.maxUsers, activeVehicles, overageVehicles: bill.overageVehicles, platformFeePaise: bill.platformFeePaise, overagePaise: bill.overagePaise, estimatedSubtotalPaise: bill.subtotalPaise, lifecycle, currency: "INR", billingReady: false, writeLocked: lifecycle === "SUSPENDED" };
+      const persistedBillingStatus = ctx.fleetopsUser.org.billingStatus;
+      const lifecycle = isTrial ? billingLifecycle(ctx.fleetopsUser.org.trialEndsAt) : persistedBillingStatus ?? "ACTIVE";
+      return { tier: plan.id, planName: plan.name, planDescription: plan.description, isTrial, trialEndsAt: ctx.fleetopsUser.org.trialEndsAt, daysRemaining: isTrial ? Math.max(0, Math.ceil((ctx.fleetopsUser.org.trialEndsAt.getTime() - Date.now()) / 864e5)) : 0, maxVehicles: plan.includedVehicles, maxUsers: plan.maxUsers, activeVehicles, overageVehicles: bill.overageVehicles, platformFeePaise: bill.platformFeePaise, overagePaise: bill.overagePaise, estimatedSubtotalPaise: bill.subtotalPaise, lifecycle, currency: "INR", billingReady: false, writeLocked: lifecycle === "SUSPENDED" };
     }),
     invoices: fleetOpsProcedure.query(async ({ ctx }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN"]);
