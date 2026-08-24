@@ -7,6 +7,7 @@ describe("Supabase PostgreSQL adapter filter contract", () => {
     const source = readFileSync(resolve(process.cwd(), "server/db.ts"), "utf8");
     expect(source).toContain("if (o.notIn) return `${c} NOT IN");
     expect(source).toContain("if (o.contains !== undefined) return `${c} ILIKE");
+    expect(source).toContain('v.decrement !== undefined ? `${quote(k)} = ${quote(k)} - ${Number(v.decrement)}`');
     expect(source).not.toContain('return `${c} = \'[object Object]\'`');
   });
 });

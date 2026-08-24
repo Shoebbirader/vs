@@ -383,7 +383,10 @@ function model(modelName) {
     },
     async updateMany(options) {
       const data = options.data ?? {};
-      const set = dataColumns(data).map((k) => `${quote(k)} = ${valueSql(data[k])}`).join(", ");
+      const set = dataColumns(data).map((k) => {
+        const v = data[k];
+        return v && typeof v === "object" && v.decrement !== void 0 ? `${quote(k)} = ${quote(k)} - ${Number(v.decrement)}` : v && typeof v === "object" && v.increment !== void 0 ? `${quote(k)} = ${quote(k)} + ${Number(v.increment)}` : `${quote(k)} = ${valueSql(v)}`;
+      }).join(", ");
       const result = await db.execute(import_drizzle_orm.sql.raw(`UPDATE ${quote(table)} SET ${set}${whereClause(options.where)}`));
       return { count: result.rowCount ?? 0 };
     },
