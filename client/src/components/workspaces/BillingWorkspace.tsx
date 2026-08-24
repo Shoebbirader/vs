@@ -1,0 +1,23 @@
+import { Check } from "lucide-react";
+import { toast } from "sonner";
+import { trpc } from "@/lib/trpc";
+import { WorkspaceState as State } from "@/components/workspaces/WorkspaceState";
+
+export function BillingWorkspace() {
+  const utils = trpc.useUtils();
+  const billing = trpc.billing.status.useQuery(undefined, { retry: false });
+  const invoices = trpc.billing.invoices.useQuery(undefined, { retry: false });
+  const plans = trpc.billing.plans.useQuery(undefined, { retry: false });
+  const activateStarter = trpc.billingTest.activateStarter.useMutation({
+    onSuccess: (result) => {
+      toast.success(result.alreadyActive ? "Starter plan already active" : "Starter test plan activated", { description: result.alreadyActive ? `${result.maxVehicles} vehicle capacity remains available.` : `Razorpay Test Mode activated ${result.maxVehicles} vehicle capacity for this tenant.` });
+      void utils.billing.status.invalidate();
+      void utils.dashboard.summary.invalidate();
+      void utils.vehicles.list.invalidate();
+    },
+    onError: (error) => toast.error("Starter test activation failed", { description: error.message }),
+  });
+  const data = billing.data;
+  const showTestActivation = data?.lifecycle === "TRIAL" && data?.tier === "STARTER";
+  return <section className="panel workspace-table billing-workspace"><div className="panel-heading"><div><div className="panel-kicker">Subscription control</div><h2>Billing & limits</h2></div><span className={`signal-chip ${data?.writeLocked ? "warn" : "good"}`}><Check size={13} /> {data?.writeLocked ? "Writes locked" : "Live status"}</span></div><State loading={billing.isLoading} error={billing.isError} empty={!data}><div className="billing-grid"><div><span>Current plan</span><strong>{data?.planName ?? data?.tier?.replaceAll("_", " ")}</strong></div><div><span>Lifecycle</span><strong>{data?.lifecycle?.replaceAll("_", " ") ?? "—"}</strong></div><div><span>Active vehicles</span><strong>{data?.activeVehicles ?? 0} / {data?.maxVehicles ?? "—"}</strong></div><div><span>Estimated monthly subtotal</span><strong>₹{data?.estimatedSubtotalPaise ? (data.estimatedSubtotalPaise / 100).toLocaleString("en-IN") : "—"}</strong></div></div><div className="billing-capacity"><div><span>Vehicle utilization</span><strong>{data?.overageVehicles ? `${data.overageVehicles} overage vehicles` : "Within included capacity"}</strong></div><div className="capacity-track"><span style={{ width: `${data?.maxVehicles ? Math.min(100, ((data.activeVehicles ?? 0) / data.maxVehicles) * 100) : 0}%` }} /></div><div><span>Team utilization</span><strong>{data?.maxUsers ?? "—"} members available</strong></div></div><div className="billing-note">{data?.writeLocked ? "The account is suspended. Historical data and export access remain available; operational writes are restricted by the API." : showTestActivation ? "This tenant is in its Starter trial, which displays a 10-vehicle allowance. Activate the approved Razorpay Test Mode plan to make that capacity effective without changing global trial policy." : `The ${data?.planName ?? "selected"} plan is active and capacity is enforced by the organization subscription record.`}</div>{showTestActivation && <div className="inline-actions"><button type="button" className="primary-button" onClick={() => activateStarter.mutate()} disabled={activateStarter.isPending}>{activateStarter.isPending ? "Activating test plan…" : "Activate Starter test plan"}</button><span className="form-note">Razorpay Test Mode only · no real payment</span></div>}</State><div className="billing-plan-grid">{(plans.data ?? []).map((plan) => <div className={`billing-plan-card ${plan.id === data?.tier ? "selected" : ""}`} key={plan.id}><strong>{plan.name}</strong><span>₹{plan.platformFeeInr.toLocaleString("en-IN")}/month</span><small>Includes {plan.includedVehicles} vehicles · ₹{plan.overageVehicleFeeInr.toLocaleString("en-IN")} per overage vehicle</small></div>)}</div><div className="billing-invoice-list"><div className="panel-kicker">Invoice history</div><State loading={invoices.isLoading} error={invoices.isError} empty={!invoices.isLoading && !(invoices.data ?? []).length}><div className="resource-list">{(invoices.data ?? []).map((invoice: any) => <div className="resource-row" key={invoice.id}><div><strong>{invoice.plan} · {invoice.billingPeriodStart ? new Date(invoice.billingPeriodStart).toLocaleDateString("en-IN") : "Draft"}</strong><span>{invoice.billableVehicles} active vehicles · {invoice.status}</span></div><span className="resource-meta">₹{(Number(invoice.totalPaise ?? invoice.subtotalPaise ?? 0) / 100).toLocaleString("en-IN")}</span></div>)}</div></State></div></section>;
+}

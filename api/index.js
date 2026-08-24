@@ -2474,6 +2474,22 @@ var appRouter = router({
       return { keyId, order };
     })
   }),
+  billingTest: router({
+    activateStarter: fleetOpsProcedure.mutation(async ({ ctx }) => {
+      requireRole(ctx.fleetopsUser.role, ["SUPERADMIN"]);
+      const { keyId } = assertRazorpayTestMode();
+      const plan = BILLING_PLANS.STARTER;
+      if (ctx.fleetopsUser.org.subscriptionTier !== "TRIAL_FREE") {
+        return { activated: false, alreadyActive: true, tier: ctx.fleetopsUser.org.subscriptionTier, maxVehicles: ctx.fleetopsUser.org.maxVehicles };
+      }
+      const now = /* @__PURE__ */ new Date();
+      const renewalAt = new Date(now);
+      renewalAt.setUTCMonth(renewalAt.getUTCMonth() + 1);
+      const organization = await fleetDb.organization.update({ where: { id: ctx.fleetopsUser.orgId }, data: { subscriptionTier: plan.id, maxVehicles: plan.includedVehicles, maxUsers: plan.maxUsers, billingStatus: "ACTIVE", subscriptionStartedAt: now, renewalAt, paymentFailedAt: null, suspendedAt: null } });
+      await recordAudit(ctx, { action: "BILLING_TEST_PLAN_ACTIVATED", entityType: "ORGANIZATION", entityId: organization.id, summary: "Activated Starter plan in Razorpay Test Mode", metadata: { tier: plan.id, maxVehicles: plan.includedVehicles, maxUsers: plan.maxUsers, razorpayMode: "TEST", keyPrefix: keyId.slice(0, 9) } });
+      return { activated: true, alreadyActive: false, tier: plan.id, maxVehicles: plan.includedVehicles, maxUsers: plan.maxUsers, renewalAt };
+    })
+  }),
   activity: router({
     recent: fleetOpsProcedure.query(async ({ ctx }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER", "MECHANIC", "TECHNICIAN", "DRIVER"]);

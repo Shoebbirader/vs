@@ -819,3 +819,5 @@
 - [ ] Verify the complete Superadmin, Fleet Manager, Mechanic, Inventory Manager, and Accountant handoff with real organization-scoped user profiles and document the outcome.
 - [ ] Run tests and production build, push only to Shoebbirader4/FleetOps with Shoeb Ahmed Birader <shoebahmedbirader4@gmail.com>, and deploy with Vercel CLI; do not publish through Manus.
 - [x] Repair the reproduced production password-login regression where valid QA credentials receive a Supabase session but the browser returns to the sign-in form; add regression coverage before resuming live role-workflow validation.
+- [ ] Activate the user-approved Starter test plan for the isolated VahanSync Workflow Lab 2026 tenant through the existing test billing flow, then complete the 10-vehicle role-workflow test without changing the global trial policy.
+- [ ] Resolve the Billing workspace inconsistency where Starter’s 10-vehicle allowance is displayed during a trial but vehicles.create enforces an undisclosed three-vehicle trial cap; add a Superadmin-only Razorpay-test-mode activation path for the approved QA tenant rather than relaxing the global trial policy.

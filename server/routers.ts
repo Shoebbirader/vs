@@ -501,6 +501,22 @@ export const appRouter = router({
     generateInvoice: fleetOpsProcedure.mutation(async ({ ctx }) => { requireRole(ctx.fleetopsUser.role, ["SUPERADMIN"]); const now = new Date(); const periodStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)); const periodEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59, 999)); const plan = BILLING_PLANS[normalizePlan(ctx.fleetopsUser.org.subscriptionTier === "TRIAL_FREE" ? "STARTER" : ctx.fleetopsUser.org.subscriptionTier)]; const activeVehicles = await fleetDb.vehicle.count({ where: { orgId: ctx.fleetopsUser.orgId } }); const bill = calculateMonthlyBill(plan.id, activeVehicles); const existing = await fleetDb.billingInvoice.findFirst({ where: { orgId: ctx.fleetopsUser.orgId, billingPeriodStart: periodStart } }); if (existing) return existing; const invoice = await fleetDb.billingInvoice.create({ data: { id: crypto.randomUUID(), orgId: ctx.fleetopsUser.orgId, billingPeriodStart: periodStart, billingPeriodEnd: periodEnd, plan: plan.id, billableVehicles: bill.billableVehicles, includedVehicles: plan.includedVehicles, overageVehicles: bill.overageVehicles, platformFeePaise: bill.platformFeePaise, overagePaise: bill.overagePaise, usageAddonsPaise: bill.usageAddonsPaise, creditsPaise: bill.creditsPaise, subtotalPaise: bill.subtotalPaise, taxPaise: 0, totalPaise: bill.subtotalPaise, status: "DRAFT", createdAt: now } }); await recordAudit(ctx, { action: "BILLING_INVOICE_SNAPSHOT_CREATED", entityType: "BILLING_INVOICE", entityId: invoice.id, summary: `Created ${plan.name} invoice snapshot`, metadata: { billableVehicles: bill.billableVehicles, subtotalPaise: bill.subtotalPaise, billingPeriodStart: periodStart.toISOString() } }); return invoice; }),
     createTestOrder: fleetOpsProcedure.input(z.object({ invoiceId: z.string().uuid() })).mutation(async ({ ctx, input }) => { requireRole(ctx.fleetopsUser.role, ["SUPERADMIN"]); const invoice = await fleetDb.billingInvoice.findFirst({ where: { id: input.invoiceId, orgId: ctx.fleetopsUser.orgId } }); if (!invoice) throw new TRPCError({ code: "NOT_FOUND", message: "Invoice not found in this organization" }); const { keyId } = assertRazorpayTestMode(); const order = await createRazorpayTestOrder({ amountPaise: Number(invoice.totalPaise), receipt: invoice.id, notes: { orgId: ctx.fleetopsUser.orgId, invoiceId: invoice.id, mode: "TEST" } }); await recordAudit(ctx, { action: "BILLING_TEST_ORDER_CREATED", entityType: "BILLING_INVOICE", entityId: invoice.id, summary: "Created Razorpay Test Mode order", metadata: { orderId: order.id, amountPaise: order.amount, mode: "TEST" } }); return { keyId, order }; }),
   }),
+  billingTest: router({
+    activateStarter: fleetOpsProcedure.mutation(async ({ ctx }) => {
+      requireRole(ctx.fleetopsUser.role, ["SUPERADMIN"]);
+      const { keyId } = assertRazorpayTestMode();
+      const plan = BILLING_PLANS.STARTER;
+      if (ctx.fleetopsUser.org.subscriptionTier !== "TRIAL_FREE") {
+        return { activated: false, alreadyActive: true, tier: ctx.fleetopsUser.org.subscriptionTier, maxVehicles: ctx.fleetopsUser.org.maxVehicles };
+      }
+      const now = new Date();
+      const renewalAt = new Date(now);
+      renewalAt.setUTCMonth(renewalAt.getUTCMonth() + 1);
+      const organization = await fleetDb.organization.update({ where: { id: ctx.fleetopsUser.orgId }, data: { subscriptionTier: plan.id, maxVehicles: plan.includedVehicles, maxUsers: plan.maxUsers, billingStatus: "ACTIVE", subscriptionStartedAt: now, renewalAt, paymentFailedAt: null, suspendedAt: null } });
+      await recordAudit(ctx, { action: "BILLING_TEST_PLAN_ACTIVATED", entityType: "ORGANIZATION", entityId: organization.id, summary: "Activated Starter plan in Razorpay Test Mode", metadata: { tier: plan.id, maxVehicles: plan.includedVehicles, maxUsers: plan.maxUsers, razorpayMode: "TEST", keyPrefix: keyId.slice(0, 9) } });
+      return { activated: true, alreadyActive: false, tier: plan.id, maxVehicles: plan.includedVehicles, maxUsers: plan.maxUsers, renewalAt };
+    }),
+  }),
   activity: router({
     recent: fleetOpsProcedure.query(async ({ ctx }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER", "MECHANIC", "TECHNICIAN", "DRIVER"]);
