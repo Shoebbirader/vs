@@ -7,15 +7,17 @@ const landing = fs.readFileSync(path.join(root, "client/src/pages/LandingPage.ts
 const marketing = fs.readFileSync(path.join(root, "client/src/pages/MarketingPages.tsx"), "utf8");
 const app = fs.readFileSync(path.join(root, "client/src/App.tsx"), "utf8");
 const home = fs.readFileSync(path.join(root, "client/src/pages/Home.tsx"), "utf8");
+const authSurface = fs.readFileSync(path.join(root, "client/src/components/public/PublicAuthSurface.tsx"), "utf8");
 
-describe("public FleetOps landing page", () => {
+describe("public VahanSync landing page", () => {
   it("exposes distinct public calls to action", () => {
     expect(marketing).toContain("Sign in");
     expect(marketing).toContain("/login");
     expect(landing).toContain("Create your organization");
     expect(landing).toContain("/create-organization");
-    expect(landing).toContain("Make every kilometre");
-    expect(landing).toContain("Every handoff visible");
+    expect(landing).toContain("Keep the fleet moving");
+    expect(landing).toContain("Every handoff connected");
+    expect(landing).toContain("public-signal-canvas");
   });
 
   it("routes public auth paths without replacing invitation or workspace routes", () => {
@@ -25,5 +27,15 @@ describe("public FleetOps landing page", () => {
     expect(app).toContain('path="/workspace/:section"');
     expect(home).toContain('publicMode === "landing"');
     expect(home).toContain('publicMode === "signup"');
+  });
+
+  it("uses the replacement authentication composition without changing Supabase-backed auth handlers", () => {
+    expect(home).toContain("PublicAuthSurface");
+    expect(home).toContain("signInWithEmail");
+    expect(home).toContain("signUpWithEmail");
+    expect(home).toContain("requestPasswordReset");
+    expect(home).toContain("updatePassword");
+    expect(authSurface).toContain("Secure organization access");
+    expect(authSurface).toContain('"current-password"');
   });
 });
