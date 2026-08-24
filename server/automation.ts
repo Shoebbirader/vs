@@ -1,5 +1,6 @@
 import { fleetDb } from "./db";
 import { logRequestSignal } from "./observability";
+import { vehicleIdentity } from "./vehicle-identity";
 
 async function notifyRoles(orgId: string, roles: string[], title: string, message: string, type: string, referenceId?: string) {
   const recipients = await fleetDb.user.findMany({ where: { orgId, role: { in: roles } } });
@@ -13,16 +14,25 @@ export async function evaluateVehicleMaintenance(vehicleId: string, orgId: strin
   let createdWorkOrders = 0;
   const components = Array.isArray((vehicle as any).components) ? (vehicle as any).components : [];
   for (const component of components) {
+    if (String(component.status ?? "ACTIVE") !== "ACTIVE") continue;
     const consumed = Number(vehicle.currentOdometer) - Number(component.lastServicedOdometer);
-    if (consumed < Number(component.alertThresholdKm)) continue;
+    const installationAt = new Date(component.installationDate ?? Date.now()).getTime();
+    const elapsedDays = Math.max(0, Math.floor((Date.now() - installationAt) / 86_400_000));
+    const dueByKm = consumed >= Number(component.alertThresholdKm);
+    const dueByDays = Number(component.alertThresholdDays ?? 0) > 0 && elapsedDays >= Number(component.alertThresholdDays);
+    if (!dueByKm && !dueByDays) continue;
     const existing = await fleetDb.workOrder.findFirst({ where: { orgId, vehicleId, status: { in: ["OPEN", "IN_PROGRESS", "WAITING_FOR_PARTS", "READY_FOR_REVIEW", "REWORK"] }, title: { contains: component.name } } });
     if (existing) continue;
     const priorTriggers = fleetDb.auditEvent?.findMany ? await fleetDb.auditEvent.findMany({ where: { orgId, entityType: "COMPONENT", entityId: component.id, action: "MAINTENANCE_THRESHOLD_TRIGGERED" }, orderBy: { createdAt: "desc" }, take: 10 }) : [];
     const sameServiceBaselineAlreadyTriggered = (priorTriggers as any[]).some((event) => { try { return Number(JSON.parse(event.metadata ?? "{}").serviceBaseline ?? -1) === Number(component.lastServicedOdometer); } catch { return false; } });
     if (sameServiceBaselineAlreadyTriggered) continue;
-    const workOrder = await fleetDb.workOrder.create({ data: { orgId, vehicleId, title: `${component.name} service threshold reached`, description: `${component.name} has consumed ${Math.round((consumed / Number(component.expectedLifeKm)) * 100)}% of expected life.`, priority: consumed >= Number(component.expectedLifeKm) ? "CRITICAL" : "HIGH" } });
-    await notifyRoles(orgId, ["SUPERADMIN", "FLEET_MANAGER"], "Predictive maintenance alert", `${vehicle.licensePlate}: ${component.name} crossed its service threshold.`, "MAINTENANCE_THRESHOLD", workOrder.id);
-    if (fleetDb.auditEvent?.create) await fleetDb.auditEvent.create({ data: { id: crypto.randomUUID(), orgId, actorId: null, action: "MAINTENANCE_THRESHOLD_TRIGGERED", entityType: "COMPONENT", entityId: component.id, summary: `Threshold triggered for ${component.name}`, metadata: JSON.stringify({ workOrderId: workOrder.id, serviceBaseline: Number(component.lastServicedOdometer), currentOdometer: Number(vehicle.currentOdometer), alertThresholdKm: Number(component.alertThresholdKm) }), createdAt: new Date() } });
+    const consumedPercent = Number(component.expectedLifeKm) > 0 ? Math.round((consumed / Number(component.expectedLifeKm)) * 100) : 0;
+    const elapsedPercent = Number(component.expectedLifeDays ?? 0) > 0 ? Math.round((elapsedDays / Number(component.expectedLifeDays)) * 100) : 0;
+    const priority = consumed >= Number(component.expectedLifeKm) || (Number(component.expectedLifeDays ?? 0) > 0 && elapsedDays >= Number(component.expectedLifeDays)) ? "CRITICAL" : "HIGH";
+    const lifecycleDetail = [dueByKm ? `${consumedPercent}% of odometer life consumed` : null, dueByDays ? `${elapsedPercent}% of time life elapsed` : null].filter(Boolean).join("; ");
+    const workOrder = await fleetDb.workOrder.create({ data: { orgId, vehicleId, title: `${component.name} service threshold reached`, description: `${component.name}: ${lifecycleDetail}.`, priority } });
+    await notifyRoles(orgId, ["SUPERADMIN", "FLEET_MANAGER"], "Maintenance lifecycle alert", `${vehicleIdentity(vehicle)}: ${component.name} crossed its service threshold.`, "MAINTENANCE_THRESHOLD", workOrder.id);
+    if (fleetDb.auditEvent?.create) await fleetDb.auditEvent.create({ data: { id: crypto.randomUUID(), orgId, actorId: null, action: "MAINTENANCE_THRESHOLD_TRIGGERED", entityType: "COMPONENT", entityId: component.id, summary: `Threshold triggered for ${component.name}`, metadata: JSON.stringify({ workOrderId: workOrder.id, serviceBaseline: Number(component.lastServicedOdometer), currentOdometer: Number(vehicle.currentOdometer), elapsedDays, expectedLifeKm: Number(component.expectedLifeKm), expectedLifeDays: Number(component.expectedLifeDays ?? 0), alertThresholdKm: Number(component.alertThresholdKm), alertThresholdDays: Number(component.alertThresholdDays ?? 0), dueByKm, dueByDays }), createdAt: new Date() } });
     createdWorkOrders += 1;
   }
   return { createdWorkOrders };

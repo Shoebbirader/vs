@@ -886,3 +886,24 @@ button:active { transform: scale(.975); }
 .execution-signal-strip em { color: #8b949c; font-size: 9px; font-style: normal; }
 @media (max-width: 850px) { .execution-signal-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 520px) { .execution-signal-strip { grid-template-columns: 1fr; } }
+
+.vin-first-workspace, .component-lifecycle-workspace { display: grid; gap: 18px; }
+.vin-first-workspace .workspace-form, .component-lifecycle-workspace .workspace-form { display: grid; gap: 16px; padding: 20px; border-top: 3px solid #eb6538; background: linear-gradient(135deg, #fffdfa, #fbf7f0); }
+.vin-first-workspace .workspace-form h2, .component-lifecycle-workspace .workspace-form h2 { margin: 3px 0 6px; color: #182536; font-size: 22px; }
+.vin-first-workspace .workspace-form p, .component-lifecycle-workspace .workspace-form p { max-width: 720px; margin: 0; color: #6c7783; line-height: 1.55; }
+.vin-first-workspace .invite-form, .component-lifecycle-workspace .invite-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.vin-first-workspace .invite-form label, .component-lifecycle-workspace .invite-form label { display: grid; gap: 6px; color: #52606f; font-size: 11px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.vin-first-workspace .invite-form input, .vin-first-workspace .invite-form select, .component-lifecycle-workspace .invite-form input, .component-lifecycle-workspace .invite-form select, .component-lifecycle-workspace .invite-form textarea { min-width: 0; padding: 11px 12px; border: 1px solid #dad9d3; border-radius: 10px; color: #182536; background: #fff; font: inherit; font-size: 13px; letter-spacing: 0; text-transform: none; transition: border-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out); }
+.vin-first-workspace .invite-form input:focus, .vin-first-workspace .invite-form select:focus, .component-lifecycle-workspace .invite-form input:focus, .component-lifecycle-workspace .invite-form select:focus, .component-lifecycle-workspace .invite-form textarea:focus { outline: none; border-color: #df623b; box-shadow: 0 0 0 3px #ed623422; }
+.component-lifecycle-workspace .wide-field { grid-column: 1 / -1; }
+.component-lifecycle-workspace textarea { min-height: 84px; resize: vertical; }
+.component-context { display: flex; align-items: center; grid-column: 1 / -1; min-height: 30px; color: #6e7985; font-size: 12px; letter-spacing: 0; text-transform: none; }
+.vin-first-workspace .invite-form > .inline-actions, .vin-first-workspace .invite-form > .primary-button, .component-lifecycle-workspace .invite-form > .primary-button { grid-column: 1 / -1; justify-self: start; }
+.vin-first-row, .component-lifecycle-row { grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; }
+.vin-first-row strong, .component-lifecycle-row strong { display: block; color: #182536; }
+.vin-first-row small, .component-lifecycle-row small { display: block; margin-top: 3px; color: #77818c; font-size: 11px; }
+.vin-first-row .inline-actions { justify-content: flex-end; }
+.vehicle-assignment-inline { display: flex; grid-column: 1 / -1; gap: 8px; align-items: center; padding-top: 10px; border-top: 1px solid #eeeae3; }
+.vehicle-assignment-inline select { min-width: 190px; padding: 8px 10px; border: 1px solid #dfddd6; border-radius: 8px; color: #273443; background: #fff; }
+.component-lifecycle-row strong small { display: inline; margin-left: 6px; color: #a95a3b; font-size: 9px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+@media (max-width: 760px) { .vin-first-workspace .invite-form, .component-lifecycle-workspace .invite-form { grid-template-columns: 1fr; } .vin-first-row, .component-lifecycle-row { grid-template-columns: 1fr; } .vin-first-row .inline-actions { justify-content: flex-start; } .vehicle-assignment-inline { flex-wrap: wrap; } .vehicle-assignment-inline select { width: 100%; } }

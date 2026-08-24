@@ -809,3 +809,12 @@
 - [x] Extend workspace UI regression coverage for the shared navigation, route mark, workflow rails, Team governance strip, Driver readiness strip, and Accountant finance strip.
 
 - [x] Compare FleetGuard and VahanSync across workflows, role boundaries, UI/UX, data architecture, security, reliability, and deployment readiness; document concrete gaps and recommendations.
+
+- [x] Switch working context back to the VahanSync repository for upcoming tasks; keep FleetGuard as a separate product.
+
+- [ ] Keep GPS and telematics API integrations explicitly deferred while completing the current web operating workflow.
+- [ ] Make vehicle identity VIN-first across VahanSync forms, vehicle records, components, work orders, inventory references, alerts, exports, and user-facing labels; retain registration number and operational attributes.
+- [ ] Expand component catalogue and lifecycle capture from verified FleetGuard patterns, including installation date/odometer, expected life, thresholds, and actionable replacement context.
+- [ ] Add representative operating data through live VahanSync role workflows: nine additional fleet vehicles, odometer readings, components, inventory items, work orders, mechanic assignment, inventory requests/issue, and financial records.
+- [ ] Verify the complete Superadmin, Fleet Manager, Mechanic, Inventory Manager, and Accountant handoff with real organization-scoped user profiles and document the outcome.
+- [ ] Run tests and production build, push only to Shoebbirader4/FleetOps with Shoeb Ahmed Birader <shoebahmedbirader4@gmail.com>, and deploy with Vercel CLI; do not publish through Manus.

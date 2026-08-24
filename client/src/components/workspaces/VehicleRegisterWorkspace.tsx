@@ -1,0 +1,58 @@
+import { useState } from "react";
+import { Check, Pencil, Plus, X } from "lucide-react";
+import { toast } from "sonner";
+import { trpc } from "@/lib/trpc";
+import { formatVehicleIdentity } from "@/lib/vehicleIdentity";
+import { WorkspaceState as State } from "@/components/workspaces/WorkspaceState";
+import type { FleetVehicle } from "@/types/fleet";
+
+const VEHICLE_TYPES = ["BUS", "MINIBUS", "TRUCK", "VAN", "CAR", "OTHER"] as const;
+type VehicleType = (typeof VEHICLE_TYPES)[number];
+type VehicleStatus = "ACTIVE" | "OUT_OF_SERVICE" | "MAINTENANCE";
+type VehicleDraft = { id?: string; vin: string; licensePlate: string; chassisNumber: string; engineNumber: string; vehicleType: VehicleType; assignedRoute: string; depotLocation: string; make: string; model: string; year: string; currentOdometer: string; status: VehicleStatus; maintenanceTemplate: "NONE" | "CITY_BUS" };
+
+const emptyDraft = (): VehicleDraft => ({ vin: "", licensePlate: "", chassisNumber: "", engineNumber: "", vehicleType: "BUS", assignedRoute: "", depotLocation: "", make: "", model: "", year: String(new Date().getFullYear()), currentOdometer: "0", status: "ACTIVE", maintenanceTemplate: "NONE" });
+
+export function VehicleRegisterWorkspace() {
+  const utils = trpc.useUtils();
+  const vehicles = trpc.vehicles.list.useQuery(undefined, { retry: false });
+  const members = trpc.team.members.useQuery(undefined, { retry: false });
+  const assignVehicle = trpc.team.assignVehicle.useMutation({ onSuccess: () => { void utils.vehicles.list.invalidate(); void utils.team.operationalRoster.invalidate(); } });
+  const [draft, setDraft] = useState<VehicleDraft>(emptyDraft);
+  const [editing, setEditing] = useState<VehicleDraft | null>(null);
+  const [driverByVehicle, setDriverByVehicle] = useState<Record<string, string>>({});
+  const form = editing ?? draft;
+  const setForm = (next: Partial<VehicleDraft>) => editing ? setEditing({ ...editing, ...next } as VehicleDraft) : setDraft({ ...draft, ...next });
+  const create = trpc.vehicles.create.useMutation({ onSuccess: () => { setDraft(emptyDraft()); toast.success("VIN-first vehicle record created"); void utils.vehicles.list.invalidate(); }, onError: (error) => toast.error("Vehicle creation failed", { description: error.message }) });
+  const update = trpc.vehicles.update.useMutation({ onSuccess: () => { setEditing(null); toast.success("Vehicle register updated"); void utils.vehicles.list.invalidate(); void utils.components.list.invalidate(); void utils.workOrders.list.invalidate(); }, onError: (error) => toast.error("Vehicle update failed", { description: error.message }) });
+  const submit = (event: React.FormEvent) => {
+    event.preventDefault();
+    const payload = { vin: form.vin.trim().toUpperCase(), licensePlate: form.licensePlate.trim().toUpperCase(), chassisNumber: form.chassisNumber.trim() || undefined, engineNumber: form.engineNumber.trim() || undefined, vehicleType: form.vehicleType, assignedRoute: form.assignedRoute.trim() || undefined, depotLocation: form.depotLocation.trim() || undefined, make: form.make.trim(), model: form.model.trim(), year: Number(form.year), currentOdometer: Number(form.currentOdometer) };
+    if (!payload.vin || !payload.licensePlate || !payload.make || !payload.model) return;
+    if (editing?.id) update.mutate({ id: editing.id, ...payload, status: editing.status });
+    else create.mutate({ ...payload, maintenanceTemplate: draft.maintenanceTemplate });
+  };
+  const beginEdit = (vehicle: FleetVehicle) => setEditing({ id: vehicle.id, vin: vehicle.vin ?? "", licensePlate: vehicle.licensePlate, chassisNumber: vehicle.chassisNumber ?? "", engineNumber: vehicle.engineNumber ?? "", vehicleType: (vehicle.vehicleType as VehicleType) ?? "BUS", assignedRoute: vehicle.assignedRoute ?? "", depotLocation: vehicle.depotLocation ?? "", make: vehicle.make ?? "", model: vehicle.model ?? "", year: String(vehicle.year ?? new Date().getFullYear()), currentOdometer: String(vehicle.currentOdometer ?? 0), status: (vehicle.status as VehicleStatus) ?? "ACTIVE", maintenanceTemplate: "NONE" });
+  const rows = (vehicles.data ?? []) as FleetVehicle[];
+  return <div className="vin-first-workspace">
+    <section className="workspace-form panel">
+      <div><div className="panel-kicker">VIN-first fleet register</div><h2>{editing ? "Edit vehicle identity" : "Add vehicle to the organization"}</h2><p>VIN is the durable identity used across components, alerts, work orders, inventory references, and financial records. Registration remains the operational display reference.</p></div>
+      <form className="invite-form" onSubmit={submit}>
+        <label>VIN — primary identifier<input required minLength={5} maxLength={32} value={form.vin} onChange={(event) => setForm({ vin: event.target.value.toUpperCase() })} placeholder="MA3EJKD1S00A12345" /></label>
+        <label>Registration number<input required minLength={3} maxLength={32} value={form.licensePlate} onChange={(event) => setForm({ licensePlate: event.target.value.toUpperCase() })} placeholder="MH 12 AB 1234" /></label>
+        <label>Chassis number<input value={form.chassisNumber} onChange={(event) => setForm({ chassisNumber: event.target.value.toUpperCase() })} placeholder="Manufacturer chassis identifier" /></label>
+        <label>Engine number<input value={form.engineNumber} onChange={(event) => setForm({ engineNumber: event.target.value.toUpperCase() })} placeholder="Manufacturer engine identifier" /></label>
+        <label>Vehicle type<select value={form.vehicleType} onChange={(event) => setForm({ vehicleType: event.target.value as VehicleType })}>{VEHICLE_TYPES.map((type) => <option key={type} value={type}>{type.replaceAll("_", " ")}</option>)}</select></label>
+        <label>Make<input required value={form.make} onChange={(event) => setForm({ make: event.target.value })} placeholder="Tata" /></label>
+        <label>Model<input required value={form.model} onChange={(event) => setForm({ model: event.target.value })} placeholder="Starbus" /></label>
+        <label>Model year<input required type="number" min="1980" max="2100" value={form.year} onChange={(event) => setForm({ year: event.target.value })} /></label>
+        <label>Opening odometer (km)<input required type="number" min="0" value={form.currentOdometer} onChange={(event) => setForm({ currentOdometer: event.target.value })} /></label>
+        <label>Assigned route<input value={form.assignedRoute} onChange={(event) => setForm({ assignedRoute: event.target.value })} placeholder="Pune Station → Hinjawadi" /></label>
+        <label>Depot / base<input value={form.depotLocation} onChange={(event) => setForm({ depotLocation: event.target.value })} placeholder="Pimpri depot" /></label>
+        {editing ? <label>Status<select value={editing.status} onChange={(event) => setEditing({ ...editing, status: event.target.value as VehicleStatus })}><option value="ACTIVE">Active</option><option value="MAINTENANCE">Maintenance</option><option value="OUT_OF_SERVICE">Out of service</option></select></label> : <label>Maintenance template<select value={draft.maintenanceTemplate} onChange={(event) => setDraft({ ...draft, maintenanceTemplate: event.target.value as "NONE" | "CITY_BUS" })}><option value="NONE">Add components manually</option><option value="CITY_BUS">City bus preventive baseline</option></select></label>}
+        <div className="inline-actions"><button className="primary-button" disabled={create.isPending || update.isPending}><Plus size={16} />{editing ? "Save VIN-first record" : "Create vehicle"}</button>{editing && <button type="button" className="secondary-button" onClick={() => setEditing(null)}><X size={16} />Cancel edit</button>}</div>
+      </form>
+    </section>
+    <section className="panel workspace-table"><div className="panel-heading"><div><div className="panel-kicker">Live organization records</div><h2>Fleet register</h2></div><span className="signal-chip good"><Check size={13} /> VIN visible</span></div><State loading={vehicles.isLoading} error={vehicles.isError} empty={!vehicles.isLoading && !vehicles.isError && !rows.length}><div className="resource-list">{rows.map((vehicle) => <div className="resource-row vin-first-row" key={vehicle.id}><div><strong>{formatVehicleIdentity(vehicle)}</strong><span>{vehicle.make} {vehicle.model} · {vehicle.year} · {vehicle.vehicleType ?? "Vehicle"} · {Number(vehicle.currentOdometer ?? 0).toLocaleString("en-IN")} km</span><small>{[vehicle.assignedRoute, vehicle.depotLocation].filter(Boolean).join(" · ") || "Route and depot not recorded"}</small></div><div className="inline-actions"><span className={`resource-meta ${vehicle.status === "OUT_OF_SERVICE" ? "pending" : "accepted"}`}>{vehicle.status ?? "ACTIVE"}</span><button type="button" className="secondary-button compact-button" onClick={() => beginEdit(vehicle)}><Pencil size={14} />Edit</button></div><div className="vehicle-assignment-inline"><select aria-label={`Assign driver to ${formatVehicleIdentity(vehicle)}`} value={driverByVehicle[vehicle.id] ?? ""} onChange={(event) => setDriverByVehicle({ ...driverByVehicle, [vehicle.id]: event.target.value })}><option value="">Assign driver…</option>{(members.data ?? []).filter((member: any) => member.role === "DRIVER").map((driver: any) => <option key={driver.id} value={driver.id}>{driver.fullName ?? driver.email}</option>)}</select><button type="button" className="secondary-button compact-button" disabled={!driverByVehicle[vehicle.id] || assignVehicle.isPending} onClick={() => assignVehicle.mutate({ vehicleId: vehicle.id, driverId: driverByVehicle[vehicle.id], active: true })}>Assign</button></div></div>)}</div></State></section>
+  </div>;
+}
