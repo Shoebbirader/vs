@@ -438,8 +438,8 @@ var systemRouter = router({
 var import_supabase_js = require("@supabase/supabase-js");
 var supabaseUrl = process.env.SUPABASE_URL;
 var serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-var authSupabaseUrl = process.env.VITE_SUPABASE_URL ?? supabaseUrl;
-var authAnonKey = process.env.VITE_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY ?? serviceRoleKey;
+var authSupabaseUrl = supabaseUrl ?? process.env.VITE_SUPABASE_URL;
+var authAnonKey = process.env.SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY ?? serviceRoleKey;
 if (!supabaseUrl || !serviceRoleKey) {
   console.warn("[Supabase] SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is not configured");
 }

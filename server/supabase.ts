@@ -4,8 +4,8 @@ import { fleetDb } from "./db";
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const authSupabaseUrl = process.env.VITE_SUPABASE_URL ?? supabaseUrl;
-const authAnonKey = process.env.VITE_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY ?? serviceRoleKey;
+const authSupabaseUrl = supabaseUrl ?? process.env.VITE_SUPABASE_URL;
+const authAnonKey = process.env.SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY ?? serviceRoleKey;
 
 if (!supabaseUrl || !serviceRoleKey) {
   console.warn("[Supabase] SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is not configured");
