@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   organization: { findMany: vi.fn() },
   vehicle: { findFirst: vi.fn() },
+  component: { findMany: vi.fn() },
   workOrder: { findFirst: vi.fn(), create: vi.fn() },
   user: { findMany: vi.fn() },
   notification: { createMany: vi.fn() },
@@ -20,14 +21,14 @@ describe("component maintenance automation", () => {
       orgId: "org-1",
       licensePlate: "FLEET-01",
       currentOdometer: 50000,
-      components: [{
+    });
+    mocks.component.findMany.mockResolvedValue([{
         id: "component-1",
         name: "Left tire",
         lastServicedOdometer: 10000,
         expectedLifeKm: 40000,
         alertThresholdKm: 38000,
-      }],
-    });
+      }]);
     mocks.workOrder.findFirst.mockResolvedValue(null);
     mocks.workOrder.create.mockResolvedValue({ id: "work-order-1" });
     mocks.user.findMany.mockResolvedValue([{ id: "fleet-manager-1", role: "FLEET_MANAGER" }]);
@@ -35,6 +36,7 @@ describe("component maintenance automation", () => {
     const result = await evaluateVehicleMaintenance("vehicle-1", "org-1");
 
     expect(result).toEqual({ createdWorkOrders: 1 });
+    expect(mocks.component.findMany).toHaveBeenCalledWith({ where: { vehicleId: "vehicle-1" } });
     expect(mocks.workOrder.create).toHaveBeenCalledWith({ data: expect.objectContaining({
       orgId: "org-1",
       vehicleId: "vehicle-1",

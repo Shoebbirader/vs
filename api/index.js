@@ -737,10 +737,10 @@ async function notifyRoles(orgId, roles, title, message, type, referenceId) {
   return recipients.length;
 }
 async function evaluateVehicleMaintenance(vehicleId, orgId) {
-  const vehicle = await fleetDb.vehicle.findFirst({ where: { id: vehicleId, orgId }, include: { components: true } });
+  const vehicle = await fleetDb.vehicle.findFirst({ where: { id: vehicleId, orgId } });
   if (!vehicle) return { createdWorkOrders: 0 };
   let createdWorkOrders = 0;
-  const components2 = Array.isArray(vehicle.components) ? vehicle.components : [];
+  const components2 = await fleetDb.component.findMany({ where: { vehicleId } });
   for (const component of components2) {
     if (String(component.status ?? "ACTIVE") !== "ACTIVE") continue;
     const consumed = Number(vehicle.currentOdometer) - Number(component.lastServicedOdometer);
