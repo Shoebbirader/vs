@@ -18,6 +18,7 @@ import "./fallback-replacement.css";
 import "./procurement-replacement.css";
 import "./billing-replacement.css";
 import "./compliance-replacement.css";
+import "./fleet-manager-overview-replacement.css";
 
 const queryClient = new QueryClient();
 const API_TIMEOUT_MS = 15_000;

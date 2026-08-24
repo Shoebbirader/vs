@@ -14,7 +14,8 @@ const executive = readFileSync("client/src/components/workspaces/ExecutiveOvervi
 const procurement = readFileSync("client/src/components/workspaces/ProcurementWorkspace.tsx", "utf8");
 const billing = readFileSync("client/src/components/workspaces/BillingWorkspace.tsx", "utf8");
 const compliance = readFileSync("client/src/components/workspaces/ComplianceWorkspace.tsx", "utf8");
-const styles = `${readFileSync("client/src/index.css", "utf8")}\n${readFileSync("client/src/frontend-replacement.css", "utf8")}\n${readFileSync("client/src/accountant-replacement.css", "utf8")}\n${readFileSync("client/src/driver-replacement.css", "utf8")}\n${readFileSync("client/src/mechanic-replacement.css", "utf8")}\n${readFileSync("client/src/team-replacement.css", "utf8")}\n${readFileSync("client/src/notification-replacement.css", "utf8")}\n${readFileSync("client/src/executive-replacement.css", "utf8")}\n${readFileSync("client/src/procurement-replacement.css", "utf8")}\n${readFileSync("client/src/billing-replacement.css", "utf8")}\n${readFileSync("client/src/compliance-replacement.css", "utf8")}`;
+const fleetManagerOverview = readFileSync("client/src/components/workspaces/FleetManagerOverviewWorkspace.tsx", "utf8");
+const styles = `${readFileSync("client/src/index.css", "utf8")}\n${readFileSync("client/src/frontend-replacement.css", "utf8")}\n${readFileSync("client/src/accountant-replacement.css", "utf8")}\n${readFileSync("client/src/driver-replacement.css", "utf8")}\n${readFileSync("client/src/mechanic-replacement.css", "utf8")}\n${readFileSync("client/src/team-replacement.css", "utf8")}\n${readFileSync("client/src/notification-replacement.css", "utf8")}\n${readFileSync("client/src/executive-replacement.css", "utf8")}\n${readFileSync("client/src/procurement-replacement.css", "utf8")}\n${readFileSync("client/src/billing-replacement.css", "utf8")}\n${readFileSync("client/src/compliance-replacement.css", "utf8")}\n${readFileSync("client/src/fleet-manager-overview-replacement.css", "utf8")}`;
 
 describe("VahanSync 2026 workspace UI contract", () => {
   it("gives every role a distinct header and surface class", () => {
@@ -66,6 +67,7 @@ describe("VahanSync 2026 workspace UI contract", () => {
   it("routes active specialist pages through dedicated replacement compositions", () => {
     expect(functionalWorkspace).toContain("MechanicExecutionWorkspace");
     expect(functionalWorkspace).toContain("ExecutiveOverviewWorkspace");
+    expect(functionalWorkspace).toContain("FleetManagerOverviewWorkspace");
     expect(functionalWorkspace).toContain("NotificationWorkspace");
     expect(functionalWorkspace).toContain("ProcurementWorkspace");
     expect(mechanic).toContain("replacement-mechanic-execution");
@@ -80,7 +82,9 @@ describe("VahanSync 2026 workspace UI contract", () => {
     expect(billing).toContain("billingTest.activateStarter.useMutation");
     expect(compliance).toContain("replacement-compliance");
     expect(compliance).toContain("trpc.documents.versions.useQuery");
-    for (const selector of [".replacement-mechanic-execution", ".replacement-team-governance", ".replacement-notification-center", ".replacement-executive-overview", ".replacement-procurement", ".replacement-billing", ".replacement-compliance"]) {
+    expect(fleetManagerOverview).toContain("replacement-fleet-overview");
+    expect(fleetManagerOverview).toContain("trpc.planning.maintenance.useQuery");
+    for (const selector of [".replacement-mechanic-execution", ".replacement-team-governance", ".replacement-notification-center", ".replacement-executive-overview", ".replacement-procurement", ".replacement-billing", ".replacement-compliance", ".replacement-fleet-overview"]) {
       expect(styles).toContain(selector);
     }
   });
