@@ -1640,6 +1640,10 @@ var appRouter = router({
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "INVENTORY_MANAGER"]);
       return fleetDb.inventoryPart.findMany({ where: { orgId: ctx.fleetopsUser.orgId }, orderBy: { name: "asc" } });
     }),
+    references: fleetOpsProcedure.query(({ ctx }) => {
+      requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "INVENTORY_MANAGER", "FLEET_MANAGER"]);
+      return fleetDb.inventoryPart.findMany({ where: { orgId: ctx.fleetopsUser.orgId }, select: { id: true, sku: true, name: true }, orderBy: { name: "asc" } });
+    }),
     movements: fleetOpsProcedure.input(import_zod2.z.object({ partId: import_zod2.z.string().uuid().optional(), workOrderId: import_zod2.z.string().uuid().optional() }).optional()).query(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "INVENTORY_MANAGER", "MECHANIC", "TECHNICIAN"]);
       const filters = { ...input?.partId ? { partId: input.partId } : {}, ...input?.workOrderId ? { workOrderId: input.workOrderId } : {} };

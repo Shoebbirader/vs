@@ -826,3 +826,4 @@
 - [x] Correct billing status derivation so an organization activated from `TRIAL_FREE` to Starter is displayed as active and no longer receives a redundant test-plan activation control.
 - [x] Repair the live Inventory Manager vendor creation path to match the Supabase PostgreSQL `vendors` table, then re-run the supplier and purchase-order workflow through the application. The corrected live workflow created the Pune Fleet Spares vendor and a ₹38,000 draft PO.
 - [ ] Repair the Accountant vehicle selector so the role can create a scoped financial record against an organization VIN, then verify ledger and maintenance-derived financial visibility through the live application.
+- [ ] Repair the Fleet Manager Component lifecycle inventory-part selector so the role can link a monitored component to an existing part through a read-only, tenant-scoped reference query before the live maintenance handoff.

@@ -14,7 +14,7 @@ const emptyDraft = (): ComponentDraft => ({ vehicleId: "", inventoryPartId: "", 
 export function ComponentLifecycleWorkspace() {
   const utils = trpc.useUtils();
   const vehicles = trpc.vehicles.list.useQuery(undefined, { retry: false });
-  const inventory = trpc.inventory.list.useQuery(undefined, { retry: false });
+  const inventory = trpc.inventory.references.useQuery(undefined, { retry: false });
   const components = trpc.components.list.useQuery(undefined, { retry: false });
   const [draft, setDraft] = useState<ComponentDraft>(emptyDraft);
   const set = (next: Partial<ComponentDraft>) => setDraft({ ...draft, ...next });
