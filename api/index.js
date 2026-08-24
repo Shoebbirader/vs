@@ -436,10 +436,13 @@ var systemRouter = router({
 
 // server/supabase.ts
 var import_supabase_js = require("@supabase/supabase-js");
+var import_jose = require("jose");
 var supabaseUrl = process.env.SUPABASE_URL;
 var serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 var authSupabaseUrl = supabaseUrl ?? process.env.VITE_SUPABASE_URL;
 var authAnonKey = process.env.SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY ?? serviceRoleKey;
+var authIssuer = authSupabaseUrl ? `${authSupabaseUrl.replace(/\/$/, "")}/auth/v1` : null;
+var supabaseJwks = authIssuer ? (0, import_jose.createRemoteJWKSet)(new URL(`${authIssuer}/.well-known/jwks.json`)) : null;
 if (!supabaseUrl || !serviceRoleKey) {
   console.warn("[Supabase] SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is not configured");
 }
@@ -464,6 +467,17 @@ async function getSupabaseAuthIdentity(req) {
   if (!token) {
     console.warn("[Supabase] No bearer token on protected request", { path: req?.path ?? req?.url ?? "unknown" });
     return null;
+  }
+  if (supabaseJwks && authIssuer) {
+    try {
+      const { payload } = await (0, import_jose.jwtVerify)(token, supabaseJwks, { issuer: authIssuer, audience: "authenticated", algorithms: ["ES256"] });
+      if (typeof payload.sub === "string" && payload.sub.length > 0) {
+        const userMetadata = payload.user_metadata && typeof payload.user_metadata === "object" && !Array.isArray(payload.user_metadata) ? payload.user_metadata : {};
+        return { id: payload.sub, email: typeof payload.email === "string" ? payload.email : null, user_metadata: userMetadata };
+      }
+    } catch (error2) {
+      console.warn("[Supabase] Public-key bearer verification failed", { path: req?.path ?? req?.url ?? "unknown", reason: error2 instanceof Error ? error2.message : "verification_failed" });
+    }
   }
   const { data, error } = await supabaseAuth.auth.getUser(token);
   if (error || !data.user) {
