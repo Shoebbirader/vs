@@ -13,11 +13,13 @@ describe("Supabase session recovery", () => {
     expect(authHook).toContain("result.error || !result.data.session");
   });
 
-  it("starts password login from a clean browser-local session", () => {
+  it("preserves a successful password-grant session instead of clearing it during login", () => {
     expect(authHook).toContain("const signInWithEmail = async");
-    expect(authHook).toContain('await supabase.auth.signOut({ scope: "local" });');
     expect(authHook).toContain('email: email.trim()');
     expect(authHook).toContain("signInWithPassword");
+    expect(authHook).toContain("setSession(result.data.session)");
+    expect(authHook).toContain("setUser(result.data.session.user)");
+    expect(authHook).toContain("remove the newly-issued session");
   });
 
   it("does not retry protected tRPC traffic with a stale token after refresh failure", () => {

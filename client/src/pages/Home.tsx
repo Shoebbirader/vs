@@ -194,10 +194,9 @@ export default function Home({ initialSection = "Command center", publicMode = "
     const { data, error } = await signInWithEmail(authEmail, authPassword);
     if (error) setAuthError(describeAuthError(error, "sign-in"));
     else if (!data.session) setAuthError("Supabase did not return an active session. Please try signing in again.");
-    else {
-      const refreshed = await refreshSession();
-      if (refreshed.error) setAuthError(`Session setup failed: ${describeAuthError(refreshed.error, "sign-in")}`);
-    }
+    // The password grant already supplies the active session. A refresh is
+    // only appropriate for an existing session recovery, not immediately after
+    // sign-in where it can race storage/event propagation in the browser.
     setAuthSubmitting(false);
   };
   const handleRecoveryRequest = async (event: React.FormEvent) => {
