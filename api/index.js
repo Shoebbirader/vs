@@ -441,7 +441,7 @@ var serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 var authSupabaseUrl = supabaseUrl ?? process.env.VITE_SUPABASE_URL;
 var authAnonKey = process.env.SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY ?? serviceRoleKey;
 var authIssuer = authSupabaseUrl ? `${authSupabaseUrl.replace(/\/$/, "")}/auth/v1` : null;
-var supabaseJwks = null;
+var supabaseJwks = /* @__PURE__ */ new Map();
 if (!supabaseUrl || !serviceRoleKey) {
   console.warn("[Supabase] SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is not configured");
 }
@@ -461,17 +461,30 @@ function getBearerToken(req) {
   const cookieToken = req?.cookies?.["sb-access-token"] ?? req?.cookies?.["supabase-auth-token"];
   return typeof cookieToken === "string" ? cookieToken : null;
 }
+function getCandidateSupabaseIssuer(token) {
+  try {
+    const payload = JSON.parse(Buffer.from(token.split(".")[1] ?? "", "base64url").toString("utf8"));
+    if (typeof payload.iss !== "string") return null;
+    const url = new URL(payload.iss);
+    if (url.protocol !== "https:" || !url.hostname.endsWith(".supabase.co") || url.pathname !== "/auth/v1" || url.search || url.hash) return null;
+    return url.toString().replace(/\/$/, "");
+  } catch {
+    return null;
+  }
+}
 async function getSupabaseAuthIdentity(req) {
   const token = getBearerToken(req);
   if (!token) {
     console.warn("[Supabase] No bearer token on protected request", { path: req?.path ?? req?.url ?? "unknown" });
     return null;
   }
-  if (authIssuer) {
+  const tokenIssuer = getCandidateSupabaseIssuer(token) ?? authIssuer;
+  if (tokenIssuer) {
     try {
       const { createRemoteJWKSet, jwtVerify } = await import("jose");
-      supabaseJwks ??= createRemoteJWKSet(new URL(`${authIssuer}/.well-known/jwks.json`));
-      const { payload } = await jwtVerify(token, supabaseJwks, { issuer: authIssuer, audience: "authenticated", algorithms: ["ES256"] });
+      const jwks = supabaseJwks.get(tokenIssuer) ?? createRemoteJWKSet(new URL(`${tokenIssuer}/.well-known/jwks.json`));
+      supabaseJwks.set(tokenIssuer, jwks);
+      const { payload } = await jwtVerify(token, jwks, { issuer: tokenIssuer, audience: "authenticated", algorithms: ["ES256"] });
       if (typeof payload.sub === "string" && payload.sub.length > 0) {
         const userMetadata = payload.user_metadata && typeof payload.user_metadata === "object" && !Array.isArray(payload.user_metadata) ? payload.user_metadata : {};
         return { id: payload.sub, email: typeof payload.email === "string" ? payload.email : null, user_metadata: userMetadata };
