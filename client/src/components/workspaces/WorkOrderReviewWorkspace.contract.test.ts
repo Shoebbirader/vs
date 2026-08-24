@@ -7,6 +7,6 @@ describe("Fleet Manager work-order review surface", () => {
     const source = readFileSync(resolve(process.cwd(), "client/src/components/workspaces/WorkOrderReviewWorkspace.tsx"), "utf8");
     expect(source).toContain('order.status === "READY_FOR_REVIEW"');
     expect(source).toContain("trpc.workOrders.approve.useMutation");
-    expect(source).toContain("Approve completed work");
+    expect(source).toContain("Approve handoff");
   });
 });

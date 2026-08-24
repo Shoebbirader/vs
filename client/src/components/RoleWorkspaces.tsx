@@ -22,15 +22,15 @@ const roleJourneys: Record<Role, string[]> = {
 function RoleHeader({ role, organizationName, title, subtitle, icon: Icon }: Props & { title: string; subtitle: string; icon: typeof Activity }) {
   const roleLabel = role === "SUPERADMIN" ? "Superadmin / Owner" : role.replaceAll("_", " ");
   const journey = roleJourneys[role];
-  return <div className={`role-workspace-header role-${role.toLowerCase()}`}><div><div className="eyebrow"><span className="eyebrow-line" /> {roleLabel} workspace · {organizationName ?? "Loading organization…"}</div><h1>{title}<span className="accent-dot">.</span></h1><p className="hero-copy">{subtitle}</p></div><div className="role-header-side"><div className="role-workspace-badge"><Icon size={18} /><span>Organization connected</span><small>Tenant-scoped data</small></div><div className="role-journey" aria-label={`${roleLabel} workflow`}><span className="role-journey-label">Operating rhythm</span><div>{journey.map((step, index) => <span key={step} className={index === 0 ? "active" : ""}><b>{String(index + 1).padStart(2, "0")}</b>{step}</span>)}</div></div></div></div>;
+  return <header className={`replacement-role-hero replacement-role-${role.toLowerCase()}`}><div className="replacement-role-heading"><span>{roleLabel} · {organizationName ?? "Loading organization…"}</span><h1>{title}<em>.</em></h1><p>{subtitle}</p></div><div className="replacement-role-rail"><div className="replacement-role-connection"><Icon size={18} /><div><strong>Organization connected</strong><small>Tenant-scoped workspace</small></div></div><div className="replacement-role-journey" aria-label={`${roleLabel} workflow`}>{journey.map((step, index) => <span key={step} className={index === 0 ? "is-current" : ""}><b>{String(index + 1).padStart(2, "0")}</b>{step}</span>)}</div></div></header>;
 }
 
 function Kpi({ label, value, detail, tone = "orange" }: { label: string; value: string; detail: string; tone?: "orange" | "green" | "blue" | "red" }) {
-  return <article className={`workspace-kpi ${tone}`}><div className="workspace-kpi-top"><span>{label}</span><i className="workspace-kpi-pulse" aria-hidden="true" /></div><strong>{value}</strong><small>{detail}</small></article>;
+  return <article className={`replacement-role-kpi is-${tone}`}><div><span>{label}</span><i aria-hidden="true" /></div><strong>{value}</strong><small>{detail}</small></article>;
 }
 
 function Panel({ kicker, title, children, action }: { kicker: string; title: string; children: React.ReactNode; action?: React.ReactNode }) {
-  return <section className="panel role-panel"><div className="panel-heading"><div><div className="panel-kicker">{kicker}</div><h2>{title}</h2></div>{action}</div>{children}</section>;
+  return <section className="replacement-role-panel"><header><div><span>{kicker}</span><h2>{title}</h2></div>{action ? <div className="replacement-role-panel-action">{action}</div> : null}</header><div className="replacement-role-panel-content">{children}</div></section>;
 }
 
 function Empty({ text }: { text: string }) { return <div className="workspace-state">{text}</div>; }

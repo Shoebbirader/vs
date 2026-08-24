@@ -43,6 +43,7 @@ import { useFleetOpsAuth } from "@/hooks/useFleetOpsAuth";
 import { useFleetOpsRealtime } from "@/hooks/useFleetOpsRealtime";
 import FunctionalWorkspace from "@/components/FunctionalWorkspace";
 import OrganizationOnboarding from "@/components/OrganizationOnboarding";
+import { CommandDeck, OperationsFrame, type CommandVehicle } from "@/components/operations/OperationsFrame";
 import { roleNavAccess } from "@/workspaceAccess";
 import LandingPage from "@/pages/LandingPage";
 
@@ -289,6 +290,63 @@ export default function Home({ initialSection = "Command center", publicMode = "
     setActiveNav("Command center");
   };
 
+  const replacementVehicles: CommandVehicle[] = persistedVehicles.map((vehicle) => ({
+    id: vehicle.id,
+    identity: vehicle.identity,
+    name: vehicle.name,
+    status: vehicle.status,
+    odo: vehicle.odo,
+    service: vehicle.service,
+    tone: vehicle.tone === "good" ? "good" : "warn",
+  }));
+
+  const replacementContent = activeNav === "Command center" ? (
+    <CommandDeck
+      operatorName={operatorName}
+      activeVehicles={activeVehicleCount}
+      vehicleCount={vehicleCount}
+      unreadCount={unreadNotificationCount}
+      lowStockCount={lowStockCount}
+      expenseTotal={formatInr(expenseTotal)}
+      orders={persistedOrders}
+      vehicles={replacementVehicles}
+      commandOpen={quickFindOpen}
+      query={query}
+      commandResults={quickFindResults}
+      onQuery={setQuery}
+      onCloseCommand={() => { setQuickFindOpen(false); setQuery(""); }}
+      onSelect={setActiveNav}
+      onCompleteOrder={completeOrder}
+    />
+  ) : (
+    <section className="replacement-workspace-host">
+      <FunctionalWorkspace section={activeNav} session={Boolean(session)} organizationName={organizationName || undefined} onBack={() => setActiveNav(allowedNavLabels[0] ?? "Command center")} />
+    </section>
+  );
+
+  return (
+    <OperationsFrame
+      activeNav={activeNav}
+      items={allowedNavItems}
+      roleLabel={roleDescriptor[currentRole] ?? "Operations workspace"}
+      organizationLabel={organizationLabel}
+      organizationInitials={organizationInitials}
+      vehicleCount={vehicleCount}
+      operatorName={operatorName}
+      operatorInitials={operatorInitials}
+      unreadCount={unreadNotificationCount}
+      showMobileNav={showMobileNav}
+      onToggleMobileNav={() => setShowMobileNav((open) => !open)}
+      onCloseMobileNav={() => setShowMobileNav(false)}
+      onSelect={setActiveNav}
+      onSignOut={() => void handleSignOut()}
+      onToggleCommand={() => { setQuickFindOpen((open) => !open); setQuery(""); }}
+    >
+      {replacementContent}
+    </OperationsFrame>
+  );
+
+  /* Legacy dashboard presentation retired for the frontend replacement.
   if (activeNav !== "Command center") return <div className="app-shell"><aside className={`sidebar ${showMobileNav ? "mobile-open" : ""}`}><div className="brand-lockup"><div className="brand-mark" aria-hidden="true"><Route className="brand-mark-route" size={20} strokeWidth={2.4} /></div><div><div className="brand-name">VahanSync</div><div className="brand-tag">Fleet intelligence for India’s operators</div></div><button className="mobile-close" onClick={() => setShowMobileNav(false)} aria-label="Close navigation"><X size={18} /></button></div><div className="org-switcher"><div className="org-avatar">{organizationInitials}</div><div className="org-copy"><strong>{organizationLabel}</strong><span>{vehicleCount} vehicles · Supabase</span></div><ChevronDown size={15} /></div><div className="sidebar-scope"><span className="scope-dot" /> {roleDescriptor[currentRole] ?? "Operations workspace"}</div><WorkspaceNav items={allowedNavItems as typeof navItems} activeNav={activeNav} onSelect={setActiveNav} onClose={() => setShowMobileNav(false)} /></aside><main className="main-canvas"><header className="topbar"><div className="breadcrumb"><span>{organizationLabel}</span><span>/</span><strong>{activeNav}</strong></div><div className="topbar-actions"><button className="role-select" onClick={handleSignOut}>{session ? "Sign out" : "Sign in"}</button></div></header><section className="page-content"><FunctionalWorkspace section={activeNav} session={Boolean(session)} organizationName={organizationName || undefined} onBack={() => setActiveNav(allowedNavLabels[0] ?? "Command center")} /></section></main></div>;
 
   return (
@@ -325,4 +383,5 @@ export default function Home({ initialSection = "Command center", publicMode = "
       </main>
     </div>
   );
+  */
 }

@@ -8,7 +8,7 @@ const marketing = readFileSync("client/src/pages/MarketingPages.tsx", "utf8");
 const team = readFileSync("client/src/components/workspaces/TeamWorkspace.tsx", "utf8");
 const driver = readFileSync("client/src/components/workspaces/DriverWorkspace.tsx", "utf8");
 const accountant = readFileSync("client/src/components/workspaces/AccountantWorkspace.tsx", "utf8");
-const styles = readFileSync("client/src/index.css", "utf8");
+const styles = `${readFileSync("client/src/index.css", "utf8")}\n${readFileSync("client/src/frontend-replacement.css", "utf8")}`;
 
 describe("VahanSync 2026 workspace UI contract", () => {
   it("gives every role a distinct header and surface class", () => {
@@ -16,8 +16,8 @@ describe("VahanSync 2026 workspace UI contract", () => {
     for (const surface of ["role-superadmin-surface", "role-fleet-manager-surface", "role-inventory-manager-surface", "role-${role.toLowerCase()}-surface", "role-driver-surface", "role-accountant-surface"]) {
       expect(roleWorkspaces).toContain(surface);
     }
-    expect(roleWorkspaces).toContain("workspace-kpi-top");
-    expect(roleWorkspaces).toContain("workspace-kpi-pulse");
+    expect(roleWorkspaces).toContain("replacement-role-kpi");
+    expect(roleWorkspaces).toContain("replacement-role-hero");
   });
 
   it("creates a stable section class for every authenticated functional page", () => {
@@ -31,7 +31,7 @@ describe("VahanSync 2026 workspace UI contract", () => {
   });
 
   it("defines modern page-specific surfaces and accessible motion behavior", () => {
-    for (const selector of [".workspace-page-header", ".workspace-kpi-top", ".workspace-kpi-pulse", ".functional-workspace.vehicles", ".functional-workspace.work-orders", ".functional-workspace.inventory", ".functional-workspace.billing", "prefers-reduced-motion", ".marketing-footer", ".workspace-nav", ".nav-group", ".brand-mark-route", ".workspace-header-foot", ".role-journey"]) {
+    for (const selector of [".replacement-role-hero", ".replacement-role-kpi", ".replacement-vehicle-grid", ".replacement-component-grid", ".functional-workspace.vehicles", ".functional-workspace.work-orders", ".functional-workspace.inventory", ".functional-workspace.billing", "prefers-reduced-motion", ".marketing-footer", ".workspace-nav", ".nav-group", ".brand-mark-route", ".workspace-header-foot", ".role-journey"]) {
       expect(styles).toContain(selector);
     }
   });
@@ -39,7 +39,7 @@ describe("VahanSync 2026 workspace UI contract", () => {
   it("keeps role-aware command surfaces and identity language singular", () => {
     expect(home).toContain("const navGroups");
     expect(home).toContain("roleDescriptor");
-    expect(home).toContain("WorkspaceNav");
+    expect(home).toContain("OperationsFrame");
     expect(home).toContain("brand-mark-route");
     expect(marketing).toContain("brand-mark-route");
     expect(marketing).not.toContain("brand-mark-glyph");
