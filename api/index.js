@@ -1288,15 +1288,15 @@ var appRouter = router({
         fleetDb.workOrder.findMany({ where: { orgId: ctx.fleetopsUser.orgId, status: { in: ["OPEN", "IN_PROGRESS", "WAITING_FOR_PARTS", "READY_FOR_REVIEW", "REWORK"] } }, include: { vehicle: true, assignedMechanic: true }, orderBy: { updatedAt: "desc" } })
       ]);
       const items = [
-        ...vehicles2.flatMap((vehicle) => (vehicle.components ?? []).filter((component) => Number(vehicle.currentOdometer) - Number(component.lastServicedOdometer) >= Number(component.alertThresholdKm)).map((component) => ({ id: component.id, kind: "COMPONENT_DUE", title: `${component.name} service due`, vehicleId: vehicle.id, vehicleLabel: vehicle.licensePlate, dueDate: /* @__PURE__ */ new Date(), priority: "HIGH", detail: `${Math.max(0, Number(vehicle.currentOdometer) - Number(component.lastServicedOdometer)).toLocaleString("en-IN")} km since last service`, sourceId: component.id }))),
+        ...vehicles2.flatMap((vehicle) => (vehicle.components ?? []).filter((component) => Number(vehicle.currentOdometer) - Number(component.lastServicedOdometer) >= Number(component.alertThresholdKm)).map((component) => ({ id: component.id, kind: "COMPONENT_DUE", title: `${component.name} service due`, vehicleId: vehicle.id, vehicleLabel: vehicleIdentity(vehicle), dueDate: /* @__PURE__ */ new Date(), priority: "HIGH", detail: `${Math.max(0, Number(vehicle.currentOdometer) - Number(component.lastServicedOdometer)).toLocaleString("en-IN")} km since last service`, sourceId: component.id }))),
         ...documents2.filter((document) => {
           const due = new Date(document.expiryDate);
           return due >= from && due <= to;
-        }).map((document) => ({ id: document.id, kind: "DOCUMENT_EXPIRY", title: `${document.title} expires`, vehicleId: document.vehicleId ?? null, vehicleLabel: document.vehicle?.licensePlate ?? "Organization document", dueDate: new Date(document.expiryDate), priority: new Date(document.expiryDate).getTime() < Date.now() + 30 * 864e5 ? "CRITICAL" : "MEDIUM", detail: `${document.docType ?? "Document"} renewal required`, sourceId: document.id })),
+        }).map((document) => ({ id: document.id, kind: "DOCUMENT_EXPIRY", title: `${document.title} expires`, vehicleId: document.vehicleId ?? null, vehicleLabel: document.vehicle ? vehicleIdentity(document.vehicle) : "Organization document", dueDate: new Date(document.expiryDate), priority: new Date(document.expiryDate).getTime() < Date.now() + 30 * 864e5 ? "CRITICAL" : "MEDIUM", detail: `${document.docType ?? "Document"} renewal required`, sourceId: document.id })),
         ...workOrders2.filter((order) => {
           const due = new Date(order.updatedAt ?? order.createdAt);
           return due >= from && due <= to;
-        }).map((order) => ({ id: order.id, kind: "WORK_ORDER", title: order.title, vehicleId: order.vehicleId, vehicleLabel: order.vehicle?.licensePlate ?? order.vehicleId, dueDate: new Date(order.updatedAt ?? order.createdAt), priority: order.priority, detail: `${order.status} \xB7 ${order.assignedMechanic?.fullName ?? "Unassigned"}`, sourceId: order.id }))
+        }).map((order) => ({ id: order.id, kind: "WORK_ORDER", title: order.title, vehicleId: order.vehicleId, vehicleLabel: order.vehicle ? vehicleIdentity(order.vehicle) : order.vehicleId, dueDate: new Date(order.updatedAt ?? order.createdAt), priority: order.priority, detail: `${order.status} \xB7 ${order.assignedMechanic?.fullName ?? "Unassigned"}`, sourceId: order.id }))
       ].sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
       return { from, to, items, counts: { total: items.length, components: items.filter((item) => item.kind === "COMPONENT_DUE").length, documents: items.filter((item) => item.kind === "DOCUMENT_EXPIRY").length, workOrders: items.filter((item) => item.kind === "WORK_ORDER").length } };
     })
@@ -1325,7 +1325,7 @@ var appRouter = router({
         if (list.length < 20) list.push(event);
         eventsByOrder.set(event.entityId, list);
       }
-      return orders.map((order) => ({ workOrderId: order.id, title: order.title, vehicle: order.vehicle?.licensePlate ?? order.vehicleId, status: order.status, priority: order.priority, assignedMechanic: order.assignedMechanic?.fullName ?? "Unassigned", updatedAt: order.updatedAt, activity: eventsByOrder.get(order.id) ?? [] }));
+      return orders.map((order) => ({ workOrderId: order.id, title: order.title, vehicle: order.vehicle ? vehicleIdentity(order.vehicle) : order.vehicleId, status: order.status, priority: order.priority, assignedMechanic: order.assignedMechanic?.fullName ?? "Unassigned", updatedAt: order.updatedAt, activity: eventsByOrder.get(order.id) ?? [] }));
     }),
     board: fleetOpsProcedure.query(async ({ ctx }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER", "MECHANIC", "TECHNICIAN"]);
@@ -1531,10 +1531,10 @@ var appRouter = router({
         const completed = await tx.workOrder.update({ where: { id: order.id }, data: { status: "READY_FOR_REVIEW", startedAt: order.startedAt ?? /* @__PURE__ */ new Date(), completedAt: null, laborHours: input.laborHours, repairNotes: input.repairNotes } });
         for (const item of uploadedEvidence) await tx.workOrderEvidence.create({ data: { id: crypto.randomUUID(), orgId: ctx.fleetopsUser.orgId, workOrderId: order.id, uploadedById: ctx.fleetopsUser.id, fileUrl: item.uploaded.url, ...item.uploaded.key ? { fileKey: item.uploaded.key } : {}, ...item.caption ? { caption: item.caption } : {}, createdAt: /* @__PURE__ */ new Date() } });
         const approvers = await tx.user.findMany({ where: { orgId: ctx.fleetopsUser.orgId, role: { in: ["SUPERADMIN", "FLEET_MANAGER"] } } });
-        if (approvers.length) await tx.notification.createMany({ data: approvers.map((approver) => ({ id: crypto.randomUUID(), orgId: ctx.fleetopsUser.orgId, recipientId: approver.id, title: "Work order ready for review", message: `${order.vehicle?.licensePlate ?? order.vehicleId} repair is ready for approval. Parts cost: \u20B9${partsCost.toLocaleString("en-IN")}.`, type: "WORK_ORDER_REVIEW", severity: "HIGH", sourceType: "WORK_ORDER", dedupeKey: `WORK_ORDER_REVIEW:${order.id}:${approver.id}`, referenceId: order.id, isRead: false, createdAt: /* @__PURE__ */ new Date() })) });
+        if (approvers.length) await tx.notification.createMany({ data: approvers.map((approver) => ({ id: crypto.randomUUID(), orgId: ctx.fleetopsUser.orgId, recipientId: approver.id, title: "Work order ready for review", message: `${order.vehicle ? vehicleIdentity(order.vehicle) : order.vehicleId} repair is ready for approval. Parts cost: \u20B9${partsCost.toLocaleString("en-IN")}.`, type: "WORK_ORDER_REVIEW", severity: "HIGH", sourceType: "WORK_ORDER", dedupeKey: `WORK_ORDER_REVIEW:${order.id}:${approver.id}`, referenceId: order.id, isRead: false, createdAt: /* @__PURE__ */ new Date() })) });
         return { completed, partsCost };
       });
-      await recordAudit(ctx, { action: "WORK_ORDER_READY_FOR_REVIEW", entityType: "WORK_ORDER", entityId: order.id, summary: `Work order ready for review for ${order.vehicle?.licensePlate ?? order.vehicleId}`, metadata: { partsCost: result.partsCost, laborHours: input.laborHours, evidenceCount: input.evidence.length } });
+      await recordAudit(ctx, { action: "WORK_ORDER_READY_FOR_REVIEW", entityType: "WORK_ORDER", entityId: order.id, summary: `Work order ready for review for ${order.vehicle ? vehicleIdentity(order.vehicle) : order.vehicleId}`, metadata: { partsCost: result.partsCost, laborHours: input.laborHours, evidenceCount: input.evidence.length } });
       await evaluateLowInventory(ctx.fleetopsUser.orgId);
       return result;
     }),
@@ -1805,8 +1805,8 @@ var appRouter = router({
       const nextStatus = input.disposition === "UNSAFE_TO_DRIVE" ? "OUT_OF_SERVICE" : "ACTIVE";
       const updated = await fleetDb.vehicle.update({ where: { id: vehicle.id }, data: { status: nextStatus } });
       const managers = await fleetDb.user.findMany({ where: { orgId: ctx.fleetopsUser.orgId, role: "FLEET_MANAGER" } });
-      if (managers.length) await fleetDb.notification.createMany({ data: managers.map((manager) => ({ id: crypto.randomUUID(), orgId: ctx.fleetopsUser.orgId, recipientId: manager.id, title: input.disposition === "UNSAFE_TO_DRIVE" ? "Driver marked vehicle unsafe" : "Driver cleared vehicle", message: `${vehicle.licensePlate}: ${input.notes}`, type: "DRIVER_SAFETY_DISPOSITION", severity: input.disposition === "UNSAFE_TO_DRIVE" ? "CRITICAL" : "INFO", sourceType: "VEHICLE", dedupeKey: `DRIVER_SAFETY:${vehicle.id}:${input.disposition}`, referenceId: vehicle.id, isRead: false, createdAt: /* @__PURE__ */ new Date(), updatedAt: /* @__PURE__ */ new Date() })) });
-      await recordAudit(ctx, { action: "DRIVER_SAFETY_DISPOSITION", entityType: "VEHICLE", entityId: vehicle.id, summary: `${vehicle.licensePlate} marked ${input.disposition}`, metadata: { disposition: input.disposition, notes: input.notes } });
+      if (managers.length) await fleetDb.notification.createMany({ data: managers.map((manager) => ({ id: crypto.randomUUID(), orgId: ctx.fleetopsUser.orgId, recipientId: manager.id, title: input.disposition === "UNSAFE_TO_DRIVE" ? "Driver marked vehicle unsafe" : "Driver cleared vehicle", message: `${vehicleIdentity(vehicle)}: ${input.notes}`, type: "DRIVER_SAFETY_DISPOSITION", severity: input.disposition === "UNSAFE_TO_DRIVE" ? "CRITICAL" : "INFO", sourceType: "VEHICLE", dedupeKey: `DRIVER_SAFETY:${vehicle.id}:${input.disposition}`, referenceId: vehicle.id, isRead: false, createdAt: /* @__PURE__ */ new Date(), updatedAt: /* @__PURE__ */ new Date() })) });
+      await recordAudit(ctx, { action: "DRIVER_SAFETY_DISPOSITION", entityType: "VEHICLE", entityId: vehicle.id, summary: `${vehicleIdentity(vehicle)} marked ${input.disposition}`, metadata: { disposition: input.disposition, notes: input.notes } });
       return updated;
     })
   }),
@@ -1894,9 +1894,9 @@ var appRouter = router({
         }
       }
       const withState = (item, kind) => ({ ...item, triageState: triageState.get(`${kind}:${item.referenceId}`) ?? null });
-      const issueItems = issues.map((item) => withState({ id: item.id, kind: "VEHICLE_ISSUE", title: item.title, subtitle: `${item.vehicle?.licensePlate ?? item.vehicleId} \xB7 Driver issue`, priority: item.priority, status: item.status, createdAt: item.createdAt, referenceId: item.id, actionable: true }, "VEHICLE_ISSUE"));
-      const orderItems = orders.map((item) => withState({ id: item.id, kind: "WORK_ORDER", title: item.title, subtitle: `${item.vehicle?.licensePlate ?? item.vehicleId} \xB7 ${item.assignedMechanic?.fullName ?? "Unassigned"}`, priority: item.priority, status: item.status, createdAt: item.createdAt, referenceId: item.id, actionable: true }, "WORK_ORDER"));
-      const documentItems = documents2.map((item) => withState({ id: item.id, kind: "DOCUMENT", title: item.title, subtitle: `${item.vehicle?.licensePlate ?? "Organization document"} \xB7 expires ${new Date(item.expiryDate).toLocaleDateString("en-IN")}`, priority: new Date(item.expiryDate) < /* @__PURE__ */ new Date() ? "CRITICAL" : "HIGH", status: "REVIEW", createdAt: item.createdAt, referenceId: item.id, actionable: true }, "DOCUMENT"));
+      const issueItems = issues.map((item) => withState({ id: item.id, kind: "VEHICLE_ISSUE", title: item.title, subtitle: `${item.vehicle ? vehicleIdentity(item.vehicle) : item.vehicleId} \xB7 Driver issue`, priority: item.priority, status: item.status, createdAt: item.createdAt, referenceId: item.id, actionable: true }, "VEHICLE_ISSUE"));
+      const orderItems = orders.map((item) => withState({ id: item.id, kind: "WORK_ORDER", title: item.title, subtitle: `${item.vehicle ? vehicleIdentity(item.vehicle) : item.vehicleId} \xB7 ${item.assignedMechanic?.fullName ?? "Unassigned"}`, priority: item.priority, status: item.status, createdAt: item.createdAt, referenceId: item.id, actionable: true }, "WORK_ORDER"));
+      const documentItems = documents2.map((item) => withState({ id: item.id, kind: "DOCUMENT", title: item.title, subtitle: `${item.vehicle ? vehicleIdentity(item.vehicle) : "Organization document"} \xB7 expires ${new Date(item.expiryDate).toLocaleDateString("en-IN")}`, priority: new Date(item.expiryDate) < /* @__PURE__ */ new Date() ? "CRITICAL" : "HIGH", status: "REVIEW", createdAt: item.createdAt, referenceId: item.id, actionable: true }, "DOCUMENT"));
       const lowStockItems = parts.filter((item) => Number(item.quantityOnHand) <= Number(item.minReorderLevel)).map((item) => withState({ id: item.id, kind: "LOW_STOCK", title: `${item.sku} \xB7 ${item.name}`, subtitle: `${item.quantityOnHand} on hand \xB7 reorder at ${item.minReorderLevel}`, priority: "HIGH", status: "REORDER", createdAt: item.updatedAt ?? item.createdAt, referenceId: item.id, actionable: true }, "LOW_STOCK"));
       return [...issueItems, ...orderItems, ...documentItems, ...lowStockItems].filter((item) => !["DEFERRED", "RESOLVED"].includes(String(item.triageState).split(":")[0])).sort((a, b) => {
         const rank = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
@@ -2039,7 +2039,7 @@ var appRouter = router({
       const closed = conflicting.filter((item) => item.driverId === input.driverId || item.vehicleId === input.vehicleId);
       await Promise.all(closed.map((item) => fleetDb.vehicleAssignment.update({ where: { id: item.id }, data: { active: false } })));
       const assignment = await fleetDb.vehicleAssignment.create({ data: { id: crypto.randomUUID(), orgId: ctx.fleetopsUser.orgId, vehicleId: input.vehicleId, driverId: input.driverId, active: input.active, createdAt: /* @__PURE__ */ new Date(), updatedAt: /* @__PURE__ */ new Date() } });
-      await recordAudit(ctx, { action: closed.length ? "VEHICLE_REASSIGNED" : "VEHICLE_ASSIGNED", entityType: "VEHICLE_ASSIGNMENT", entityId: assignment.id, summary: `${closed.length ? "Reassigned" : "Assigned"} ${vehicle.licensePlate} to ${driver.fullName}`, metadata: { vehicleId: input.vehicleId, driverId: input.driverId, active: input.active, closedAssignmentIds: closed.map((item) => item.id) } });
+      await recordAudit(ctx, { action: closed.length ? "VEHICLE_REASSIGNED" : "VEHICLE_ASSIGNED", entityType: "VEHICLE_ASSIGNMENT", entityId: assignment.id, summary: `${closed.length ? "Reassigned" : "Assigned"} ${vehicleIdentity(vehicle)} to ${driver.fullName}`, metadata: { vehicleId: input.vehicleId, driverId: input.driverId, active: input.active, closedAssignmentIds: closed.map((item) => item.id) } });
       return { ...assignment, closedAssignments: closed.length };
     })
   }),
@@ -2161,18 +2161,18 @@ var appRouter = router({
       const [documentRows, vehicles2] = await Promise.all([fleetDb.document.findMany({ where: { orgId: ctx.fleetopsUser.orgId, archivedAt: null }, orderBy: { expiryDate: "asc" } }), fleetDb.vehicle.findMany({ where: { orgId: ctx.fleetopsUser.orgId } })]);
       const vehicleById = new Map(vehicles2.map((vehicle) => [vehicle.id, vehicle]));
       const rows = documentRows.map((row) => ({ ...row, vehicle: row.vehicleId ? vehicleById.get(row.vehicleId) ?? null : null }));
-      const content = simplePdf("FleetOps Compliance Register", [`Organization: ${ctx.fleetopsUser.org.name}`, `Generated: ${(/* @__PURE__ */ new Date()).toLocaleDateString("en-IN")}`, `Documents: ${rows.length}`, ...rows.map((row) => `${row.title} | ${row.docType} | ${row.vehicle?.licensePlate ?? "Organization"} | expires ${new Date(row.expiryDate).toLocaleDateString("en-IN")}`)]);
+      const content = simplePdf("VahanSync Compliance Register", [`Organization: ${ctx.fleetopsUser.org.name}`, `Generated: ${(/* @__PURE__ */ new Date()).toLocaleDateString("en-IN")}`, `Documents: ${rows.length}`, ...rows.map((row) => `${row.title} | ${row.docType} | ${row.vehicle ? vehicleIdentity(row.vehicle) : "Organization"} | expires ${new Date(row.expiryDate).toLocaleDateString("en-IN")}`)]);
       await recordAudit(ctx, { action: "DOCUMENT_EXPORT_PDF", entityType: "DOCUMENT", summary: `Exported compliance PDF with ${rows.length} documents`, metadata: { count: rows.length } });
-      return { filename: `fleetops-compliance-${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}.pdf`, content, rowCount: rows.length };
+      return { filename: `vahansync-compliance-${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}.pdf`, content, rowCount: rows.length };
     }),
     exportCsv: fleetOpsProcedure.query(async ({ ctx }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER"]);
       const [documentRows, vehicles2] = await Promise.all([fleetDb.document.findMany({ where: { orgId: ctx.fleetopsUser.orgId, archivedAt: null }, orderBy: { expiryDate: "asc" } }), fleetDb.vehicle.findMany({ where: { orgId: ctx.fleetopsUser.orgId } })]);
       const vehicleById = new Map(vehicles2.map((vehicle) => [vehicle.id, vehicle]));
       const rows = documentRows.map((row) => ({ ...row, vehicle: row.vehicleId ? vehicleById.get(row.vehicleId) ?? null : null }));
-      const csv = csvDocument(rows.map((row) => ({ title: row.title, docType: row.docType, vehicle: row.vehicle?.licensePlate ?? "Organization", expiryDate: new Date(row.expiryDate).toISOString().slice(0, 10), fileStatus: row.fileKey ? "STORED" : "MISSING" })), ["title", "docType", "vehicle", "expiryDate", "fileStatus"]);
+      const csv = csvDocument(rows.map((row) => ({ title: row.title, docType: row.docType, vehicle: row.vehicle ? vehicleIdentity(row.vehicle) : "Organization", expiryDate: new Date(row.expiryDate).toISOString().slice(0, 10), fileStatus: row.fileKey ? "STORED" : "MISSING" })), ["title", "docType", "vehicle", "expiryDate", "fileStatus"]);
       await recordAudit(ctx, { action: "DOCUMENT_EXPORT_CSV", entityType: "DOCUMENT", summary: `Exported ${rows.length} compliance documents`, metadata: { count: rows.length } });
-      return { filename: `fleetops-compliance-${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}.csv`, content: csv, rowCount: rows.length };
+      return { filename: `vahansync-compliance-${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}.csv`, content: csv, rowCount: rows.length };
     }),
     previewImport: fleetOpsProcedure.input(import_zod2.z.object({ csv: import_zod2.z.string().max(1e6) })).query(({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER"]);
@@ -2303,7 +2303,7 @@ var appRouter = router({
       const repeatRepairs = Array.from(titleCounts.values()).filter((item) => item.count > 1).sort((a, b) => b.count - a.count);
       const vehicleCounts = /* @__PURE__ */ new Map();
       for (const order of completed) {
-        const item = vehicleCounts.get(order.vehicleId) ?? { vehicleId: order.vehicleId, vehicle: order.vehicle?.licensePlate ?? order.vehicleId, repairs: 0 };
+        const item = vehicleCounts.get(order.vehicleId) ?? { vehicleId: order.vehicleId, vehicle: order.vehicle ? vehicleIdentity(order.vehicle) : order.vehicleId, repairs: 0 };
         item.repairs += 1;
         vehicleCounts.set(order.vehicleId, item);
       }
@@ -2317,9 +2317,9 @@ var appRouter = router({
       const [recordRows, vehicles2] = await Promise.all([fleetDb.financialRecord.findMany({ where, orderBy: { transactionDate: "desc" } }), fleetDb.vehicle.findMany({ where: { orgId: ctx.fleetopsUser.orgId } })]);
       const vehicleById = new Map(vehicles2.map((vehicle) => [vehicle.id, vehicle]));
       const rows = recordRows.map((row) => ({ ...row, vehicle: row.vehicleId ? vehicleById.get(row.vehicleId) ?? null : null }));
-      const content = simplePdf("FleetOps INR Financial Ledger", [`Organization: ${ctx.fleetopsUser.org.name}`, `Generated: ${(/* @__PURE__ */ new Date()).toLocaleDateString("en-IN")}`, `Records: ${rows.length}`, ...rows.map((row) => `${new Date(row.transactionDate).toLocaleDateString("en-IN")} | ${row.vehicle?.licensePlate ?? row.vehicleId} | ${row.type} | ${row.category} | INR ${Number(row.amount).toFixed(2)}`)]);
+      const content = simplePdf("VahanSync INR Financial Ledger", [`Organization: ${ctx.fleetopsUser.org.name}`, `Generated: ${(/* @__PURE__ */ new Date()).toLocaleDateString("en-IN")}`, `Records: ${rows.length}`, ...rows.map((row) => `${new Date(row.transactionDate).toLocaleDateString("en-IN")} | ${row.vehicle ? vehicleIdentity(row.vehicle) : row.vehicleId} | ${row.type} | ${row.category} | INR ${Number(row.amount).toFixed(2)}`)]);
       await recordAudit(ctx, { action: "FINANCIAL_EXPORT_PDF", entityType: "FINANCIAL_RECORD", summary: `Exported financial PDF with ${rows.length} records`, metadata: { count: rows.length } });
-      return { filename: `fleetops-financial-ledger-${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}.pdf`, content, rowCount: rows.length };
+      return { filename: `vahansync-financial-ledger-${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}.pdf`, content, rowCount: rows.length };
     }),
     exportCsv: fleetOpsProcedure.input(import_zod2.z.object({ vehicleId: import_zod2.z.string().uuid().optional(), type: import_zod2.z.enum(["REVENUE", "EXPENSE"]).optional(), category: import_zod2.z.string().optional(), from: import_zod2.z.coerce.date().optional(), to: import_zod2.z.coerce.date().optional() }).optional()).query(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "ACCOUNTANT"]);
@@ -2327,9 +2327,9 @@ var appRouter = router({
       const [recordRows, vehicles2] = await Promise.all([fleetDb.financialRecord.findMany({ where, orderBy: { transactionDate: "desc" } }), fleetDb.vehicle.findMany({ where: { orgId: ctx.fleetopsUser.orgId } })]);
       const vehicleById = new Map(vehicles2.map((vehicle) => [vehicle.id, vehicle]));
       const rows = recordRows.map((row) => ({ ...row, vehicle: row.vehicleId ? vehicleById.get(row.vehicleId) ?? null : null }));
-      const csv = csvDocument(rows.map((row) => ({ transactionDate: new Date(row.transactionDate).toISOString().slice(0, 10), vehicle: row.vehicle?.licensePlate ?? row.vehicleId, type: row.type, category: row.category, amountInr: Number(row.amount).toFixed(2) })), ["transactionDate", "vehicle", "type", "category", "amountInr"]);
+      const csv = csvDocument(rows.map((row) => ({ transactionDate: new Date(row.transactionDate).toISOString().slice(0, 10), vehicle: row.vehicle ? vehicleIdentity(row.vehicle) : row.vehicleId, type: row.type, category: row.category, amountInr: Number(row.amount).toFixed(2) })), ["transactionDate", "vehicle", "type", "category", "amountInr"]);
       await recordAudit(ctx, { action: "FINANCIAL_EXPORT_CSV", entityType: "FINANCIAL_RECORD", summary: `Exported ${rows.length} financial records`, metadata: { count: rows.length } });
-      return { filename: `fleetops-financial-ledger-${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}.csv`, content: csv, rowCount: rows.length };
+      return { filename: `vahansync-financial-ledger-${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}.csv`, content: csv, rowCount: rows.length };
     }),
     list: fleetOpsProcedure.query(async ({ ctx }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "ACCOUNTANT"]);
@@ -2347,7 +2347,7 @@ var appRouter = router({
       ]);
       const byVehicle = /* @__PURE__ */ new Map();
       const expenseBreakdown = /* @__PURE__ */ new Map();
-      for (const vehicle of vehicles2) byVehicle.set(vehicle.id, { vehicleId: vehicle.id, vehicle: vehicle.licensePlate, revenue: 0, expenses: 0, firstOdometer: null, lastOdometer: null });
+      for (const vehicle of vehicles2) byVehicle.set(vehicle.id, { vehicleId: vehicle.id, vehicle: vehicleIdentity(vehicle), revenue: 0, expenses: 0, firstOdometer: null, lastOdometer: null });
       for (const record of records) {
         const row = byVehicle.get(record.vehicleId);
         if (!row) continue;
@@ -2383,7 +2383,7 @@ var appRouter = router({
         const fuelLogged = fuelByVehicle.get(vehicle.id) ?? 0;
         const ledgerFuel = ledgerByVehicle.get(vehicle.id) ?? 0;
         const difference = Math.round((fuelLogged - ledgerFuel) * 100) / 100;
-        return { vehicleId: vehicle.id, vehicle: vehicle.licensePlate, fuelLogged, ledgerFuel, difference, status: Math.abs(difference) < 0.01 ? "MATCHED" : "MISMATCH" };
+        return { vehicleId: vehicle.id, vehicle: vehicleIdentity(vehicle), fuelLogged, ledgerFuel, difference, status: Math.abs(difference) < 0.01 ? "MATCHED" : "MISMATCH" };
       });
       return { rows, mismatches: rows.filter((row) => row.status === "MISMATCH"), totals: { fuelLogged: rows.reduce((sum, row) => sum + row.fuelLogged, 0), ledgerFuel: rows.reduce((sum, row) => sum + row.ledgerFuel, 0), difference: rows.reduce((sum, row) => sum + row.difference, 0) } };
     }),
@@ -2483,9 +2483,9 @@ var appRouter = router({
         fleetDb.odometerLog.findMany({ where: ctx.fleetopsUser.role === "DRIVER" ? { vehicle: { orgId: ctx.fleetopsUser.orgId }, driverId: ctx.fleetopsUser.id } : { vehicle: { orgId: ctx.fleetopsUser.orgId } }, include: { vehicle: true }, orderBy: { createdAt: "desc" }, take: 10 })
       ]);
       return [
-        ...orders.map((order) => ({ id: order.id, kind: "work_order", title: order.title, detail: `${order.vehicle?.licensePlate ?? order.vehicleId} \xB7 ${order.status}`, createdAt: order.createdAt })),
+        ...orders.map((order) => ({ id: order.id, kind: "work_order", title: order.title, detail: `${order.vehicle ? vehicleIdentity(order.vehicle) : order.vehicleId} \xB7 ${order.status}`, createdAt: order.createdAt })),
         ...alerts.map((alert) => ({ id: alert.id, kind: "notification", title: alert.title, detail: alert.message, createdAt: alert.createdAt })),
-        ...odometers.map((log) => ({ id: log.id, kind: "odometer", title: `Odometer updated \xB7 ${log.vehicle?.licensePlate ?? log.vehicleId}`, detail: `${Number(log.reading).toLocaleString("en-IN")} km${log.isFlagged ? " \xB7 flagged" : ""}`, createdAt: log.createdAt }))
+        ...odometers.map((log) => ({ id: log.id, kind: "odometer", title: `Odometer updated \xB7 ${log.vehicle ? vehicleIdentity(log.vehicle) : log.vehicleId}`, detail: `${Number(log.reading).toLocaleString("en-IN")} km${log.isFlagged ? " \xB7 flagged" : ""}`, createdAt: log.createdAt }))
       ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 20);
     })
   }),

@@ -13,4 +13,13 @@ describe("VIN-first vehicle identity", () => {
     const schema = readFileSync(resolve(process.cwd(), "drizzle/fleetops-schema.ts"), "utf8");
     for (const field of ["chassisNumber", "engineNumber", "vehicleType", "assignedRoute", "depotLocation", "componentType", "componentSubtype", "installationDate", "expectedLifeDays", "alertThresholdDays", "inventoryPartId", "serialNumber"]) expect(schema).toContain(field);
   });
+
+  it("uses VIN-first identity in planner, handoff, alert, and Fleet Manager signal labels", () => {
+    const router = readFileSync(resolve(process.cwd(), "server/routers.ts"), "utf8");
+    const workspace = readFileSync(resolve(process.cwd(), "client/src/components/RoleWorkspaces.tsx"), "utf8");
+    expect(router).toContain("vehicleLabel: vehicleIdentity(vehicle)");
+    expect(router).toContain("vehicle: order.vehicle ? vehicleIdentity(order.vehicle) : order.vehicleId");
+    expect(router).toContain("repair is ready for approval");
+    expect(workspace).toContain("vehicleRow ? formatVehicleIdentity(vehicleRow) : item.vehicleId");
+  });
 });

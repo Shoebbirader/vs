@@ -28,7 +28,7 @@ describe("maintenance performance report", () => {
     const result = await appRouter.createCaller(context("FLEET_MANAGER")).reports.maintenancePerformance({ from: new Date("2026-08-01"), to: new Date("2026-08-31") });
     expect(result.completedWorkOrders).toBe(1);
     expect(result.repeatRepairs).toEqual([{ title: "Brake service", count: 2 }]);
-    expect(result.vehicleRepairCounts).toEqual([{ vehicleId: "vehicle-1", vehicle: "KA-01", repairs: 1 }]);
+    expect(result.vehicleRepairCounts).toEqual([{ vehicleId: "vehicle-1", vehicle: "Reg KA-01", repairs: 1 }]);
     expect(result.turnaroundHours).toBe(2);
   });
 
@@ -36,4 +36,3 @@ describe("maintenance performance report", () => {
     await expect(appRouter.createCaller(context("DRIVER")).reports.maintenancePerformance()).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 });
-

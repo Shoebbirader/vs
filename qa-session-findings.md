@@ -31,3 +31,5 @@ This file is a QA note only; no production application code was changed during t
 - Final Team verification: VahanSync QA Lab 2026 contains 7 organization members total (1 Superadmin plus 6 invited roles) and the invitation ledger reports 0 pending, 6 accepted, 0 expired.
 - Workspace evidence captured from Vercel production: Superadmin command center, Fleet Manager, Mechanic, Technician, Driver, Inventory Manager, and Accountant.
 - QA session completed through application flows only; no direct database provisioning was used.
+
+- On 2026-08-24, a fresh isolated tenant, **VahanSync Workflow Lab 2026**, was created through the current Vercel production signup and organization-setup routes after the older QA tenant could not be reconciled with the active server database context. The new Superadmin reached the live Command center successfully and its plan panel reports **0 of 10 vehicles included**. This tenant is the safe context for the remaining role workflow verification.
