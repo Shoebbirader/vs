@@ -14,6 +14,10 @@ After reauthentication, the existing Twilio trial SMS sender was identified in t
 
 The corresponding Twilio WhatsApp trial sender was also identified and stored only in encrypted VahanSync and Vercel production configuration. The verified trial recipient must reconnect its WhatsApp test session before trial testing. No WhatsApp Content SID or production utility template exists yet, and VahanSync has not sent any SMS or WhatsApp message.
 
+After the user reported completing a renewed connection, the Twilio trial panel was refreshed and still displayed the device-linking step. No message was sent and the VahanSync delivery safety switch remains disabled.
+
+The user then explicitly approved one controlled, verified-trial-recipient connectivity attempt. Neither channel was accepted by Twilio and no provider message identifier was returned: SMS returned a provider validation response, while WhatsApp returned a Content SID requirement. The VahanSync safety switch was immediately restored to disabled. Twilio documents that WhatsApp template sends require a Content SID and approved Content Template before variables are used: https://www.twilio.com/docs/api/errors/21654. No further delivery attempts are authorized until the trial/production sender requirements and WhatsApp utility-template configuration are resolved.
+
 The application must not store Twilio credentials, account identifiers, or recipient phone numbers in source control. Before enabling live production delivery, configure encrypted server-side Twilio credentials, collect an approved sender for each channel, and ensure members have explicitly saved their phone number and channel preference. WhatsApp production notifications also require an approved utility template and recipient opt-in.
 
 Console: https://console.twilio.com/
