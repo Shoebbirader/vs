@@ -146,6 +146,17 @@ var import_server3 = require("@trpc/server");
 var import_node_crypto3 = require("node:crypto");
 var import_zod2 = require("zod");
 
+// server/profile-validation.ts
+function isIndianE164Mobile(value) {
+  return /^\+91[6-9]\d{9}$/.test(value.trim());
+}
+function normalizeIndianE164Mobile(value) {
+  const normalized = value.trim().replace(/\s/g, "");
+  if (!normalized) return null;
+  if (!isIndianE164Mobile(normalized)) throw new Error("Use an Indian mobile number in +91XXXXXXXXXX format.");
+  return normalized;
+}
+
 // shared/const.ts
 var ONE_YEAR_MS = 1e3 * 60 * 60 * 24 * 365;
 var UNAUTHED_ERR_MSG = "Please login (10001)";
@@ -238,7 +249,7 @@ var import_pg_core = require("drizzle-orm/pg-core");
 var audit = { createdAt: (0, import_pg_core.timestamp)("createdAt", { withTimezone: true }).defaultNow().notNull(), updatedAt: (0, import_pg_core.timestamp)("updatedAt", { withTimezone: true }).defaultNow().notNull() };
 var organizations = (0, import_pg_core.pgTable)("organizations", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), name: (0, import_pg_core.text)("name").notNull(), subscriptionTier: (0, import_pg_core.text)("subscriptionTier").notNull(), trialEndsAt: (0, import_pg_core.timestamp)("trialEndsAt", { withTimezone: true }).notNull(), subscriptionStartedAt: (0, import_pg_core.timestamp)("subscriptionStartedAt", { withTimezone: true }), renewalAt: (0, import_pg_core.timestamp)("renewalAt", { withTimezone: true }), paymentFailedAt: (0, import_pg_core.timestamp)("paymentFailedAt", { withTimezone: true }), billingStatus: (0, import_pg_core.text)("billingStatus").notNull().default("TRIAL"), suspendedAt: (0, import_pg_core.timestamp)("suspendedAt", { withTimezone: true }), maxVehicles: (0, import_pg_core.integer)("maxVehicles").notNull(), maxUsers: (0, import_pg_core.integer)("maxUsers").notNull(), currency: (0, import_pg_core.text)("currency").notNull(), ...audit });
 var organizationSettings = (0, import_pg_core.pgTable)("organization_settings", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), orgId: (0, import_pg_core.uuid)("orgId").notNull(), timezone: (0, import_pg_core.text)("timezone").notNull().default("Asia/Kolkata"), odometerMaxDailyKm: (0, import_pg_core.integer)("odometerMaxDailyKm").notNull().default(1e3), laborRatePerHour: (0, import_pg_core.numeric)("laborRatePerHour").notNull().default("0"), safetyContactName: (0, import_pg_core.text)("safetyContactName"), safetyContactPhone: (0, import_pg_core.text)("safetyContactPhone"), ...audit });
-var users = (0, import_pg_core.pgTable)("users", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), authUserId: (0, import_pg_core.uuid)("authUserId").notNull(), orgId: (0, import_pg_core.uuid)("orgId").notNull(), email: (0, import_pg_core.text)("email").notNull(), fullName: (0, import_pg_core.text)("fullName").notNull(), role: (0, import_pg_core.text)("role").notNull(), ...audit });
+var users = (0, import_pg_core.pgTable)("users", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), authUserId: (0, import_pg_core.uuid)("authUserId").notNull(), orgId: (0, import_pg_core.uuid)("orgId").notNull(), email: (0, import_pg_core.text)("email").notNull(), fullName: (0, import_pg_core.text)("fullName").notNull(), role: (0, import_pg_core.text)("role").notNull(), mobileNumber: (0, import_pg_core.text)("mobileNumber"), smsAlertsEnabled: (0, import_pg_core.boolean)("smsAlertsEnabled").notNull().default(false), whatsappAlertsEnabled: (0, import_pg_core.boolean)("whatsappAlertsEnabled").notNull().default(false), smsOptedInAt: (0, import_pg_core.timestamp)("smsOptedInAt", { withTimezone: true }), whatsappOptedInAt: (0, import_pg_core.timestamp)("whatsappOptedInAt", { withTimezone: true }), ...audit });
 var invitations = (0, import_pg_core.pgTable)("invitations", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), orgId: (0, import_pg_core.uuid)("orgId").notNull(), email: (0, import_pg_core.text)("email").notNull(), role: (0, import_pg_core.text)("role").notNull(), tokenHash: (0, import_pg_core.text)("tokenHash").notNull(), expiresAt: (0, import_pg_core.timestamp)("expiresAt", { withTimezone: true }).notNull(), acceptedAt: (0, import_pg_core.timestamp)("acceptedAt", { withTimezone: true }), revokedAt: (0, import_pg_core.timestamp)("revokedAt", { withTimezone: true }), revokedById: (0, import_pg_core.uuid)("revokedById"), resendCount: (0, import_pg_core.integer)("resendCount").notNull().default(0), lastSentAt: (0, import_pg_core.timestamp)("lastSentAt", { withTimezone: true }), createdAt: (0, import_pg_core.timestamp)("createdAt", { withTimezone: true }).defaultNow().notNull() });
 var vehicles = (0, import_pg_core.pgTable)("vehicles", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), orgId: (0, import_pg_core.uuid)("orgId").notNull(), vin: (0, import_pg_core.text)("vin").notNull(), licensePlate: (0, import_pg_core.text)("licensePlate").notNull(), chassisNumber: (0, import_pg_core.text)("chassisNumber"), engineNumber: (0, import_pg_core.text)("engineNumber"), vehicleType: (0, import_pg_core.text)("vehicleType"), assignedRoute: (0, import_pg_core.text)("assignedRoute"), depotLocation: (0, import_pg_core.text)("depotLocation"), make: (0, import_pg_core.text)("make").notNull(), model: (0, import_pg_core.text)("model").notNull(), year: (0, import_pg_core.integer)("year").notNull(), currentOdometer: (0, import_pg_core.numeric)("currentOdometer").notNull(), status: (0, import_pg_core.text)("status").notNull(), ...audit });
 var vehicleAssignments = (0, import_pg_core.pgTable)("vehicle_assignments", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), orgId: (0, import_pg_core.uuid)("orgId").notNull(), vehicleId: (0, import_pg_core.uuid)("vehicleId").notNull(), driverId: (0, import_pg_core.uuid)("driverId").notNull(), active: (0, import_pg_core.boolean)("active").notNull().default(true), ...audit });
@@ -255,6 +266,7 @@ var financialRecords = (0, import_pg_core.pgTable)("financial_records", { id: (0
 var documents = (0, import_pg_core.pgTable)("documents", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), orgId: (0, import_pg_core.uuid)("orgId").notNull(), vehicleId: (0, import_pg_core.uuid)("vehicleId"), title: (0, import_pg_core.text)("title").notNull(), docType: (0, import_pg_core.text)("docType").notNull(), fileUrl: (0, import_pg_core.text)("fileUrl").notNull(), fileKey: (0, import_pg_core.text)("fileKey"), fileChecksum: (0, import_pg_core.text)("fileChecksum"), fileSizeBytes: (0, import_pg_core.integer)("fileSizeBytes"), retentionUntil: (0, import_pg_core.timestamp)("retentionUntil", { withTimezone: true }), expiryDate: (0, import_pg_core.timestamp)("expiryDate", { withTimezone: true }).notNull(), archivedAt: (0, import_pg_core.timestamp)("archivedAt", { withTimezone: true }), archivedById: (0, import_pg_core.uuid)("archivedById"), ...audit });
 var documentVersions = (0, import_pg_core.pgTable)("document_versions", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), orgId: (0, import_pg_core.uuid)("orgId").notNull(), documentId: (0, import_pg_core.uuid)("documentId").notNull(), versionNumber: (0, import_pg_core.integer)("versionNumber").notNull(), title: (0, import_pg_core.text)("title").notNull(), docType: (0, import_pg_core.text)("docType").notNull(), fileUrl: (0, import_pg_core.text)("fileUrl").notNull(), fileKey: (0, import_pg_core.text)("fileKey"), fileChecksum: (0, import_pg_core.text)("fileChecksum"), fileSizeBytes: (0, import_pg_core.integer)("fileSizeBytes"), expiryDate: (0, import_pg_core.timestamp)("expiryDate", { withTimezone: true }).notNull(), createdById: (0, import_pg_core.uuid)("createdById").notNull(), createdAt: (0, import_pg_core.timestamp)("createdAt", { withTimezone: true }).defaultNow().notNull() });
 var notifications = (0, import_pg_core.pgTable)("notifications", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), orgId: (0, import_pg_core.uuid)("orgId").notNull(), recipientId: (0, import_pg_core.uuid)("recipientId").notNull(), title: (0, import_pg_core.text)("title").notNull(), message: (0, import_pg_core.text)("message").notNull(), type: (0, import_pg_core.text)("type").notNull(), severity: (0, import_pg_core.text)("severity").notNull().default("INFO"), sourceType: (0, import_pg_core.text)("sourceType").notNull().default("SYSTEM"), dedupeKey: (0, import_pg_core.text)("dedupeKey"), referenceId: (0, import_pg_core.uuid)("referenceId"), isRead: (0, import_pg_core.boolean)("isRead").notNull(), acknowledgedAt: (0, import_pg_core.timestamp)("acknowledgedAt", { withTimezone: true }), escalationLevel: (0, import_pg_core.integer)("escalationLevel").notNull().default(0), resolvedAt: (0, import_pg_core.timestamp)("resolvedAt", { withTimezone: true }), ...audit });
+var notificationDeliveries = (0, import_pg_core.pgTable)("notification_deliveries", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), orgId: (0, import_pg_core.uuid)("orgId").notNull(), notificationId: (0, import_pg_core.uuid)("notificationId").notNull(), recipientId: (0, import_pg_core.uuid)("recipientId").notNull(), channel: (0, import_pg_core.text)("channel").notNull(), status: (0, import_pg_core.text)("status").notNull(), providerMessageId: (0, import_pg_core.text)("providerMessageId"), errorCode: (0, import_pg_core.text)("errorCode"), errorMessage: (0, import_pg_core.text)("errorMessage"), attempt: (0, import_pg_core.integer)("attempt").notNull().default(1), contentSid: (0, import_pg_core.text)("contentSid"), sentAt: (0, import_pg_core.timestamp)("sentAt", { withTimezone: true }), deliveredAt: (0, import_pg_core.timestamp)("deliveredAt", { withTimezone: true }), createdAt: (0, import_pg_core.timestamp)("createdAt", { withTimezone: true }).defaultNow().notNull(), updatedAt: (0, import_pg_core.timestamp)("updatedAt", { withTimezone: true }).defaultNow().notNull() });
 var vehicleIssues = (0, import_pg_core.pgTable)("vehicle_issues", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), orgId: (0, import_pg_core.uuid)("orgId").notNull(), vehicleId: (0, import_pg_core.uuid)("vehicleId").notNull(), driverId: (0, import_pg_core.uuid)("driverId").notNull(), title: (0, import_pg_core.text)("title").notNull(), description: (0, import_pg_core.text)("description").notNull(), priority: (0, import_pg_core.text)("priority").notNull(), status: (0, import_pg_core.text)("status").notNull(), photoUrl: (0, import_pg_core.text)("photoUrl"), photoKey: (0, import_pg_core.text)("photoKey"), ...audit });
 var auditEvents = (0, import_pg_core.pgTable)("audit_events", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), orgId: (0, import_pg_core.uuid)("orgId").notNull(), actorId: (0, import_pg_core.uuid)("actorId"), actorRole: (0, import_pg_core.text)("actorRole"), action: (0, import_pg_core.text)("action").notNull(), entityType: (0, import_pg_core.text)("entityType").notNull(), entityId: (0, import_pg_core.uuid)("entityId"), summary: (0, import_pg_core.text)("summary").notNull(), metadata: (0, import_pg_core.text)("metadata"), createdAt: (0, import_pg_core.timestamp)("createdAt", { withTimezone: true }).defaultNow().notNull() });
 var inventoryMovements = (0, import_pg_core.pgTable)("inventory_movements", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), orgId: (0, import_pg_core.uuid)("orgId").notNull(), partId: (0, import_pg_core.uuid)("partId").notNull(), workOrderId: (0, import_pg_core.uuid)("workOrderId"), actorId: (0, import_pg_core.uuid)("actorId"), movementType: (0, import_pg_core.text)("movementType").notNull(), quantity: (0, import_pg_core.integer)("quantity").notNull(), unitCost: (0, import_pg_core.numeric)("unitCost").notNull(), reason: (0, import_pg_core.text)("reason").notNull(), createdAt: (0, import_pg_core.timestamp)("createdAt", { withTimezone: true }).defaultNow().notNull() });
@@ -288,6 +300,7 @@ var tables = {
   document: "documents",
   documentVersion: "document_versions",
   notification: "notifications",
+  notificationDelivery: "notification_deliveries",
   workOrderEvidence: "work_order_evidence",
   vehicleIssue: "vehicle_issues",
   dvirInspection: "dvir_inspections",
@@ -735,10 +748,61 @@ function vehicleIdentity(vehicle) {
   return "Vehicle unavailable";
 }
 
+// server/twilio.ts
+var OPERATIONAL_ALERT_TYPES = /* @__PURE__ */ new Set(["MAINTENANCE_THRESHOLD", "INVENTORY_LOW", "DOCUMENT_EXPIRY", "ALERT_ESCALATION", "WORK_ORDER_ESCALATION"]);
+function configured(channel) {
+  const hasCredential = Boolean(process.env.TWILIO_API_KEY_SID && process.env.TWILIO_API_KEY_SECRET || process.env.TWILIO_AUTH_TOKEN);
+  return process.env.TWILIO_ALERTS_ENABLED === "true" && Boolean(process.env.TWILIO_ACCOUNT_SID && hasCredential && (channel === "SMS" ? process.env.TWILIO_SMS_FROM : process.env.TWILIO_WHATSAPP_FROM));
+}
+async function recordDelivery(input) {
+  return fleetDb.notificationDelivery.create({ data: { id: crypto.randomUUID(), ...input, attempt: 1, createdAt: /* @__PURE__ */ new Date(), updatedAt: /* @__PURE__ */ new Date() } });
+}
+function operationalMessage(title, message) {
+  return `VahanSync operational alert: ${title}. ${message}`.slice(0, 1500);
+}
+async function sendTwilioMessage(channel, to, title, message) {
+  const accountSid = process.env.TWILIO_ACCOUNT_SID;
+  const credentialSid = process.env.TWILIO_API_KEY_SID ?? accountSid;
+  const credentialSecret = process.env.TWILIO_API_KEY_SECRET ?? process.env.TWILIO_AUTH_TOKEN;
+  const body = new URLSearchParams({ To: channel === "WHATSAPP" ? `whatsapp:${to}` : to, From: channel === "WHATSAPP" ? process.env.TWILIO_WHATSAPP_FROM : process.env.TWILIO_SMS_FROM });
+  const contentSid = channel === "WHATSAPP" ? process.env.TWILIO_WHATSAPP_CONTENT_SID : void 0;
+  if (contentSid) {
+    body.set("ContentSid", contentSid);
+    body.set("ContentVariables", JSON.stringify({ "1": title, "2": message }));
+  } else {
+    body.set("Body", operationalMessage(title, message));
+  }
+  const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`, { method: "POST", headers: { Authorization: `Basic ${Buffer.from(`${credentialSid}:${credentialSecret}`).toString("base64")}`, "Content-Type": "application/x-www-form-urlencoded" }, body });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw Object.assign(new Error(payload.message ?? `Twilio delivery failed with HTTP ${response.status}.`), { code: payload.code ? String(payload.code) : String(response.status) });
+  return { providerMessageId: payload.sid, contentSid };
+}
+async function deliverOperationalNotification(notification, recipient) {
+  if (!OPERATIONAL_ALERT_TYPES.has(notification.type) || !recipient.mobileNumber) return;
+  const channels = [recipient.smsAlertsEnabled ? "SMS" : null, recipient.whatsappAlertsEnabled ? "WHATSAPP" : null].filter(Boolean);
+  for (const channel of channels) {
+    if (!configured(channel)) {
+      await recordDelivery({ orgId: notification.orgId, notificationId: notification.id, recipientId: notification.recipientId, channel, status: "SKIPPED_CONFIGURATION" });
+      continue;
+    }
+    try {
+      const result = await sendTwilioMessage(channel, recipient.mobileNumber, notification.title, notification.message);
+      await recordDelivery({ orgId: notification.orgId, notificationId: notification.id, recipientId: notification.recipientId, channel, status: "SENT", providerMessageId: result.providerMessageId, contentSid: result.contentSid, sentAt: /* @__PURE__ */ new Date() });
+    } catch (error) {
+      const failure = error;
+      await recordDelivery({ orgId: notification.orgId, notificationId: notification.id, recipientId: notification.recipientId, channel, status: "FAILED", errorCode: failure.code, errorMessage: failure.message.slice(0, 500) });
+    }
+  }
+}
+
 // server/automation.ts
 async function notifyRoles(orgId, roles, title, message, type, referenceId) {
   const recipients = await fleetDb.user.findMany({ where: { orgId, role: { in: roles } } });
-  if (recipients.length) await fleetDb.notification.createMany({ data: recipients.map((recipient) => ({ id: crypto.randomUUID(), orgId, recipientId: recipient.id, title, message, type, referenceId, isRead: false, createdAt: /* @__PURE__ */ new Date() })) });
+  const notifications2 = recipients.map((recipient) => ({ id: crypto.randomUUID(), orgId, recipientId: recipient.id, title, message, type, referenceId, isRead: false, createdAt: /* @__PURE__ */ new Date() }));
+  if (notifications2.length) {
+    await fleetDb.notification.createMany({ data: notifications2 });
+    await Promise.all(notifications2.map((notification, index) => deliverOperationalNotification(notification, recipients[index]).catch(() => void 0)));
+  }
   return recipients.length;
 }
 async function evaluateVehicleMaintenance(vehicleId, orgId) {
@@ -1059,6 +1123,33 @@ var appRouter = router({
     me: publicProcedure.query(({ ctx }) => ctx.fleetopsUser ?? ctx.user),
     logout: publicProcedure.mutation(() => ({ success: true }))
   }),
+  profile: router({
+    get: fleetOpsProcedure.query(async ({ ctx }) => {
+      const member = await fleetDb.user.findFirst({ where: { id: ctx.fleetopsUser.id, orgId: ctx.fleetopsUser.orgId } });
+      if (!member) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Your organization profile could not be found." });
+      return { id: member.id, fullName: member.fullName, email: member.email, role: member.role, organizationName: ctx.fleetopsUser.org.name, mobileNumber: member.mobileNumber ?? "", smsAlertsEnabled: Boolean(member.smsAlertsEnabled), whatsappAlertsEnabled: Boolean(member.whatsappAlertsEnabled) };
+    }),
+    update: fleetOpsProcedure.input(import_zod2.z.object({ fullName: import_zod2.z.string().trim().min(2).max(120), mobileNumber: import_zod2.z.string().trim(), smsAlertsEnabled: import_zod2.z.boolean(), whatsappAlertsEnabled: import_zod2.z.boolean() })).mutation(async ({ ctx, input }) => {
+      let mobileNumber;
+      try {
+        mobileNumber = normalizeIndianE164Mobile(input.mobileNumber);
+      } catch (error) {
+        throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Use an Indian mobile number in +91XXXXXXXXXX format." });
+      }
+      if ((input.smsAlertsEnabled || input.whatsappAlertsEnabled) && !mobileNumber) throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: "Save a mobile number before enabling SMS or WhatsApp alerts." });
+      const existing = await fleetDb.user.findFirst({ where: { id: ctx.fleetopsUser.id, orgId: ctx.fleetopsUser.orgId } });
+      if (!existing) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Your organization profile could not be found." });
+      const now = /* @__PURE__ */ new Date();
+      const member = await fleetDb.user.update({ where: { id: ctx.fleetopsUser.id }, data: { fullName: input.fullName, mobileNumber, smsAlertsEnabled: mobileNumber ? input.smsAlertsEnabled : false, whatsappAlertsEnabled: mobileNumber ? input.whatsappAlertsEnabled : false, smsOptedInAt: mobileNumber && input.smsAlertsEnabled ? existing.smsOptedInAt ?? now : null, whatsappOptedInAt: mobileNumber && input.whatsappAlertsEnabled ? existing.whatsappOptedInAt ?? now : null } });
+      const authUser = await getSupabaseAuthIdentity(ctx.req);
+      if (authUser) {
+        const { error } = await supabaseAdmin.auth.admin.updateUserById(authUser.id, { user_metadata: { ...authUser.user_metadata, fullName: input.fullName } });
+        if (error) throw new import_server3.TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `Profile was saved, but Supabase display metadata could not be refreshed: ${error.message}` });
+      }
+      await recordAudit(ctx, { action: "PROFILE_UPDATED", entityType: "USER", entityId: member.id, summary: "Member updated their personal profile and alert preferences", metadata: { fullName: member.fullName, smsAlertsEnabled: member.smsAlertsEnabled, whatsappAlertsEnabled: member.whatsappAlertsEnabled } });
+      return member;
+    })
+  }),
   organizationSettings: router({
     get: fleetOpsProcedure.query(async ({ ctx }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN"]);
@@ -1098,10 +1189,17 @@ var appRouter = router({
       if (!authUser?.email) throw new import_server3.TRPCError({ code: "UNAUTHORIZED", message: "A valid Supabase access token is required." });
       return provisionFleetOpsUser({ authUserId: authUser.id, email: authUser.email, fullName: input.fullName ?? String(authUser.user_metadata?.fullName ?? authUser.email.split("@")[0]), orgName: input.orgName ?? String(authUser.user_metadata?.orgName ?? `${input.fullName ?? authUser.email.split("@")[0]}'s Fleet`) });
     }),
-    complete: fleetOpsProcedure.input(import_zod2.z.object({ orgName: import_zod2.z.string().min(2), fullName: import_zod2.z.string().min(2) })).mutation(async ({ ctx, input }) => {
+    complete: fleetOpsProcedure.input(import_zod2.z.object({ orgName: import_zod2.z.string().min(2), fullName: import_zod2.z.string().min(2), mobileNumber: import_zod2.z.string().trim().optional().default(""), smsAlertsEnabled: import_zod2.z.boolean().optional().default(false), whatsappAlertsEnabled: import_zod2.z.boolean().optional().default(false) })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN"]);
+      let mobileNumber;
+      try {
+        mobileNumber = normalizeIndianE164Mobile(input.mobileNumber);
+      } catch (error) {
+        throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Use an Indian mobile number in +91XXXXXXXXXX format." });
+      }
+      if ((input.smsAlertsEnabled || input.whatsappAlertsEnabled) && !mobileNumber) throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: "Save a mobile number before enabling SMS or WhatsApp alerts." });
       const updated = await fleetDb.$transaction(async (tx) => {
-        const user = await tx.user.update({ where: { id: ctx.fleetopsUser.id }, data: { fullName: input.fullName } });
+        const user = await tx.user.update({ where: { id: ctx.fleetopsUser.id }, data: { fullName: input.fullName, mobileNumber, smsAlertsEnabled: mobileNumber ? input.smsAlertsEnabled : false, whatsappAlertsEnabled: mobileNumber ? input.whatsappAlertsEnabled : false, smsOptedInAt: mobileNumber && input.smsAlertsEnabled ? /* @__PURE__ */ new Date() : null, whatsappOptedInAt: mobileNumber && input.whatsappAlertsEnabled ? /* @__PURE__ */ new Date() : null } });
         const org = await tx.organization.update({ where: { id: ctx.fleetopsUser.orgId }, data: { name: input.orgName } });
         return { user, org };
       });
@@ -1118,9 +1216,16 @@ var appRouter = router({
       if (!org) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "The invitation organization no longer exists." });
       return { email: invite.email, role: invite.role, organization: { id: org.id, name: org.name }, expiresAt: invite.expiresAt };
     }),
-    completeInviteWithPassword: publicProcedure.input(import_zod2.z.object({ token: import_zod2.z.string().uuid(), fullName: import_zod2.z.string().min(2), password: import_zod2.z.string().min(8).max(128) })).mutation(async ({ input }) => {
+    completeInviteWithPassword: publicProcedure.input(import_zod2.z.object({ token: import_zod2.z.string().uuid(), fullName: import_zod2.z.string().min(2), password: import_zod2.z.string().min(8).max(128), mobileNumber: import_zod2.z.string().trim().optional().default(""), smsAlertsEnabled: import_zod2.z.boolean().optional().default(false), whatsappAlertsEnabled: import_zod2.z.boolean().optional().default(false) })).mutation(async ({ input }) => {
       const invite = await fleetDb.invitation.findFirst({ where: { tokenHash: input.token, acceptedAt: null, expiresAt: { gt: /* @__PURE__ */ new Date() } } });
       if (!invite) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "This invitation is invalid, expired, or already redeemed." });
+      let mobileNumber;
+      try {
+        mobileNumber = normalizeIndianE164Mobile(input.mobileNumber);
+      } catch (error) {
+        throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Use an Indian mobile number in +91XXXXXXXXXX format." });
+      }
+      if ((input.smsAlertsEnabled || input.whatsappAlertsEnabled) && !mobileNumber) throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: "Save a mobile number before enabling SMS or WhatsApp alerts." });
       const email = invite.email.toLowerCase();
       const existingAuth = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1e3 });
       let authUser = existingAuth.data.users.find((user) => user.email?.toLowerCase() === email);
@@ -1136,7 +1241,8 @@ var appRouter = router({
       }
       if (authError || !authUser) throw new import_server3.TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `The invited account could not be prepared: ${authError?.message ?? "Auth user was not returned."}` });
       const joined = await fleetDb.$transaction(async (tx) => {
-        const user = await tx.user.upsert({ where: { authUserId: authUser.id }, update: { orgId: invite.orgId, role: invite.role, email, fullName: input.fullName }, create: { authUserId: authUser.id, orgId: invite.orgId, role: invite.role, email, fullName: input.fullName } });
+        const preferenceData = { mobileNumber, smsAlertsEnabled: mobileNumber ? input.smsAlertsEnabled : false, whatsappAlertsEnabled: mobileNumber ? input.whatsappAlertsEnabled : false, smsOptedInAt: mobileNumber && input.smsAlertsEnabled ? /* @__PURE__ */ new Date() : null, whatsappOptedInAt: mobileNumber && input.whatsappAlertsEnabled ? /* @__PURE__ */ new Date() : null };
+        const user = await tx.user.upsert({ where: { authUserId: authUser.id }, update: { orgId: invite.orgId, role: invite.role, email, fullName: input.fullName, ...preferenceData }, create: { authUserId: authUser.id, orgId: invite.orgId, role: invite.role, email, fullName: input.fullName, ...preferenceData } });
         await tx.invitation.update({ where: { id: invite.id }, data: { acceptedAt: /* @__PURE__ */ new Date() } });
         return user;
       });
