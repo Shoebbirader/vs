@@ -49,7 +49,7 @@ const commandLabels = new Set([
   "Accountant ledger",
 ]);
 
-const controlLabels = new Set(["Notifications", "P&L analytics", "Billing", "Team"]);
+const controlLabels = new Set(["Notifications", "P&L analytics", "Billing", "Team", "Profile"]);
 
 function AppNavigation({
   items,

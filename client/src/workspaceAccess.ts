@@ -1,11 +1,11 @@
 export const roleNavAccess: Record<string, string[]> = {
-  SUPERADMIN: ["Command center", "Notifications", "Compliance vault", "P&L analytics", "Billing", "Team"],
-  FLEET_MANAGER: ["Fleet manager workspace", "Vehicles", "Components", "Work orders", "Notifications"],
-  INVENTORY_MANAGER: ["Inventory manager workspace", "Inventory", "Vendors", "Purchase orders", "Notifications"],
-  MECHANIC: ["Mechanic workspace", "Notifications"],
-  TECHNICIAN: ["Technician workspace", "Notifications"],
-  DRIVER: ["Driver portal", "Notifications"],
-  ACCOUNTANT: ["Accountant ledger", "Notifications"],
+  SUPERADMIN: ["Command center", "Notifications", "Compliance vault", "P&L analytics", "Billing", "Team", "Profile"],
+  FLEET_MANAGER: ["Fleet manager workspace", "Vehicles", "Components", "Work orders", "Notifications", "Profile"],
+  INVENTORY_MANAGER: ["Inventory manager workspace", "Inventory", "Vendors", "Purchase orders", "Notifications", "Profile"],
+  MECHANIC: ["Mechanic workspace", "Notifications", "Profile"],
+  TECHNICIAN: ["Technician workspace", "Notifications", "Profile"],
+  DRIVER: ["Driver portal", "Notifications", "Profile"],
+  ACCOUNTANT: ["Accountant ledger", "Notifications", "Profile"],
 };
 
 export const dedicatedWorkspaceByRole: Record<string, string> = {

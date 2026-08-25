@@ -1,10 +1,15 @@
 import { fleetDb } from "./db";
 import { logRequestSignal } from "./observability";
 import { vehicleIdentity } from "./vehicle-identity";
+import { deliverOperationalNotification } from "./twilio";
 
 async function notifyRoles(orgId: string, roles: string[], title: string, message: string, type: string, referenceId?: string) {
   const recipients = await fleetDb.user.findMany({ where: { orgId, role: { in: roles } } });
-  if (recipients.length) await fleetDb.notification.createMany({ data: recipients.map((recipient: any) => ({ id: crypto.randomUUID(), orgId, recipientId: recipient.id, title, message, type, referenceId, isRead: false, createdAt: new Date() })) });
+  const notifications = recipients.map((recipient: any) => ({ id: crypto.randomUUID(), orgId, recipientId: recipient.id, title, message, type, referenceId, isRead: false, createdAt: new Date() }));
+  if (notifications.length) {
+    await fleetDb.notification.createMany({ data: notifications });
+    await Promise.all(notifications.map((notification: any, index: number) => deliverOperationalNotification(notification, recipients[index]).catch(() => undefined)));
+  }
   return recipients.length;
 }
 

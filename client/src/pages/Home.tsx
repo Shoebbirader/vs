@@ -32,6 +32,7 @@ import {
   RefreshCw,
   Route,
   Users,
+  UserRound,
   Wrench,
   X,
 } from "lucide-react";
@@ -77,12 +78,13 @@ const navItems = [
   { label: "P&L analytics", icon: TrendingUp },
   { label: "Billing", icon: IndianRupee },
   { label: "Team", icon: Users },
+  { label: "Profile", icon: UserRound },
 ];
 
 const navGroups = [
   { label: "Command", items: ["Command center", "Fleet manager workspace", "Inventory manager workspace", "Mechanic workspace", "Technician workspace", "Driver portal", "Accountant ledger"] },
   { label: "Operations", items: ["Vehicles", "Components", "Work orders", "Inventory", "Vendors", "Purchase orders", "Compliance vault"] },
-  { label: "Control", items: ["Notifications", "P&L analytics", "Billing", "Team"] },
+  { label: "Control", items: ["Notifications", "P&L analytics", "Billing", "Team", "Profile"] },
 ];
 
 const roleDescriptor: Record<string, string> = {
@@ -349,7 +351,7 @@ export default function Home({ initialSection = "Command center", publicMode = "
     />
   ) : (
     <section className="replacement-workspace-host">
-      <FunctionalWorkspace section={activeNav} session={Boolean(session)} organizationName={organizationName || undefined} onBack={() => setActiveNav(allowedNavLabels[0] ?? "Command center")} />
+      <FunctionalWorkspace section={activeNav} session={Boolean(session)} organizationName={organizationName || undefined} onBack={() => setActiveNav(allowedNavLabels[0] ?? "Command center")} onSignOut={() => void handleSignOut()} />
     </section>
   );
 

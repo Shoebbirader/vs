@@ -1,6 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { createHash } from "node:crypto";
 import { z } from "zod";
+import { normalizeIndianE164Mobile } from "./profile-validation";
 import { fleetOpsProcedure, publicProcedure, router } from "./_core/trpc";
 import { systemRouter } from "./_core/systemRouter";
 import { fleetDb } from "./db";
@@ -140,6 +141,29 @@ export const appRouter = router({
     me: publicProcedure.query(({ ctx }) => ctx.fleetopsUser ?? ctx.user),
     logout: publicProcedure.mutation(() => ({ success: true } as const)),
   }),
+  profile: router({
+    get: fleetOpsProcedure.query(async ({ ctx }) => {
+      const member = await fleetDb.user.findFirst({ where: { id: ctx.fleetopsUser.id, orgId: ctx.fleetopsUser.orgId } });
+      if (!member) throw new TRPCError({ code: "NOT_FOUND", message: "Your organization profile could not be found." });
+      return { id: member.id, fullName: member.fullName, email: member.email, role: member.role, organizationName: ctx.fleetopsUser.org.name, mobileNumber: member.mobileNumber ?? "", smsAlertsEnabled: Boolean(member.smsAlertsEnabled), whatsappAlertsEnabled: Boolean(member.whatsappAlertsEnabled) };
+    }),
+    update: fleetOpsProcedure.input(z.object({ fullName: z.string().trim().min(2).max(120), mobileNumber: z.string().trim(), smsAlertsEnabled: z.boolean(), whatsappAlertsEnabled: z.boolean() })).mutation(async ({ ctx, input }) => {
+      let mobileNumber: string | null;
+      try { mobileNumber = normalizeIndianE164Mobile(input.mobileNumber); } catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Use an Indian mobile number in +91XXXXXXXXXX format." }); }
+      if ((input.smsAlertsEnabled || input.whatsappAlertsEnabled) && !mobileNumber) throw new TRPCError({ code: "BAD_REQUEST", message: "Save a mobile number before enabling SMS or WhatsApp alerts." });
+      const existing = await fleetDb.user.findFirst({ where: { id: ctx.fleetopsUser.id, orgId: ctx.fleetopsUser.orgId } });
+      if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Your organization profile could not be found." });
+      const now = new Date();
+      const member = await fleetDb.user.update({ where: { id: ctx.fleetopsUser.id }, data: { fullName: input.fullName, mobileNumber, smsAlertsEnabled: mobileNumber ? input.smsAlertsEnabled : false, whatsappAlertsEnabled: mobileNumber ? input.whatsappAlertsEnabled : false, smsOptedInAt: mobileNumber && input.smsAlertsEnabled ? existing.smsOptedInAt ?? now : null, whatsappOptedInAt: mobileNumber && input.whatsappAlertsEnabled ? existing.whatsappOptedInAt ?? now : null } });
+      const authUser = await getSupabaseAuthIdentity(ctx.req);
+      if (authUser) {
+        const { error } = await supabaseAdmin.auth.admin.updateUserById(authUser.id, { user_metadata: { ...authUser.user_metadata, fullName: input.fullName } });
+        if (error) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `Profile was saved, but Supabase display metadata could not be refreshed: ${error.message}` });
+      }
+      await recordAudit(ctx, { action: "PROFILE_UPDATED", entityType: "USER", entityId: member.id, summary: "Member updated their personal profile and alert preferences", metadata: { fullName: member.fullName, smsAlertsEnabled: member.smsAlertsEnabled, whatsappAlertsEnabled: member.whatsappAlertsEnabled } });
+      return member;
+    }),
+  }),
   organizationSettings: router({
     get: fleetOpsProcedure.query(async ({ ctx }) => { requireRole(ctx.fleetopsUser.role, ["SUPERADMIN"]); const existing = await fleetDb.organizationSetting.findFirst({ where: { orgId: ctx.fleetopsUser.orgId } }); return existing ?? { orgId: ctx.fleetopsUser.orgId, timezone: "Asia/Kolkata", odometerMaxDailyKm: 1000, laborRatePerHour: "0", safetyContactName: null, safetyContactPhone: null }; }),
     update: fleetOpsProcedure.input(z.object({ timezone: z.string().trim().min(3).max(80), odometerMaxDailyKm: z.number().int().min(100).max(5000), laborRatePerHour: z.number().nonnegative().max(100000).default(0), safetyContactName: z.string().trim().max(160).optional(), safetyContactPhone: z.string().trim().max(40).optional() })).mutation(async ({ ctx, input }) => { requireRole(ctx.fleetopsUser.role, ["SUPERADMIN"]); assertWritable(ctx.fleetopsUser.org); const existing = await fleetDb.organizationSetting.findFirst({ where: { orgId: ctx.fleetopsUser.orgId } }); const settings = existing ? await fleetDb.organizationSetting.update({ where: { id: existing.id }, data: input }) : await fleetDb.organizationSetting.create({ data: { id: crypto.randomUUID(), orgId: ctx.fleetopsUser.orgId, ...input, createdAt: new Date(), updatedAt: new Date() } }); await recordAudit(ctx, { action: "ORGANIZATION_SETTINGS_UPDATED", entityType: "ORGANIZATION", entityId: ctx.fleetopsUser.orgId, summary: "Organization operating settings updated", metadata: input }); return settings; }),
@@ -154,10 +178,13 @@ export const appRouter = router({
       if (!authUser?.email) throw new TRPCError({ code: "UNAUTHORIZED", message: "A valid Supabase access token is required." });
       return provisionFleetOpsUser({ authUserId: authUser.id, email: authUser.email, fullName: input.fullName ?? String(authUser.user_metadata?.fullName ?? authUser.email.split("@")[0]), orgName: input.orgName ?? String(authUser.user_metadata?.orgName ?? `${input.fullName ?? authUser.email.split("@")[0]}'s Fleet`) });
     }),
-    complete: fleetOpsProcedure.input(z.object({ orgName: z.string().min(2), fullName: z.string().min(2) })).mutation(async ({ ctx, input }) => {
+    complete: fleetOpsProcedure.input(z.object({ orgName: z.string().min(2), fullName: z.string().min(2), mobileNumber: z.string().trim().optional().default(""), smsAlertsEnabled: z.boolean().optional().default(false), whatsappAlertsEnabled: z.boolean().optional().default(false) })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN"]);
+      let mobileNumber: string | null;
+      try { mobileNumber = normalizeIndianE164Mobile(input.mobileNumber); } catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Use an Indian mobile number in +91XXXXXXXXXX format." }); }
+      if ((input.smsAlertsEnabled || input.whatsappAlertsEnabled) && !mobileNumber) throw new TRPCError({ code: "BAD_REQUEST", message: "Save a mobile number before enabling SMS or WhatsApp alerts." });
       const updated = await fleetDb.$transaction(async (tx: any) => {
-        const user = await tx.user.update({ where: { id: ctx.fleetopsUser.id }, data: { fullName: input.fullName } });
+        const user = await tx.user.update({ where: { id: ctx.fleetopsUser.id }, data: { fullName: input.fullName, mobileNumber, smsAlertsEnabled: mobileNumber ? input.smsAlertsEnabled : false, whatsappAlertsEnabled: mobileNumber ? input.whatsappAlertsEnabled : false, smsOptedInAt: mobileNumber && input.smsAlertsEnabled ? new Date() : null, whatsappOptedInAt: mobileNumber && input.whatsappAlertsEnabled ? new Date() : null } });
         const org = await tx.organization.update({ where: { id: ctx.fleetopsUser.orgId }, data: { name: input.orgName } });
         return { user, org };
       });
@@ -174,9 +201,12 @@ export const appRouter = router({
       if (!org) throw new TRPCError({ code: "NOT_FOUND", message: "The invitation organization no longer exists." });
       return { email: invite.email, role: invite.role, organization: { id: org.id, name: org.name }, expiresAt: invite.expiresAt };
     }),
-    completeInviteWithPassword: publicProcedure.input(z.object({ token: z.string().uuid(), fullName: z.string().min(2), password: z.string().min(8).max(128) })).mutation(async ({ input }) => {
+    completeInviteWithPassword: publicProcedure.input(z.object({ token: z.string().uuid(), fullName: z.string().min(2), password: z.string().min(8).max(128), mobileNumber: z.string().trim().optional().default(""), smsAlertsEnabled: z.boolean().optional().default(false), whatsappAlertsEnabled: z.boolean().optional().default(false) })).mutation(async ({ input }) => {
       const invite = await fleetDb.invitation.findFirst({ where: { tokenHash: input.token, acceptedAt: null, expiresAt: { gt: new Date() } } });
       if (!invite) throw new TRPCError({ code: "NOT_FOUND", message: "This invitation is invalid, expired, or already redeemed." });
+      let mobileNumber: string | null;
+      try { mobileNumber = normalizeIndianE164Mobile(input.mobileNumber); } catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Use an Indian mobile number in +91XXXXXXXXXX format." }); }
+      if ((input.smsAlertsEnabled || input.whatsappAlertsEnabled) && !mobileNumber) throw new TRPCError({ code: "BAD_REQUEST", message: "Save a mobile number before enabling SMS or WhatsApp alerts." });
       const email = invite.email.toLowerCase();
       const existingAuth = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
       let authUser = existingAuth.data.users.find((user) => user.email?.toLowerCase() === email);
@@ -192,7 +222,8 @@ export const appRouter = router({
       }
       if (authError || !authUser) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `The invited account could not be prepared: ${authError?.message ?? "Auth user was not returned."}` });
       const joined = await fleetDb.$transaction(async (tx: any) => {
-        const user = await tx.user.upsert({ where: { authUserId: authUser!.id }, update: { orgId: invite.orgId, role: invite.role, email, fullName: input.fullName }, create: { authUserId: authUser!.id, orgId: invite.orgId, role: invite.role, email, fullName: input.fullName } });
+        const preferenceData = { mobileNumber, smsAlertsEnabled: mobileNumber ? input.smsAlertsEnabled : false, whatsappAlertsEnabled: mobileNumber ? input.whatsappAlertsEnabled : false, smsOptedInAt: mobileNumber && input.smsAlertsEnabled ? new Date() : null, whatsappOptedInAt: mobileNumber && input.whatsappAlertsEnabled ? new Date() : null };
+        const user = await tx.user.upsert({ where: { authUserId: authUser!.id }, update: { orgId: invite.orgId, role: invite.role, email, fullName: input.fullName, ...preferenceData }, create: { authUserId: authUser!.id, orgId: invite.orgId, role: invite.role, email, fullName: input.fullName, ...preferenceData } });
         await tx.invitation.update({ where: { id: invite.id }, data: { acceptedAt: new Date() } });
         return user;
       });

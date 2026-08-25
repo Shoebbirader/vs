@@ -10,6 +10,9 @@ describe("signup to organization invitation flow", () => {
     expect(source).toContain("trpc.onboarding.complete.useMutation");
     expect(source).toContain("orgName");
     expect(source).toContain("fullName");
+    expect(source).toContain("mobileNumber");
+    expect(source).toContain("smsAlertsEnabled");
+    expect(source).toContain("whatsappAlertsEnabled");
   });
 
   it("accepts an organization-bound invitation before opening the invited role workspace", () => {
@@ -17,6 +20,9 @@ describe("signup to organization invitation flow", () => {
     expect(source).toContain("trpc.onboarding.inviteDetails.useQuery");
     expect(source).toContain("trpc.onboarding.completeInviteWithPassword.useMutation");
     expect(source).toContain("completeInvite.mutateAsync");
+    expect(source).toContain("mobileNumber");
+    expect(source).toContain("smsAlertsEnabled");
+    expect(source).toContain("whatsappAlertsEnabled");
     expect(source).toContain("signInWithEmail");
     expect(source).toContain("organization");
     expect(source).toContain("role");

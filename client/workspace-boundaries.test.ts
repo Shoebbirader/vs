@@ -28,16 +28,26 @@ describe("role workspace boundaries", () => {
   });
 
   it("keeps each member within their role-specific workspace surface", () => {
-    expect(roleNavAccess.FLEET_MANAGER).toEqual(["Fleet manager workspace", "Vehicles", "Components", "Work orders", "Notifications"]);
-    expect(roleNavAccess.INVENTORY_MANAGER).toEqual(["Inventory manager workspace", "Inventory", "Vendors", "Purchase orders", "Notifications"]);
+    expect(roleNavAccess.FLEET_MANAGER).toEqual(["Fleet manager workspace", "Vehicles", "Components", "Work orders", "Notifications", "Profile"]);
+    expect(roleNavAccess.INVENTORY_MANAGER).toEqual(["Inventory manager workspace", "Inventory", "Vendors", "Purchase orders", "Notifications", "Profile"]);
     for (const role of ["MECHANIC", "TECHNICIAN", "DRIVER", "ACCOUNTANT"]) {
       const workspace = dedicatedWorkspaceByRole[role];
-      expect(roleNavAccess[role]).toEqual([workspace, "Notifications"]);
+      expect(roleNavAccess[role]).toEqual([workspace, "Notifications", "Profile"]);
       expect(getAllowedWorkspace(role, "Command center")).toBe(workspace);
       expect(getAllowedWorkspace(role, "Billing")).toBe(workspace);
     }
     expect(getAllowedWorkspace("FLEET_MANAGER", "Inventory")).toBe("Fleet manager workspace");
     expect(getAllowedWorkspace("INVENTORY_MANAGER", "Work orders")).toBe("Inventory manager workspace");
+  });
+
+  it("makes Profile and sign out available as universal member controls", () => {
+    const workspaceSource = readFileSync(resolve(process.cwd(), "client/src/components/FunctionalWorkspace.tsx"), "utf8");
+    const profileSource = readFileSync(resolve(process.cwd(), "client/src/components/workspaces/ProfileWorkspace.tsx"), "utf8");
+    for (const role of Object.keys(dedicatedWorkspaceByRole)) expect(canAccessWorkspace(role, "Profile")).toBe(true);
+    expect(workspaceSource).toContain('section === "Profile"');
+    expect(profileSource).toContain("Sign out of VahanSync");
+    expect(profileSource).toContain("smsAlertsEnabled");
+    expect(profileSource).toContain("whatsappAlertsEnabled");
   });
 
   it("removes static tenant labels and unauthorized owner actions from the authenticated shell", () => {
