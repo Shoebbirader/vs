@@ -10,6 +10,8 @@ describe("Twilio restricted operational-alert credential", () => {
     expect(accountSid).toBeTruthy();
     expect(keySid).toBeTruthy();
     expect(keySecret).toBeTruthy();
+    if (process.env.TWILIO_SMS_FROM) expect(process.env.TWILIO_SMS_FROM).toMatch(/^\+\d{8,15}$/);
+    if (process.env.TWILIO_WHATSAPP_FROM) expect(process.env.TWILIO_WHATSAPP_FROM).toMatch(/^whatsapp:\+\d{8,15}$/);
 
     const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`, {
       method: "POST",
