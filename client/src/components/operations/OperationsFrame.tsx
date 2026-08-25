@@ -6,11 +6,13 @@ import {
   Check,
   ChevronRight,
   Command,
+  LogOut,
   Menu,
   MoreHorizontal,
   Search,
   ShieldCheck,
   Sparkles,
+  UserRound,
   X,
 } from "lucide-react";
 
@@ -145,8 +147,11 @@ export function OperationsFrame({
         <div className="operations-role-chip"><span />{roleLabel}</div>
         <AppNavigation items={items} activeNav={activeNav} onSelect={(label) => { onSelect(label); onCloseMobileNav(); }} />
         <div className="operations-rail-footer">
-          <div className="operations-user"><span>{operatorInitials || "VS"}</span><div><strong>{operatorName || "Authenticated operator"}</strong><small>Secure session active</small></div><ShieldCheck size={16} aria-hidden="true" /></div>
-          <button type="button" className="operations-signout" onClick={onSignOut}>Sign out</button>
+          <button type="button" className="operations-profile-trigger" onClick={() => { onSelect("Profile"); onCloseMobileNav(); }} aria-label="Open your VahanSync profile and alert preferences">
+            <span className="operations-user"><span>{operatorInitials || "VS"}</span><span><strong>{operatorName || "Authenticated operator"}</strong><small>Profile &amp; preferences</small></span><UserRound size={16} aria-hidden="true" /></span>
+            <ChevronRight size={15} aria-hidden="true" />
+          </button>
+          <button type="button" className="operations-signout" onClick={onSignOut}><LogOut size={15} aria-hidden="true" />Sign out of VahanSync</button>
         </div>
       </aside>
       {showMobileNav ? <button type="button" className="operations-backdrop" aria-label="Close navigation" onClick={onCloseMobileNav} /> : null}

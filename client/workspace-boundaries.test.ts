@@ -43,11 +43,15 @@ describe("role workspace boundaries", () => {
   it("makes Profile and sign out available as universal member controls", () => {
     const workspaceSource = readFileSync(resolve(process.cwd(), "client/src/components/FunctionalWorkspace.tsx"), "utf8");
     const profileSource = readFileSync(resolve(process.cwd(), "client/src/components/workspaces/ProfileWorkspace.tsx"), "utf8");
+    const frameSource = readFileSync(resolve(process.cwd(), "client/src/components/operations/OperationsFrame.tsx"), "utf8");
     for (const role of Object.keys(dedicatedWorkspaceByRole)) expect(canAccessWorkspace(role, "Profile")).toBe(true);
     expect(workspaceSource).toContain('section === "Profile"');
     expect(profileSource).toContain("Sign out of VahanSync");
     expect(profileSource).toContain("smsAlertsEnabled");
     expect(profileSource).toContain("whatsappAlertsEnabled");
+    expect(frameSource).toContain("operations-profile-trigger");
+    expect(frameSource).toContain("Profile &amp; preferences");
+    expect(frameSource).toContain("Sign out of VahanSync");
   });
 
   it("removes static tenant labels and unauthorized owner actions from the authenticated shell", () => {

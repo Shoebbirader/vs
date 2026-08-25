@@ -18,6 +18,10 @@ After the user reported completing a renewed connection, the Twilio trial panel 
 
 The user then explicitly approved one controlled, verified-trial-recipient connectivity attempt. Neither channel was accepted by Twilio and no provider message identifier was returned: SMS returned a provider validation response, while WhatsApp returned a Content SID requirement. The VahanSync safety switch was immediately restored to disabled. Twilio documents that WhatsApp template sends require a Content SID and approved Content Template before variables are used: https://www.twilio.com/docs/api/errors/21654. No further delivery attempts are authorized until the trial/production sender requirements and WhatsApp utility-template configuration are resolved.
 
+The user approved creation of a narrowly scoped `vahansync_operational_alert` plain-text template draft with one operational-detail variable. Twilio’s Content Template Builder reports that it cannot be submitted for WhatsApp approval until a WhatsApp Sender is created. The existing trial sandbox sender is not a production WhatsApp Sender for this approval workflow.
+
+The draft could not be saved in the current trial account, and Twilio did not assign a Content SID. No sender, template, message, or delivery record was created by that failed save attempt.
+
 The application must not store Twilio credentials, account identifiers, or recipient phone numbers in source control. Before enabling live production delivery, configure encrypted server-side Twilio credentials, collect an approved sender for each channel, and ensure members have explicitly saved their phone number and channel preference. WhatsApp production notifications also require an approved utility template and recipient opt-in.
 
 Console: https://console.twilio.com/
