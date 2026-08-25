@@ -43,4 +43,13 @@ describe("Accountant financial ledger", () => {
     expect(router).toContain("FINANCIAL_EXPORT_PDF");
     expect(router).toContain("simplePdf");
   });
+
+  it("keeps the Superadmin-only approval queue out of the Accountant workspace request path", () => {
+    const functionalWorkspace = fs.readFileSync(path.join(root, "client/src/components/FunctionalWorkspace.tsx"), "utf8");
+    expect(ui).toContain("showApprovalQueue = false");
+    expect(ui).toContain("enabled: showApprovalQueue");
+    expect(ui).toContain("showApprovalQueue && <article>");
+    expect(functionalWorkspace).toContain('<AccountantWorkspace showApprovalQueue={section === "P&L analytics"} />');
+    expect(router).toContain('requireRole(ctx.fleetopsUser.role, ["SUPERADMIN"])');
+  });
 });

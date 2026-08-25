@@ -2,11 +2,14 @@
 
 - [ ] Create a concise AI-narrated VahanSync workflow video that explains the connected signal-to-maintenance-to-inventory-to-accountability flow using accurate product claims.
 - [ ] Integrate the generated video into the public landing page with accessible playback controls, captions or a transcript, responsive layout, and performance-safe hosted media delivery.
-- [ ] Restore a distinct, working Inventory Manager Parts surface for organization-owned stock, separate from Vendors and Purchase Orders.
-- [ ] Restore distinct, correctly routed Inventory Manager Vendors and Purchase Orders surfaces, preserving their persisted create/list workflows and tenant boundaries.
-- [ ] Audit every role’s accessible navigation item to verify that it opens its intended workspace rather than a duplicated or incorrect section.
+- [x] Restore a distinct, working Inventory Manager Parts surface for organization-owned stock, separate from Vendors and Purchase Orders.
+- [x] Restore distinct, correctly routed Inventory Manager Vendors and Purchase Orders surfaces, preserving their persisted create/list workflows and tenant boundaries.
+- [x] Audit every role’s accessible navigation item to verify that it opens its intended workspace rather than a duplicated or incorrect section.
 - [ ] Verify the corrected accessible surfaces through non-destructive browser checks with each available VahanSync test-member session; do not mutate operational records during role QA.
-- [ ] Inspect the existing Supabase test organization’s member-role records for QA routing only; do not retrieve, alter, or disclose credentials.
+- [x] Inspect the existing Supabase test organization’s member-role records for QA routing only; do not retrieve, alter, or disclose credentials.
+- [x] Audit every Superadmin, Fleet Manager, Inventory Manager, Mechanic, Technician, Driver, and Accountant frontend workspace for missing, duplicated, or misrouted navigation and action surfaces.
+- [x] Add explicit per-role regression coverage or documented audit evidence for Superadmin, Fleet Manager, Mechanic, Technician, Driver, and Accountant action surfaces beyond route existence.
+- [x] Remove the Superadmin-only financial approval queue and approval actions from the Accountant workspace so its authorized ledger, reconciliation, and export surfaces do not fail with a forbidden load state.
 
 - [x] Read the full-stack web project guidance and inspect the current scaffold capabilities.
 - [x] Add backend/database/authentication capability to the project.
