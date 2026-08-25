@@ -40,6 +40,42 @@ describe("role workspace boundaries", () => {
     expect(getAllowedWorkspace("INVENTORY_MANAGER", "Work orders")).toBe("Inventory manager workspace");
   });
 
+  it("keeps Inventory Manager dashboard, parts, vendors, and purchase orders as distinct functional surfaces", () => {
+    const routerSource = readFileSync(resolve(process.cwd(), "client/src/components/FunctionalWorkspace.tsx"), "utf8");
+    const resourceSource = readFileSync(resolve(process.cwd(), "client/src/components/workspaces/ResourceWorkspace.tsx"), "utf8");
+    expect(routerSource).toContain('section === "Inventory manager workspace" ? <InventoryControlWorkspace />');
+    expect(routerSource).toContain('section === "Inventory" ? <ResourceWorkspace section="Inventory"');
+    expect(routerSource).toContain('section === "Vendors" ? <ResourceWorkspace section="Vendors"');
+    expect(routerSource).toContain('section === "Purchase orders" ? <ProcurementWorkspace />');
+    expect(routerSource).not.toContain('(section === "Vendors" || section === "Purchase orders") ? <ProcurementWorkspace />');
+    expect(resourceSource).toContain('trpc.inventory.create.useMutation');
+    expect(resourceSource).toContain('Add part to inventory');
+    expect(resourceSource).toContain('trpc.vendors.create.useMutation');
+    expect(resourceSource).not.toContain('if (section === "Inventory") return <InventoryManagerWorkspace />');
+  });
+
+  it("gives every role-permitted navigation label an explicit authenticated workspace route", () => {
+    const routerSource = readFileSync(resolve(process.cwd(), "client/src/components/FunctionalWorkspace.tsx"), "utf8");
+    const routes = [
+      'section === "Command center" ? <ExecutiveOverviewWorkspace',
+      'section === "Fleet manager workspace" ? <FleetManagerOverviewWorkspace',
+      'section === "Inventory manager workspace" ? <InventoryControlWorkspace',
+      'section === "Mechanic workspace" || section === "Mechanic / Technician workspace"',
+      'section === "Technician workspace" ? <MechanicExecutionWorkspace',
+      'section === "Driver portal" ? <DriverWorkspace',
+      'section === "Accountant ledger" || section === "P&L analytics"',
+      'section === "Inventory" ? <ResourceWorkspace',
+      'section === "Vendors" ? <ResourceWorkspace',
+      'section === "Purchase orders" ? <ProcurementWorkspace',
+      'section === "Compliance vault" ? <ComplianceWorkspace',
+      'section === "Billing" ? <BillingWorkspace',
+      'section === "Team" ? <TeamWorkspace',
+      'section === "Notifications" ? <NotificationWorkspace',
+      'section === "Profile" ? <ProfileWorkspace',
+    ];
+    routes.forEach((route) => expect(routerSource).toContain(route));
+  });
+
   it("makes Profile and sign out available as universal member controls", () => {
     const workspaceSource = readFileSync(resolve(process.cwd(), "client/src/components/FunctionalWorkspace.tsx"), "utf8");
     const profileSource = readFileSync(resolve(process.cwd(), "client/src/components/workspaces/ProfileWorkspace.tsx"), "utf8");
