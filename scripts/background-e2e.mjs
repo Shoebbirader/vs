@@ -86,8 +86,13 @@ try {
   const invitedToken = await check("Sign in temporary invited user", () => signIn(invitedEmail));
   const joined = await check("Redeem invitation as invited user", () => tRPC("onboarding.acceptInvite", invitedToken, { token: invitation.tokenHash, fullName: "FleetOps E2E Driver" }));
   if (joined.role !== "DRIVER" || joined.orgId !== orgId) throw new Error("Redeemed user role or organization mismatch");
+  const reloginToken = await check("Sign out and re-authenticate temporary invited user", async () => {
+    const { error } = await anon.auth.signOut({ scope: "local" });
+    if (error) throw error;
+    return signIn(invitedEmail);
+  });
   await check("Confirm invited user cannot access Superadmin billing", async () => {
-    try { await tRPC("billing.status", invitedToken, null, "GET"); } catch (error) { if (String(error).includes("FORBIDDEN") || String(error).includes("FORBIDDEN")) return "denied as expected"; throw error; }
+    try { await tRPC("billing.status", reloginToken, null, "GET"); } catch (error) { if (String(error).includes("FORBIDDEN") || String(error).includes("FORBIDDEN")) return "denied as expected"; throw error; }
     throw new Error("Driver was allowed to access billing");
   });
   await check("Confirm invitation is no longer reusable", async () => {
