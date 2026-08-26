@@ -46,13 +46,19 @@ export function useFleetOpsAuth() {
   }, []);
 
   const signInWithEmail = async (email: string, password: string) => {
-    // signInWithPassword replaces an invalid persisted session itself. Clearing
-    // local storage just before the grant can race the auth-state callback and
-    // remove the newly-issued session, returning a valid user to the login form.
+    // Retire only this browser's stale persisted session before a fresh password
+    // grant. Logout and account switching can otherwise leave an expired refresh
+    // token in local storage, which has previously caused Supabase password-grant
+    // HTTP 400 failures for invited members on re-login. Awaiting local sign-out
+    // before the grant prevents its auth-state event from clearing a new session.
+    setLoading(true);
+    await supabase.auth.signOut({ scope: "local" });
     const result = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     if (!result.error && result.data.session) {
       setSession(result.data.session);
       setUser(result.data.session.user);
+      setLoading(false);
+    } else {
       setLoading(false);
     }
     return result;

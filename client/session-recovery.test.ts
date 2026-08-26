@@ -14,13 +14,24 @@ describe("Supabase session recovery", () => {
     expect(authHook).toContain("result.error || !result.data.session");
   });
 
-  it("preserves a successful password-grant session instead of clearing it during login", () => {
+  it("clears a stale browser-local session before password login and retains the fresh password-grant session", () => {
     expect(authHook).toContain("const signInWithEmail = async");
+    expect(authHook).toContain('await supabase.auth.signOut({ scope: "local" })');
+    expect(authHook).toContain("before a fresh password");
     expect(authHook).toContain('email: email.trim()');
     expect(authHook).toContain("signInWithPassword");
     expect(authHook).toContain("setSession(result.data.session)");
     expect(authHook).toContain("setUser(result.data.session.user)");
-    expect(authHook).toContain("remove the newly-issued session");
+    expect(authHook).toContain("Awaiting local sign-out");
+  });
+
+  it("serializes local session cleanup before the Supabase password grant", () => {
+    const signInStart = authHook.indexOf("const signInWithEmail = async");
+    const signInEnd = authHook.indexOf("const signOut =", signInStart);
+    const signInBlock = authHook.slice(signInStart, signInEnd);
+    expect(signInBlock.indexOf('await supabase.auth.signOut({ scope: "local" })')).toBeGreaterThanOrEqual(0);
+    expect(signInBlock.indexOf('await supabase.auth.signOut({ scope: "local" })')).toBeLessThan(signInBlock.indexOf("signInWithPassword"));
+    expect(signInBlock).not.toContain("refreshSession()");
   });
 
   it("does not retry protected tRPC traffic with a stale token after refresh failure", () => {
