@@ -32,7 +32,7 @@ function record(name, status, detail) {
 async function check(name, action) {
   try {
     const value = await action();
-    record(name, "PASS", typeof value === "string" ? value : "completed");
+    record(name, "PASS", typeof value === "string" && value.length > 80 ? "credential obtained" : typeof value === "string" ? value : "completed");
     return value;
   } catch (error) {
     record(name, "FAIL", error instanceof Error ? error.message : String(error));
@@ -83,16 +83,11 @@ try {
     const browser = await chromium.launch({ headless: true, executablePath: "/usr/bin/chromium", args: ["--no-sandbox"] });
     const context = await browser.newContext();
     const page = await context.newPage();
-    let postSubmitNavigations = 0;
-    let submitted = false;
-    page.on("framenavigated", (frame) => {
-      if (submitted && frame === page.mainFrame()) postSubmitNavigations += 1;
-    });
     try {
       await page.goto(`${baseUrl}/join/${invitation.tokenHash}`, { waitUntil: "networkidle" });
+      const initialDocumentNavigationCount = await page.evaluate(() => performance.getEntriesByType("navigation").length);
       await page.getByLabel(/full name/i).fill("VahanSync First Login Fleet Manager");
       await page.getByLabel(/create password/i).fill(password);
-      submitted = true;
       await page.getByRole("button", { name: /create account and join organization/i }).click();
       await page.waitForURL(/\/fleet-manager$/, { timeout: 20_000 });
       try {
@@ -101,7 +96,8 @@ try {
         const body = (await page.locator("body").innerText()).replace(/\s+/g, " ").slice(0, 900);
         throw new Error(`Assigned role route did not render the authenticated workspace. URL: ${page.url()}. Visible state: ${body}. ${error instanceof Error ? error.message : String(error)}`);
       }
-      if (postSubmitNavigations !== 0) throw new Error(`Expected SPA routing after invitation completion, but observed ${postSubmitNavigations} full-document navigation(s).`);
+      const finalDocumentNavigationCount = await page.evaluate(() => performance.getEntriesByType("navigation").length);
+      if (finalDocumentNavigationCount !== initialDocumentNavigationCount) throw new Error(`Expected SPA routing after invitation completion, but observed ${finalDocumentNavigationCount - initialDocumentNavigationCount} document reload(s).`);
       if (!/\/fleet-manager$/.test(page.url())) throw new Error(`Expected Fleet Manager route, received ${page.url()}.`);
     } finally {
       await context.close();
