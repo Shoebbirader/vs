@@ -1,7 +1,15 @@
 # FleetOps Backend Upgrade
 
 - [ ] Create a concise AI-narrated VahanSync workflow video that explains the connected signal-to-maintenance-to-inventory-to-accountability flow using accurate product claims.
+- [ ] Resume generation of the remaining VahanSync workflow-video scenes after the video-generation quota becomes available; the existing opening clip and narration are preserved outside the application bundle.
+- [ ] Resume the approved workflow-video production plan by generating storyboard scenes 2–6, assembling them with the saved narration, and seeking approval before public landing-page integration.
+- [x] Generate storyboard scene 2: the VIN-first vehicle identity, odometer, component-life, and amber tyre-threshold signal sequence in 16:9 landscape format.
 - [ ] Integrate the generated video into the public landing page with accessible playback controls, captions or a transcript, responsive layout, and performance-safe hosted media delivery.
+- [x] Add the two completed VahanSync workflow clips to the public landing page as an accessible, responsive hosted preview with clear interim-production context; keep the remaining scenes planned for a later release.
+- [x] Store the completed public VahanSync workflow-video clips in a dedicated Supabase Storage bucket and reference those hosted assets from the interim landing-page preview.
+- [x] Design and obtain approval for a distinctive VahanSync route-and-signal logo asset suitable for the public site, role workspaces, and app-icon contexts. Cancelled at the user’s request; no logo asset was approved or applied.
+- [x] Replace the rejected generic route-and-signal logo direction with a stronger, ownable VahanSync symbol that avoids a generic letterform or conventional automotive badge. Cancelled at the user’s request; the rejected concepts remain unused.
+- [x] Apply the approved VahanSync logo consistently across product surfaces, then validate and deploy it to GitHub and Vercel. Cancelled because no concept was approved; existing VahanSync branding remains unchanged.
 - [x] Restore a distinct, working Inventory Manager Parts surface for organization-owned stock, separate from Vendors and Purchase Orders.
 - [x] Restore distinct, correctly routed Inventory Manager Vendors and Purchase Orders surfaces, preserving their persisted create/list workflows and tenant boundaries.
 - [x] Audit every role’s accessible navigation item to verify that it opens its intended workspace rather than a duplicated or incorrect section.

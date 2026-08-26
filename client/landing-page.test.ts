@@ -20,6 +20,15 @@ describe("public VahanSync landing page", () => {
     expect(landing).toContain("public-signal-canvas");
   });
 
+  it("shows the completed Supabase-hosted workflow-video chapters with native controls and transcripts", () => {
+    expect(landing).toContain("vahansync-media/marketing/workflow/v1");
+    expect(landing).toContain("vahansync-workflow-01.mp4");
+    expect(landing).toContain("vahansync-workflow-02-vin-signal.mp4");
+    expect(landing).toContain('controls preload="metadata" playsInline');
+    expect(landing).toContain("Read this chapter’s transcript");
+    expect(landing).toContain("The film is in production");
+  });
+
   it("routes public auth paths without replacing invitation or workspace routes", () => {
     expect(app).toContain('path="/login"');
     expect(app).toContain('path="/create-organization"');
