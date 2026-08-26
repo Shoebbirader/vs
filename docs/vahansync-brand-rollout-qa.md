@@ -41,3 +41,9 @@ The live Vercel sign-in surface was also verified after the master-brand release
 An additional non-destructive live workspace verification attempt entered the normal session-transition state but returned to the sign-in form rather than opening a role workspace in the browser session. No operational records were changed. The compact companion is nevertheless consumed by the shared `OperationsFrame`, and its role-workspace usage remains covered by the updated source contract test.
 
 The user confirmed that all organizations and users had been intentionally deleted before this final verification attempt. Accordingly, no live authenticated workspace exists to inspect. No replacement organization or account was created; the remaining authenticated desktop/mobile visual checks are deferred unless the user authorizes a new disposable test tenant.
+
+## Invited-member first-login handoff
+
+The initial invited-member workspace transition used a hard document navigation after password sign-in. This could reload the application while Supabase password-grant persistence and role-scoped summary loading were still settling. The corrected client flow now marks the join submission as pending, retains the password-grant session without an immediate refresh request, and uses the in-app role route transition instead of a hard reload.
+
+The fix was pushed to GitHub main. Although the local Vercel CLI credential was no longer authorized, the connected GitHub integration automatically started the corresponding Vercel deployment, which was observed in the Vercel project dashboard.

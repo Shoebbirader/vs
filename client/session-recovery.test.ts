@@ -7,6 +7,7 @@ const authHook = fs.readFileSync(path.join(root, "client/src/hooks/useFleetOpsAu
 const transport = fs.readFileSync(path.join(root, "client/src/main.tsx"), "utf8");
 const home = fs.readFileSync(path.join(root, "client/src/pages/Home.tsx"), "utf8");
 const invitationJoin = fs.readFileSync(path.join(root, "client/src/pages/JoinOrganization.tsx"), "utf8");
+const app = fs.readFileSync(path.join(root, "client/src/App.tsx"), "utf8");
 
 describe("Supabase session recovery", () => {
   it("clears local auth state when the initial session or refresh is invalid", () => {
@@ -58,5 +59,13 @@ describe("Supabase session recovery", () => {
     expect(submitBlock).toContain("setLocation(routeForRole(details.data.role))");
     expect(submitBlock).not.toContain("refreshSession()");
     expect(submitBlock).not.toContain("window.location.href");
+  });
+
+  it("keeps a guarded role route in an explicit recovery state when the first summary query sees a transient fresh-session authorization error", () => {
+    expect(app).toContain("const summaryUnauthorized");
+    expect(app).toContain("await summary.refetch()");
+    expect(app).toContain("recoveringSession");
+    expect(app).toContain("Workspace connection needs attention.");
+    expect(app).toContain("<Home publicMode=\"signin\" />");
   });
 });

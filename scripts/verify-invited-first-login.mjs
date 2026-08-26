@@ -95,7 +95,12 @@ try {
       submitted = true;
       await page.getByRole("button", { name: /create account and join organization/i }).click();
       await page.waitForURL(/\/fleet-manager$/, { timeout: 20_000 });
-      await page.getByRole("button", { name: /sign out of VahanSync/i }).waitFor({ timeout: 20_000 });
+      try {
+        await page.getByRole("button", { name: /sign out of VahanSync/i }).waitFor({ timeout: 20_000 });
+      } catch (error) {
+        const body = (await page.locator("body").innerText()).replace(/\s+/g, " ").slice(0, 900);
+        throw new Error(`Assigned role route did not render the authenticated workspace. URL: ${page.url()}. Visible state: ${body}. ${error instanceof Error ? error.message : String(error)}`);
+      }
       if (postSubmitNavigations !== 0) throw new Error(`Expected SPA routing after invitation completion, but observed ${postSubmitNavigations} full-document navigation(s).`);
       if (!/\/fleet-manager$/.test(page.url())) throw new Error(`Expected Fleet Manager route, received ${page.url()}.`);
     } finally {

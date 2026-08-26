@@ -1,6 +1,7 @@
 /* VahanSync application shell: role-aware navigation and operational command canvas. */
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { useEffect, useState } from "react";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
@@ -28,9 +29,24 @@ function CreateOrganizationRoute() {
 }
 
 function GuardedWorkspaceRoute({ section, allowedRoles }: { section: string; allowedRoles: string[] }) {
-  const { session, loading } = useFleetOpsAuth();
+  const { session, loading, refreshSession } = useFleetOpsAuth();
   const summary = trpc.dashboard.summary.useQuery(undefined, { enabled: Boolean(session), retry: false, refetchOnWindowFocus: false, refetchOnReconnect: false });
-  if (loading || (session && summary.isLoading)) return <div className="auth-page"><div className="auth-card"><h1>Loading workspace access…</h1></div></div>;
+  const [recoveryAttempted, setRecoveryAttempted] = useState(false);
+  const [recoveringSession, setRecoveringSession] = useState(false);
+  const summaryUnauthorized = summary.error?.data?.code === "UNAUTHORIZED" || /unauthorized|session expired|organization profile/i.test(summary.error?.message ?? "");
+
+  useEffect(() => {
+    if (!session || !summary.isError || !summaryUnauthorized || recoveryAttempted || recoveringSession) return;
+    setRecoveryAttempted(true);
+    setRecoveringSession(true);
+    void refreshSession().then(async (result) => {
+      if (!result.error && result.data.session) await summary.refetch();
+    }).finally(() => setRecoveringSession(false));
+  }, [recoveryAttempted, recoveringSession, refreshSession, session, summary, summaryUnauthorized]);
+
+  if (!session && !loading) return <Home publicMode="signin" />;
+  if (loading || (session && (summary.isLoading || recoveringSession))) return <div className="auth-page"><div className="auth-card"><h1>Loading workspace access…</h1><p>Confirming your current role session before opening operational data.</p></div></div>;
+  if (session && summary.isError) return <div className="auth-page"><div className="auth-card"><h1>Workspace connection needs attention.</h1><p>{summaryUnauthorized ? "Your new role session is being confirmed. Please retry once without signing out." : "We could not load your assigned workspace. Please retry without leaving your secure session."}</p><button className="primary-button" onClick={() => { setRecoveryAttempted(false); void summary.refetch(); }}>Retry workspace load</button></div></div>;
   if (session && summary.data?.role && !allowedRoles.includes(summary.data.role)) return <div className="auth-page"><div className="auth-card"><h1>Workspace access restricted.</h1><p>Your VahanSync role does not have access to the {section} workspace.</p><a className="primary-button" href="/">Return to command center</a></div></div>;
   return <Home initialSection={section} />;
 }
