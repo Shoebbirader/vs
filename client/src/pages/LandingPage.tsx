@@ -17,20 +17,20 @@ const workspaceSignals = [
   ["Accountant", "INR ledger and reconciliation", "finance"],
 ];
 
-const workflowVideoBase = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/vahansync-media/marketing/workflow/v1`;
+const workflowVideoBase = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/vahansync-media/marketing/workflow/v2`;
 const workflowVideos = [
   {
     chapter: "Chapter 01",
     title: "See the next responsibility",
     detail: "A fleet-depot opening frames the operational problem before a roadside interruption occurs.",
-    source: `${workflowVideoBase}/vahansync-workflow-01.mp4`,
+    source: `${workflowVideoBase}/vahansync-workflow-01-narrated.mp4`,
     transcript: "Keeping a fleet moving depends on seeing the next responsibility before it becomes a roadside interruption.",
   },
   {
     chapter: "Chapter 02",
     title: "Make the vehicle signal visible",
     detail: "VIN identity, odometer and component life converge into a clear tyre-service signal.",
-    source: `${workflowVideoBase}/vahansync-workflow-02-vin-signal.mp4`,
+    source: `${workflowVideoBase}/vahansync-workflow-02-vin-signal-narrated.mp4`,
     transcript: "VahanSync connects vehicle identity, odometer readings, component life, and operating records in one accountable workspace.",
   },
 ];

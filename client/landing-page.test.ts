@@ -21,9 +21,9 @@ describe("public VahanSync landing page", () => {
   });
 
   it("shows the completed Supabase-hosted workflow-video chapters with native controls and transcripts", () => {
-    expect(landing).toContain("vahansync-media/marketing/workflow/v1");
-    expect(landing).toContain("vahansync-workflow-01.mp4");
-    expect(landing).toContain("vahansync-workflow-02-vin-signal.mp4");
+    expect(landing).toContain("vahansync-media/marketing/workflow/v2");
+    expect(landing).toContain("vahansync-workflow-01-narrated.mp4");
+    expect(landing).toContain("vahansync-workflow-02-vin-signal-narrated.mp4");
     expect(landing).toContain('controls preload="metadata" playsInline');
     expect(landing).toContain("Read this chapter’s transcript");
     expect(landing).toContain("The film is in production");
