@@ -52,6 +52,9 @@
 - [ ] Verify the approved compact companion mark in a real authenticated VahanSync workspace sidebar/header at desktop width and record evidence.
 - [ ] Verify the approved compact companion mark in a real authenticated VahanSync workspace at mobile width and record evidence.
 - [ ] If the user later authorizes a new disposable organization and member, complete the deferred authenticated workspace desktop and mobile companion-mark verification without changing production operational data.
+- [ ] Fix the invited-member first-login handoff: after profile completion, the assigned workspace must load once without a reload loop; preserve Supabase session security, tenant binding, and subsequent re-login behavior. The implementation and contract tests are complete; behavior-level verification remains pending.
+- [ ] Add regression coverage for invitation completion followed by the first assigned-workspace load, then validate and deploy the correction through GitHub and Vercel.
+- [ ] Verify the first invited-member creation opens the assigned role workspace without a hard reload using a disposable organization/member after the fix is deployed; clean all temporary records afterward.
 - [x] Design and obtain approval for a distinctive VahanSync route-and-signal logo asset suitable for the public site, role workspaces, and app-icon contexts. Cancelled at the user’s request; no logo asset was approved or applied.
 - [x] Replace the rejected generic route-and-signal logo direction with a stronger, ownable VahanSync symbol that avoids a generic letterform or conventional automotive badge. Cancelled at the user’s request; the rejected concepts remain unused.
 - [x] Apply the approved VahanSync logo consistently across product surfaces, then validate and deploy it to GitHub and Vercel. Cancelled because no concept was approved; existing VahanSync branding remains unchanged.

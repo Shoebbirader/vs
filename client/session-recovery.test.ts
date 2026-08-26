@@ -6,6 +6,7 @@ const root = path.resolve(import.meta.dirname, "..");
 const authHook = fs.readFileSync(path.join(root, "client/src/hooks/useFleetOpsAuth.ts"), "utf8");
 const transport = fs.readFileSync(path.join(root, "client/src/main.tsx"), "utf8");
 const home = fs.readFileSync(path.join(root, "client/src/pages/Home.tsx"), "utf8");
+const invitationJoin = fs.readFileSync(path.join(root, "client/src/pages/JoinOrganization.tsx"), "utf8");
 
 describe("Supabase session recovery", () => {
   it("clears local auth state when the initial session or refresh is invalid", () => {
@@ -46,5 +47,16 @@ describe("Supabase session recovery", () => {
     expect(home).toContain("trpcUtils.dashboard.summary.reset()");
     expect(home).toContain("trpcUtils.inventory.list.reset()");
     expect(home).toContain("Securing your role workspace.");
+  });
+
+  it("keeps the invited member inside the application while the fresh password-grant session settles", () => {
+    const submitStart = invitationJoin.indexOf("const submit = async");
+    const submitEnd = invitationJoin.indexOf("if (authLoading", submitStart);
+    const submitBlock = invitationJoin.slice(submitStart, submitEnd);
+    expect(submitBlock).toContain("setSubmitted(true)");
+    expect(submitBlock).toContain("await signInWithEmail");
+    expect(submitBlock).toContain("setLocation(routeForRole(details.data.role))");
+    expect(submitBlock).not.toContain("refreshSession()");
+    expect(submitBlock).not.toContain("window.location.href");
   });
 });

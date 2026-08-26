@@ -24,10 +24,14 @@ describe("signup to organization invitation flow", () => {
     expect(source).toContain("smsAlertsEnabled");
     expect(source).toContain("whatsappAlertsEnabled");
     expect(source).toContain("signInWithEmail");
+    expect(source).toContain("setSubmitted(true)");
+    expect(source).toContain("const [, setLocation] = useLocation()");
     expect(source).toContain("organization");
     expect(source).toContain("role");
     expect(source).not.toContain("acceptInvite.mutate");
-    expect(source).toContain("window.location.href = routeForRole(details.data.role)");
+    expect(source).toContain("setLocation(routeForRole(details.data.role))");
+    expect(source).not.toContain("window.location.href = routeForRole(details.data.role)");
+    expect(source).not.toContain("refreshSession()");
   });
 
   it("keeps signup and invitation redemption in the application route map", () => {

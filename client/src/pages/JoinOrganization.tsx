@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useRoute } from "wouter";
+import { useLocation, useRoute } from "wouter";
 import { Building2, Loader2, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
@@ -9,8 +9,9 @@ const routeForRole = (role: string) => ({ FLEET_MANAGER: "/fleet-manager", INVEN
 
 export default function JoinOrganization() {
   const [, params] = useRoute("/join/:token");
+  const [, setLocation] = useLocation();
   const token = params?.token ?? "";
-  const { session, loading: authLoading, signInWithEmail, refreshSession, signOut } = useFleetOpsAuth();
+  const { session, loading: authLoading, signInWithEmail, signOut } = useFleetOpsAuth();
   const details = trpc.onboarding.inviteDetails.useQuery({ token }, { enabled: Boolean(token), retry: false });
   const completeInvite = trpc.onboarding.completeInviteWithPassword.useMutation();
   const [fullName, setFullName] = useState("");
@@ -26,13 +27,16 @@ export default function JoinOrganization() {
     event.preventDefault();
     setError("");
     if (!details.data) return;
+    setSubmitted(true);
     const completed = await completeInvite.mutateAsync({ token, fullName, password, mobileNumber: mobileNumber.trim(), smsAlertsEnabled, whatsappAlertsEnabled }).catch((mutationError) => ({ error: mutationError as Error }));
-    if ("error" in completed && completed.error) { setError(completed.error.message); return; }
+    if ("error" in completed && completed.error) { setError(completed.error.message); setSubmitted(false); return; }
     const { error: signInError } = await signInWithEmail(details.data.email, password);
-    if (signInError) { setError(signInError.message); return; }
-    await refreshSession();
+    if (signInError) { setError(signInError.message); setSubmitted(false); return; }
     toast.success("You joined the organization", { description: `Opening your ${String(details.data.role).replaceAll("_", " ").toLowerCase()} workspace.` });
-    window.location.href = routeForRole(details.data.role);
+    // The password grant is already the authoritative fresh session. Keep this
+    // transition inside the SPA so a newly invited member does not hard-reload
+    // while Supabase persistence and the role-scoped summary query are settling.
+    setLocation(routeForRole(details.data.role));
   };
 
   if (authLoading || details.isLoading) return <main className="auth-page"><section className="auth-card"><Loader2 className="spin" /><h1>Checking invitation…</h1><p>Validating the secure organization invitation.</p></section></main>;
