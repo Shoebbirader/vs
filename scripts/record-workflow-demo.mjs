@@ -1,4 +1,4 @@
-import { chromium } from "playwright";
+import { chromium } from "@playwright/test";
 import fs from "node:fs/promises";
 import path from "node:path";
 
@@ -16,6 +16,15 @@ const roles = [
   { key: "inventory_manager", label: "Inventory Manager", sections: ["Inventory manager workspace", "Inventory", "Vendors", "Purchase orders"] },
   { key: "accountant", label: "Accountant", sections: ["Accountant ledger", "Profile"] },
 ];
+const requestedRoleKeys = (process.env.FLEETOPS_RECORDING_ROLES ?? roles.map((role) => role.key).join(","))
+  .split(",")
+  .map((value) => value.trim())
+  .filter(Boolean);
+const recordingRoles = requestedRoleKeys.map((key) => {
+  const role = roles.find((candidate) => candidate.key === key);
+  if (!role) throw new Error(`Unknown recording role: ${key}`);
+  return role;
+});
 
 function envKey(role, field) {
   return `FLEETOPS_RECORDING_${role.toUpperCase()}_${field}`;
@@ -88,7 +97,7 @@ const browser = await chromium.launch({ headless: true, executablePath: "/usr/bi
 const results = [];
 
 try {
-  for (const role of roles) {
+  for (const role of recordingRoles) {
     const statePath = await signInAndSaveState(browser, role);
     try {
       const videoPath = await recordRole(browser, role, statePath);
