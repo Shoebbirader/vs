@@ -907,3 +907,13 @@ button:active { transform: scale(.975); }
 .vehicle-assignment-inline select { min-width: 190px; padding: 8px 10px; border: 1px solid #dfddd6; border-radius: 8px; color: #273443; background: #fff; }
 .component-lifecycle-row strong small { display: inline; margin-left: 6px; color: #a95a3b; font-size: 9px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
 @media (max-width: 760px) { .vin-first-workspace .invite-form, .component-lifecycle-workspace .invite-form { grid-template-columns: 1fr; } .vin-first-row, .component-lifecycle-row { grid-template-columns: 1fr; } .vin-first-row .inline-actions { justify-content: flex-start; } .vehicle-assignment-inline { flex-wrap: wrap; } .vehicle-assignment-inline select { width: 100%; } }
+
+/* Approved VahanSync maintenance-readiness mark: shared public, auth, and role-workspace usage. */
+.vahan-brand-mark { display: inline-grid; place-items: center; flex: 0 0 auto; width: 42px; height: 42px; overflow: hidden; border: 1px solid #ddd6ca; border-radius: 13px; background: #f7f4ee; box-shadow: 0 8px 18px rgba(17, 24, 39, .1); }
+.vahan-brand-mark img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.marketing-brand-mark { width: 40px; height: 40px; border-radius: 12px; box-shadow: 0 7px 16px rgba(17, 24, 39, .08); }
+.marketing-brand-mark.is-small { width: 30px; height: 30px; border-radius: 9px; }
+.public-auth-brand-mark { width: 43px; height: 43px; border-color: rgba(255, 255, 255, .22); background: #f7f4ee; box-shadow: 0 10px 24px rgba(0, 0, 0, .18); }
+.auth-brand-mark { width: 42px; height: 42px; border-radius: 13px; }
+.operations-brand .vahan-brand-mark { width: 44px; height: 44px; border-color: rgba(242, 107, 56, .3); border-radius: 14px; background: #f7f4ee; box-shadow: 0 10px 25px rgba(0, 0, 0, .22); }
+@media (max-width: 560px) { .marketing-brand-mark { width: 35px; height: 35px; border-radius: 10px; } .public-auth-brand-mark { width: 38px; height: 38px; } }

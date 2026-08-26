@@ -24,6 +24,20 @@
 - [ ] Obtain explicit approval for the complete workflow video before uploading it to public storage or replacing the interim two-chapter landing-page preview.
 - [x] Replace the two interim public Supabase workflow-video objects with the user-approved Hindi no-subtitle full workflow video and update the public landing-page source. Verified the Supabase prefix retains only the approved v3 object.
 - [x] Deploy the public-video replacement to Vercel production and verify the live landing page serves the v3 Hindi workflow video without v1 or v2 references.
+- [x] Perform a read-only workspace media and repository asset audit, reporting video and image counts plus non-runtime cleanup candidates without deleting, staging, or deploying any files.
+- [x] Prepare a no-deletion review catalogue for every local VahanSync video, including filename, duration, size, purpose, and playable preview before any cleanup decision.
+- [x] Delete only the user-reviewed local VahanSync image and video files; preserve Supabase-hosted public media, application source, tests, scripts, documents, database records, and private QA material.
+- [x] Regenerate the selected VahanSync connected infinity-road logo concept as a clean, scalable brand asset; do not change the product implementation unless separately approved.
+- [x] Correct the connected infinity-road logo palette to match the existing VahanSync navy, warm ivory, and signal-orange UI system before seeking approval.
+- [ ] Regenerate the infinity-road mark as a simplified app-icon-ready form: one dominant navy road loop, one restrained signal-orange route accent, and no pixel cluster or excessive lane detail.
+- [x] Generate a VahanSync logo concept that visibly conveys preventive fleet maintenance scheduling, condition monitoring, and route readiness using the current navy, warm-ivory, and signal-orange system. Approved as the maintenance gauge, due-service checkpoint, route segment, and VS monogram direction.
+- [x] Refine the maintenance-readiness logo with a centered VS monogram that fills the dial without reducing small-icon clarity; obtain user approval before app integration. Approved by the user.
+- [x] After approval, integrate the selected logo throughout VahanSync’s public and authenticated brand surfaces without changing backend, database, authentication, or role workflows.
+- [x] Add the approved VS maintenance-readiness logo asset and a shared accessible BrandMark component for public and authenticated VahanSync surfaces.
+- [x] Replace the existing VahanSync monogram/logo treatments in public navigation, authentication views, workspace sidebar/header surfaces, and browser metadata with the approved mark.
+- [ ] Add branding regression coverage, verify desktop and mobile rendering, and deploy the approved logo rollout through GitHub and Vercel. Targeted branding tests, TypeScript, production build, asset health checks, and local desktop/mobile screenshots passed; full-suite Twilio credential test remains externally blocked with HTTP 451 rather than its pre-existing expected HTTP 400.
+- [ ] Commit the approved logo rollout with the required Git identity, push it to GitHub main, and deploy it to Vercel production.
+- [ ] Verify the live Vercel site references the approved Supabase-hosted logo asset in public navigation, sign-in, workspace branding, and browser icon metadata.
 - [x] Design and obtain approval for a distinctive VahanSync route-and-signal logo asset suitable for the public site, role workspaces, and app-icon contexts. Cancelled at the user’s request; no logo asset was approved or applied.
 - [x] Replace the rejected generic route-and-signal logo direction with a stronger, ownable VahanSync symbol that avoids a generic letterform or conventional automotive badge. Cancelled at the user’s request; the rejected concepts remain unused.
 - [x] Apply the approved VahanSync logo consistently across product surfaces, then validate and deploy it to GitHub and Vercel. Cancelled because no concept was approved; existing VahanSync branding remains unchanged.

@@ -1,5 +1,7 @@
 import { ArrowRight, Check, CircleDollarSign, LockKeyhole, MapPinned, Route, ShieldCheck, Sparkles, Users, Wrench } from "lucide-react";
 
+import { BrandMark } from "@/components/BrandMark";
+
 const plans = [
   { name: "Starter", price: "₹9,999", suffix: "/ month", note: "For focused fleet teams", vehicles: "10 vehicles included", overage: "₹750 per additional vehicle", accent: "sand" },
   { name: "Growth", price: "₹24,999", suffix: "/ month", note: "For growing operators", vehicles: "50 vehicles included", overage: "₹600 per additional vehicle", accent: "orange", featured: true },
@@ -8,11 +10,11 @@ const plans = [
 ];
 
 export function MarketingNav({ active }: { active?: string }) {
-  return <header className="marketing-nav"><a className="brand-lockup" href="/"><span className="brand-mark" aria-hidden="true"><Route className="brand-mark-route" size={19} strokeWidth={2.4} /></span><span><strong>VahanSync</strong><small>Fleet intelligence for India’s operators</small></span></a><nav className="marketing-links" aria-label="Public navigation"><a className={active === "pricing" ? "active" : ""} href="/pricing">Pricing</a><a className={active === "about" ? "active" : ""} href="/about">About</a><a className={active === "security" ? "active" : ""} href="/security">Security</a></nav><div className="marketing-actions"><a className="secondary-button" href="/login">Sign in</a><a className="primary-button" href="/create-organization">Create organization <ArrowRight size={15} /></a></div></header>;
+  return <header className="marketing-nav"><a className="brand-lockup" href="/"><BrandMark decorative className="marketing-brand-mark" /><span><strong>VahanSync</strong><small>Fleet intelligence for India’s operators</small></span></a><nav className="marketing-links" aria-label="Public navigation"><a className={active === "pricing" ? "active" : ""} href="/pricing">Pricing</a><a className={active === "about" ? "active" : ""} href="/about">About</a><a className={active === "security" ? "active" : ""} href="/security">Security</a></nav><div className="marketing-actions"><a className="secondary-button" href="/login">Sign in</a><a className="primary-button" href="/create-organization">Create organization <ArrowRight size={15} /></a></div></header>;
 }
 
 export function MarketingFooter() {
-  return <footer className="marketing-footer"><div><a className="brand-lockup" href="/"><span className="brand-mark small" aria-hidden="true"><Route className="brand-mark-route" size={16} strokeWidth={2.4} /></span><span><strong>VahanSync</strong><small>Fleet intelligence for India’s operators</small></span></a><p>Connected fleet operations for India’s transport organizations.</p></div><div className="footer-links"><a href="/pricing">Pricing</a><a href="/about">About</a><a href="/security">Security</a><a href="/login">Sign in</a></div><small>© {new Date().getFullYear()} VahanSync. Built for accountable operations.</small></footer>;
+  return <footer className="marketing-footer"><div><a className="brand-lockup" href="/"><BrandMark decorative className="marketing-brand-mark is-small" /><span><strong>VahanSync</strong><small>Fleet intelligence for India’s operators</small></span></a><p>Connected fleet operations for India’s transport organizations.</p></div><div className="footer-links"><a href="/pricing">Pricing</a><a href="/about">About</a><a href="/security">Security</a><a href="/login">Sign in</a></div><small>© {new Date().getFullYear()} VahanSync. Built for accountable operations.</small></footer>;
 }
 
 export function PricingPage() {

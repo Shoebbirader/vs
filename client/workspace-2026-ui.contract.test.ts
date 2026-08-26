@@ -48,7 +48,8 @@ describe("VahanSync 2026 workspace UI contract", () => {
     expect(home).toContain("roleDescriptor");
     expect(home).toContain("OperationsFrame");
     expect(home).toContain("brand-mark-route");
-    expect(marketing).toContain("brand-mark-route");
+    expect(marketing).toContain("BrandMark");
+    expect(marketing).toContain("marketing-brand-mark");
     expect(marketing).not.toContain("brand-mark-glyph");
   });
 

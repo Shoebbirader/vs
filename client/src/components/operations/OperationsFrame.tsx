@@ -16,6 +16,8 @@ import {
   X,
 } from "lucide-react";
 
+import { BrandMark } from "@/components/BrandMark";
+
 export type OperationNavItem = { label: string; icon: LucideIcon };
 
 export type CommandVehicle = {
@@ -135,7 +137,7 @@ export function OperationsFrame({
     <div className="operations-frame">
       <aside className={`operations-rail ${showMobileNav ? "is-open" : ""}`}>
         <div className="operations-brand">
-          <div className="operations-mark" aria-hidden="true"><span /><span /><span /></div>
+          <BrandMark decorative className="operations-mark" />
           <div><strong>VahanSync</strong><small>Fleet intelligence</small></div>
           <button type="button" className="operations-rail-close" aria-label="Close navigation" onClick={onCloseMobileNav}><X size={18} /></button>
         </div>
