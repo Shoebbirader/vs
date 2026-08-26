@@ -8,8 +8,8 @@
 - [x] Add the two completed VahanSync workflow clips to the public landing page as an accessible, responsive hosted preview with clear interim-production context; keep the remaining scenes planned for a later release.
 - [x] Store the completed public VahanSync workflow-video clips in a dedicated Supabase Storage bucket and reference those hosted assets from the interim landing-page preview.
 - [x] Restore audible approved narration to the published VahanSync workflow-video preview clips; verify audio streams before replacing Supabase Storage objects and redeploying the landing page.
-- [ ] Commit, push, and deploy the landing-page audio fix so Vercel production references the narrated Supabase Storage v2 clips.
-- [ ] Verify the production landing-page bundle references the narrated v2 clip URLs and that both public MP4 objects expose AAC audio streams.
+- [x] Commit, push, and deploy the landing-page audio fix so Vercel production references the narrated Supabase Storage v2 clips.
+- [x] Verify the production landing-page bundle references the narrated v2 clip URLs and that both public MP4 objects expose AAC audio streams.
 - [x] Design and obtain approval for a distinctive VahanSync route-and-signal logo asset suitable for the public site, role workspaces, and app-icon contexts. Cancelled at the user’s request; no logo asset was approved or applied.
 - [x] Replace the rejected generic route-and-signal logo direction with a stronger, ownable VahanSync symbol that avoids a generic letterform or conventional automotive badge. Cancelled at the user’s request; the rejected concepts remain unused.
 - [x] Apply the approved VahanSync logo consistently across product surfaces, then validate and deploy it to GitHub and Vercel. Cancelled because no concept was approved; existing VahanSync branding remains unchanged.
