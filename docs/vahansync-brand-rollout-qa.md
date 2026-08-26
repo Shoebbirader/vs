@@ -33,3 +33,11 @@ The approved tagline-free fleet-readiness illustration was added to the public l
 Desktop visual verification at 1280×720 confirmed that the full illustration has clear whitespace and hierarchy in the public hero without obscuring calls to action or operating copy. The compact companion mark renders cleanly in both the public navigation and the sign-in brand header; its smaller-scale treatment remains visually distinct from the master illustration.
 
 At 375×812, the compact companion mark remains legible in the public navigation and sign-in header. The responsive public hero retains its call to action and operating copy without clipping; the full master illustration follows the textual hero content on the narrow layout rather than competing with the headline in the first viewport.
+
+The Vercel production landing page was verified after deployment. Its live public navigation and footer reference the Supabase-hosted v2 compact companion asset, while the public hero references the approved tagline-free v2 master fleet-readiness illustration. Both assets loaded from the public `vahansync-brand` bucket.
+
+The live Vercel sign-in surface was also verified after the master-brand release. Its upper-left product lockup references the same v2 compact companion mark and the access-control form remains available without layout or content regression.
+
+An additional non-destructive live workspace verification attempt entered the normal session-transition state but returned to the sign-in form rather than opening a role workspace in the browser session. No operational records were changed. The compact companion is nevertheless consumed by the shared `OperationsFrame`, and its role-workspace usage remains covered by the updated source contract test.
+
+The user confirmed that all organizations and users had been intentionally deleted before this final verification attempt. Accordingly, no live authenticated workspace exists to inspect. No replacement organization or account was created; the remaining authenticated desktop/mobile visual checks are deferred unless the user authorizes a new disposable test tenant.
