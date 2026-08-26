@@ -20,13 +20,14 @@ describe("public VahanSync landing page", () => {
     expect(landing).toContain("public-signal-canvas");
   });
 
-  it("shows the completed Supabase-hosted workflow-video chapters with native controls and transcripts", () => {
-    expect(landing).toContain("vahansync-media/marketing/workflow/v2");
-    expect(landing).toContain("vahansync-workflow-01-narrated.mp4");
-    expect(landing).toContain("vahansync-workflow-02-vin-signal-narrated.mp4");
+  it("shows the approved Hindi Supabase-hosted full workflow video with native controls", () => {
+    expect(landing).toContain("vahansync-media/marketing/workflow/v3");
+    expect(landing).toContain("vahansync-real-workflow-demo-hindi-no-subtitles.mp4");
     expect(landing).toContain('controls preload="metadata" playsInline');
-    expect(landing).toContain("Read this chapter’s transcript");
-    expect(landing).toContain("The film is in production");
+    expect(landing).toContain("Watch the complete connected operating workflow");
+    expect(landing).toContain("Hindi narration. No on-screen subtitles.");
+    expect(landing).not.toContain("vahansync-workflow-01-narrated.mp4");
+    expect(landing).not.toContain("vahansync-workflow-02-vin-signal-narrated.mp4");
   });
 
   it("routes public auth paths without replacing invitation or workspace routes", () => {
