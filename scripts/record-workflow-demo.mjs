@@ -8,7 +8,7 @@ const stateDir = path.join(outputDir, ".session-state");
 const viewport = { width: 1280, height: 720 };
 
 const roles = [
-  { key: "superadmin", label: "Superadmin governance", sections: ["Command center", "Team", "Compliance", "P&L", "Billing", "Profile"] },
+  { key: "superadmin", label: "Superadmin governance", sections: ["Command center", "Team", "Compliance vault", "P&L analytics", "Billing", "Profile"] },
   { key: "fleet_manager", label: "Fleet Manager", sections: ["Fleet manager workspace", "Vehicles", "Components", "Work orders"] },
   { key: "driver", label: "Driver", sections: ["Driver portal", "Profile"] },
   { key: "mechanic", label: "Mechanic", sections: ["Mechanic workspace", "Profile"] },
