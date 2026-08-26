@@ -25,3 +25,11 @@ An authorized live Superadmin workspace session was opened after deployment. The
 ## Release synchronization blocker
 
 The local approved-logo commit was created successfully, but the GitHub remote and GitHub CLI both rejected the currently stored credential. The GitHub browser session is signed out and the sign-in page is open. The Vercel production deployment completed successfully from the validated local commit; GitHub synchronization requires the account owner to sign in again before the local commit can be pushed to `main`.
+
+## Master illustration rollout verification
+
+The approved tagline-free fleet-readiness illustration was added to the public landing hero, while the compact V-check-and-road companion mark was retained for the navigation and authenticated product contexts where the full illustration would not remain legible.
+
+Desktop visual verification at 1280×720 confirmed that the full illustration has clear whitespace and hierarchy in the public hero without obscuring calls to action or operating copy. The compact companion mark renders cleanly in both the public navigation and the sign-in brand header; its smaller-scale treatment remains visually distinct from the master illustration.
+
+At 375×812, the compact companion mark remains legible in the public navigation and sign-in header. The responsive public hero retains its call to action and operating copy without clipping; the full master illustration follows the textual hero content on the narrow layout rather than competing with the headline in the first viewport.

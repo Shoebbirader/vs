@@ -9,11 +9,12 @@ const operations = fs.readFileSync(path.join(root, "client/src/components/operat
 const auth = fs.readFileSync(path.join(root, "client/src/components/public/PublicAuthSurface.tsx"), "utf8");
 const onboarding = fs.readFileSync(path.join(root, "client/src/components/OrganizationOnboarding.tsx"), "utf8");
 const documentShell = fs.readFileSync(path.join(root, "client/index.html"), "utf8");
+const landing = fs.readFileSync(path.join(root, "client/src/pages/LandingPage.tsx"), "utf8");
 
-describe("approved VahanSync maintenance-readiness branding", () => {
-  it("uses the approved public Supabase Storage logo asset", () => {
-    expect(brandMark).toContain("vahansync-brand/v1/vahansync-maintenance-readiness-vs.png");
-    expect(brandMark).toContain("VahanSync maintenance readiness mark");
+describe("approved VahanSync master-illustration branding", () => {
+  it("uses the approved public Supabase Storage companion asset for compact logo contexts", () => {
+    expect(brandMark).toContain("vahansync-brand/v2/vahansync-v-check-road-mark.png");
+    expect(brandMark).toContain("VahanSync readiness and route mark");
   });
 
   it("uses the same shared mark on public, authentication, onboarding, and role-workspace surfaces", () => {
@@ -23,8 +24,13 @@ describe("approved VahanSync maintenance-readiness branding", () => {
     expect(operations).toContain("BrandMark");
   });
 
-  it("sets the approved mark as browser icon metadata", () => {
-    expect(documentShell).toContain("vahansync-maintenance-readiness-vs.png");
+  it("uses the approved master illustration on the public landing hero", () => {
+    expect(landing).toContain("vahansync-brand/v2/vahansync-master-readiness-logo.png");
+    expect(landing).toContain("public-master-brand-panel");
+  });
+
+  it("sets the approved compact companion mark as browser icon metadata", () => {
+    expect(documentShell).toContain("vahansync-v-check-road-mark.png");
     expect(documentShell).toContain('rel="icon"');
     expect(documentShell).toContain('name="theme-color" content="#111827"');
   });

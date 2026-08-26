@@ -24,6 +24,8 @@ const workflowVideo = {
   source: `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/vahansync-media/marketing/workflow/v3/vahansync-real-workflow-demo-hindi-no-subtitles.mp4`,
 };
 
+const masterBrandIllustrationUrl = "https://yieicrulmncikbjxjupv.supabase.co/storage/v1/object/public/vahansync-brand/v2/vahansync-master-readiness-logo.png";
+
 export default function LandingPage() {
   return (
     <main className="public-replacement">
@@ -37,12 +39,9 @@ export default function LandingPage() {
           <div className="public-hero-actions"><a className="public-primary" href="/create-organization">Create your organization <ArrowRight size={16} /></a><a className="public-quiet-link" href="/login">Sign in to an existing workspace <ArrowRight size={15} /></a></div>
           <div className="public-proofline"><span><Check size={14} /> Organization-scoped access</span><span><Check size={14} /> Role-constrained workspaces</span><span><Check size={14} /> VIN-first operational records</span></div>
         </div>
-        <div className="public-signal-canvas">
-          <div className="public-canvas-top"><span><i /> Operating chain</span><span>India · IST</span></div>
-          <div className="public-canvas-title"><span>One operating record.</span><strong>Every handoff connected.</strong></div>
-          <div className="public-canvas-flow"><article className="is-live"><b>Signal</b><div><Gauge size={18} /><strong>Condition detected</strong><small>Component, odometer, document, or driver report</small></div></article><i /><article><b>Decision</b><div><ClipboardCheck size={18} /><strong>Work assigned</strong><small>Owner, priority, and vehicle context remain attached</small></div></article><i /><article><b>Proof</b><div><CircleCheck size={18} /><strong>Record closed</strong><small>Parts, labor, evidence, approval, and INR cost stay traceable</small></div></article></div>
-          <div className="public-canvas-bottom"><span><ShieldCheck size={15} /> Role boundaries active</span><span>Built for Indian transport operators</span></div>
-        </div>
+        <figure className="public-master-brand-panel">
+          <img src={masterBrandIllustrationUrl} alt="VahanSync fleet readiness illustration with buses, route, readiness check, and upward movement" />
+        </figure>
       </section>
       <section className="public-ticker" aria-label="VahanSync operating principles"><span>Preventive maintenance</span><i /><span>VIN-first control</span><i /><span>Evidence at every handoff</span><i /><span>INR-native accountability</span></section>
       <section className="public-film" aria-labelledby="workflow-film-title">

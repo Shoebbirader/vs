@@ -16,8 +16,8 @@ describe("public VahanSync landing page", () => {
     expect(landing).toContain("Create your organization");
     expect(landing).toContain("/create-organization");
     expect(landing).toContain("Keep the fleet moving");
-    expect(landing).toContain("Every handoff connected");
-    expect(landing).toContain("public-signal-canvas");
+    expect(landing).toContain("vahansync-master-readiness-logo.png");
+    expect(landing).toContain("public-master-brand-panel");
   });
 
   it("shows the approved Hindi Supabase-hosted full workflow video with native controls", () => {

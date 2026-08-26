@@ -41,6 +41,14 @@
 - [x] Reconnect the authenticated GitHub account to the local VahanSync repository and push the already-deployed approved-logo commit to `main` without altering the release contents.
 - [x] Verify an authenticated live Vercel workspace renders the approved Supabase-hosted BrandMark in its sidebar branding.
 - [x] Inspect the live Vercel document head to confirm favicon, Apple touch icon, and browser theme metadata reference the approved Supabase-hosted logo asset.
+- [ ] Recreate the earlier classic orange VahanSync route/V logo as a clean standalone concept for user review; do not alter deployed product branding without a separate approval.
+- [ ] Locate the actual earlier orange VahanSync route-logo treatment from project history and recreate that exact direction for review; do not substitute a new generic V monogram.
+- [ ] Locate and recreate the user-identified original orange VahanSync logo: a V with an S formed from cable-like connections that visually conveys sync; do not alter deployed branding without approval.
+- [ ] Refine the user-supplied VahanSync fleet-readiness illustration into an orange-background version using the navy, warm-ivory, and signal-orange UI palette; do not alter deployed branding without approval.
+- [ ] Preserve the user-supplied original VahanSync fleet-readiness illustration, remove only the bottom tagline, and deliver the edited result as a PNG; do not alter deployed branding without approval.
+- [x] Implement the approved tagline-free VahanSync master brand illustration on suitable public brand surfaces without changing backend, Supabase, authentication, or role workflows.
+- [x] Create a compact companion mark derived from the approved V-check/road visual for workspace navigation, mobile, favicon, and icon-scale contexts.
+- [ ] Add brand-integration regression coverage, verify responsive public and authenticated surfaces, then deploy the approved master illustration and companion mark through GitHub and Vercel.
 - [x] Design and obtain approval for a distinctive VahanSync route-and-signal logo asset suitable for the public site, role workspaces, and app-icon contexts. Cancelled at the user’s request; no logo asset was approved or applied.
 - [x] Replace the rejected generic route-and-signal logo direction with a stronger, ownable VahanSync symbol that avoids a generic letterform or conventional automotive badge. Cancelled at the user’s request; the rejected concepts remain unused.
 - [x] Apply the approved VahanSync logo consistently across product surfaces, then validate and deploy it to GitHub and Vercel. Cancelled because no concept was approved; existing VahanSync branding remains unchanged.

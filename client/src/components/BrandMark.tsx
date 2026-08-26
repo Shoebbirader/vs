@@ -1,4 +1,4 @@
-const VAHANSYNC_MAINTENANCE_MARK_URL = "https://yieicrulmncikbjxjupv.supabase.co/storage/v1/object/public/vahansync-brand/v1/vahansync-maintenance-readiness-vs.png";
+const VAHANSYNC_COMPANION_MARK_URL = "https://yieicrulmncikbjxjupv.supabase.co/storage/v1/object/public/vahansync-brand/v2/vahansync-v-check-road-mark.png";
 
 type BrandMarkProps = {
   className?: string;
@@ -9,10 +9,10 @@ export function BrandMark({ className = "", decorative = false }: BrandMarkProps
   return (
     <span
       className={`vahan-brand-mark ${className}`.trim()}
-      {...(decorative ? { "aria-hidden": true } : { role: "img", "aria-label": "VahanSync maintenance readiness mark" })}
+      {...(decorative ? { "aria-hidden": true } : { role: "img", "aria-label": "VahanSync readiness and route mark" })}
     >
       <img
-        src={VAHANSYNC_MAINTENANCE_MARK_URL}
+        src={VAHANSYNC_COMPANION_MARK_URL}
         alt=""
         decoding="async"
       />
@@ -20,4 +20,4 @@ export function BrandMark({ className = "", decorative = false }: BrandMarkProps
   );
 }
 
-export { VAHANSYNC_MAINTENANCE_MARK_URL };
+export { VAHANSYNC_COMPANION_MARK_URL };
