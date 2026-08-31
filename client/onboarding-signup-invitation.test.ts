@@ -44,5 +44,8 @@ describe("signup to organization invitation flow", () => {
     expect(routerSource).toContain("completeInviteWithPassword");
     expect(routerSource).toContain("updateUserById(authUser.id");
     expect(routerSource).toContain("password: input.password");
+    expect(routerSource).toContain("metadataSyncPending: Boolean(metadataError)");
+    expect(routerSource).toContain("Membership created; Auth metadata sync will be retried from the database-backed profile.");
+    expect(routerSource).not.toContain("Membership was created, but the session metadata could not be finalized");
   });
 });

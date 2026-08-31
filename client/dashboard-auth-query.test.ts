@@ -17,9 +17,12 @@ describe("dashboard auth query gating", () => {
     expect(home).toContain("refetchOnReconnect: false");
   });
 
-  it("recovers stale sessions when the organization summary is unauthorized", () => {
+  it("recovers transient first-login authorization errors without logging out the fresh session", () => {
     expect(home).toContain('summaryQueryError?.data?.code === "UNAUTHORIZED"');
     expect(home).toContain("staleSessionRecoveryAttempted");
-    expect(home).toContain("void signOut()");
+    expect(home).toContain("void refreshSession().then");
+    expect(home).toContain("void refetchSummary()");
+    expect(home).not.toContain("void signOut()");
+    expect(home).not.toContain("window.location.reload()}>Retry workspace load");
   });
 });

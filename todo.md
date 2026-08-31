@@ -56,6 +56,10 @@
 - [x] Add regression coverage for invitation completion followed by the first assigned-workspace load, then validate and deploy the correction through GitHub and Vercel.
 - [x] Verify the first invited-member creation opens the assigned role workspace without a hard reload using a disposable organization/member after the fix is deployed; clean all temporary records afterward. Fleet Manager workspace opened through SPA routing and temporary Auth, organization, invitation, and profile records were cleaned.
 - [x] Prevent the role route guard from falling through to an unauthenticated workspace render when the first post-invitation dashboard summary has a transient authorization error; preserve the fresh Supabase session and show bounded recovery state.
+- [ ] Assist with purchasing `vahansync.com` through Hostinger and, after purchase, configure its DNS connection to the existing Vercel project only with user confirmation at each external commitment step.
+- [ ] Assess whether VahanSync should remain hosted on Vercel or migrate to Hostinger, including current bandwidth, Node application, Supabase, security, uptime, scaling, and operational trade-offs; do not change hosting, DNS, or the Hostinger cart.
+- [ ] Produce a no-change AWS-native from-scratch architecture blueprint for VahanSync covering multi-tenant fleet workflows, security, scale, observability, data, integrations, and phased delivery.
+- [ ] Compare the current Vercel and Supabase cost structure with a sensible AWS-native VahanSync equivalent at early-stage and production usage levels; do not change infrastructure, billing, DNS, or the Hostinger cart.
 - [x] Design and obtain approval for a distinctive VahanSync route-and-signal logo asset suitable for the public site, role workspaces, and app-icon contexts. Cancelled at the user’s request; no logo asset was approved or applied.
 - [x] Replace the rejected generic route-and-signal logo direction with a stronger, ownable VahanSync symbol that avoids a generic letterform or conventional automotive badge. Cancelled at the user’s request; the rejected concepts remain unused.
 - [x] Apply the approved VahanSync logo consistently across product surfaces, then validate and deploy it to GitHub and Vercel. Cancelled because no concept was approved; existing VahanSync branding remains unchanged.
@@ -946,3 +950,9 @@
 - [x] Frontend replacement sub-increment: re-author the active Billing workspace into a subscription-governance surface while preserving plan status, capacity, invoice history, Test Mode activation, and API-enforced lifecycle behavior.
 - [x] Frontend replacement sub-increment: re-author the active compliance workspace into a document-readiness control surface while preserving uploads, renewals, archives, signed access, exports, status summaries, bulk actions, and append-only version history.
 - [x] Frontend replacement sub-increment: re-author the active Fleet Manager overview into a decision-led readiness command surface while preserving its tenant-scoped vehicle, component, work-order, planning, driver-handoff, performance, compliance, and alert queries; vehicle, component, and dispatch mutations remain in their dedicated active routes.
+- [x] Create a standalone VahanSync product, workflow, architecture, and safe file-by-file editing reference document without changing application code or exposing secrets/private QA content.
+- [x] Expand the standalone VahanSync reference guide with an explicit bug-to-file directory map and audit the safe tracked-file inventory for omissions without exposing private QA content or secrets.
+
+- [x] Fix the remaining first-login invitation race so transient dashboard authorization errors do not sign out a newly invited member before session recovery completes.
+- [x] Make invitation completion failure handling safe when final Auth metadata synchronization fails, preserving a clear retry/recovery path.
+- [x] Add executable regression coverage for the first-login race and invitation completion edge case; run tests, type-check, and production build.

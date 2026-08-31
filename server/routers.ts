@@ -229,8 +229,8 @@ export const appRouter = router({
       });
       const inviteOrg = await fleetDb.organization.findFirst({ where: { id: invite.orgId } });
       const { error: metadataError } = await supabaseAdmin.auth.admin.updateUserById(authUser.id, { user_metadata: { ...authUser.user_metadata, fullName: joined.fullName, orgId: joined.orgId, orgName: inviteOrg?.name, role: joined.role, needsOnboarding: false, invitationToken: undefined } });
-      if (metadataError) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `Membership was created, but the session metadata could not be finalized: ${metadataError.message}` });
-      return { email, role: joined.role, organizationName: inviteOrg?.name ?? "" };
+      if (metadataError) console.warn("[Invitation] Membership created; Auth metadata sync will be retried from the database-backed profile.", { authUserId: authUser.id, orgId: joined.orgId, reason: metadataError.message });
+      return { email, role: joined.role, organizationName: inviteOrg?.name ?? "", metadataSyncPending: Boolean(metadataError) };
     }),
     acceptInvite: publicProcedure.input(z.object({ token: z.string().uuid(), fullName: z.string().min(2).optional() })).mutation(async ({ ctx, input }) => {
       const authUser = await getSupabaseAuthIdentity(ctx.req);
