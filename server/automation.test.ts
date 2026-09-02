@@ -51,6 +51,9 @@ describe("component maintenance automation", () => {
       title: "Maintenance lifecycle alert",
       type: "MAINTENANCE_THRESHOLD",
       referenceId: "work-order-1",
+      severity: "HIGH",
+      sourceType: "WORK_ORDER",
+      dedupeKey: expect.stringContaining("MAINTENANCE_THRESHOLD:work-order-1"),
     })] });
   });
 

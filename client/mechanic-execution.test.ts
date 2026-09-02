@@ -4,6 +4,7 @@ import path from "node:path";
 
 const root = path.resolve(import.meta.dirname, "..");
 const workspace = fs.readFileSync(path.join(root, "client/src/components/RoleWorkspaces.tsx"), "utf8");
+const activeWorkspace = fs.readFileSync(path.join(root, "client/src/components/workspaces/MechanicExecutionWorkspace.tsx"), "utf8");
 const router = fs.readFileSync(path.join(root, "server/routers.ts"), "utf8");
 const schema = fs.readFileSync(path.join(root, "drizzle/fleetops-schema.ts"), "utf8");
 
@@ -16,6 +17,14 @@ describe("Mechanic execution contract", () => {
     expect(workspace).toContain("workOrders.startWork");
     expect(workspace).toContain("fleetops:mechanic-execution-draft");
     expect(workspace).toContain("Execution draft saved locally");
+  });
+
+  it("submits the active mechanic handoff only after checklist persistence", () => {
+    expect(activeWorkspace).toContain("const submitCompletion = async");
+    expect(activeWorkspace).toContain("await saveChecklist.mutateAsync");
+    expect(activeWorkspace).toContain("await complete.mutateAsync");
+    expect(activeWorkspace).toContain("Submit for review");
+    expect(activeWorkspace).toContain("Work order submitted for Fleet Manager review");
   });
 
   it("keeps mechanics assigned-order scoped and persists evidence through storage", () => {

@@ -68,7 +68,8 @@ describe("Fleet Manager responsibility contracts", () => {
   it("closes the maintenance loop on reviewer approval", () => {
     expect(routersSource).toContain('include: { vehicle: true, partsUsed: true }');
     expect(routersSource).toContain('const vehicle = await fleetDb.vehicle.findFirst({ where: { id: order.vehicleId, orgId: ctx.fleetopsUser.orgId } })');
-    expect(routersSource).toContain('lastServicedOdometer: vehicle.currentOdometer');
+    expect(routersSource).toContain('const serviceOdometer = latestOdometer?.reading ?? vehicle.currentOdometer');
+    expect(routersSource).toContain('lastServicedOdometer: serviceOdometer');
     expect(routersSource).toContain('status: "ACTIVE"');
     expect(routersSource).toContain('category: "MAINTENANCE_PARTS"');
     expect(routersSource).toContain('costCenterType: "WORK_ORDER"');

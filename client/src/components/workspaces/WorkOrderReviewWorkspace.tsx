@@ -15,9 +15,11 @@ export function WorkOrderReviewWorkspace({ organizationName }: { organizationNam
       void utils.workOrders.board.invalidate();
       void utils.components.list.invalidate();
       void utils.vehicles.list.invalidate();
+      void utils.dashboard.summary.invalidate();
       void utils.inventory.list.invalidate();
       void utils.inventory.movements.invalidate();
       void utils.financials.list.invalidate();
+      void utils.financials.metrics.invalidate();
       void utils.notifications.list.invalidate();
     },
     onError: (error) => toast.error("Work order approval failed", { description: error.message }),

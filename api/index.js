@@ -321,7 +321,7 @@ function condition(field, value) {
   if (value === null) return `${c} IS NULL`;
   if (value && typeof value === "object" && !Array.isArray(value)) {
     const o = value;
-    if (o.in) return `${c} IN (${o.in.map((v) => `'${String(v).replaceAll("'", "''")}'`).join(",")})`;
+    if (o.in) return o.in.length ? `${c} IN (${o.in.map((v) => `'${String(v).replaceAll("'", "''")}'`).join(",")})` : "FALSE";
     if (o.notIn) return `${c} NOT IN (${o.notIn.map((v) => `'${String(v).replaceAll("'", "''")}'`).join(",")})`;
     if (o.contains !== void 0) return `${c} ILIKE '%${String(o.contains).replaceAll("'", "''")}%'`;
     if (o.gt !== void 0) return `${c} > '${String(normalize(o.gt)).replaceAll("'", "''")}'`;
@@ -798,12 +798,15 @@ async function deliverOperationalNotification(notification, recipient) {
 // server/automation.ts
 async function notifyRoles(orgId, roles, title, message, type, referenceId) {
   const recipients = await fleetDb.user.findMany({ where: { orgId, role: { in: roles } } });
-  const notifications2 = recipients.map((recipient) => ({ id: crypto.randomUUID(), orgId, recipientId: recipient.id, title, message, type, referenceId, isRead: false, createdAt: /* @__PURE__ */ new Date() }));
+  const severity = type === "MAINTENANCE_THRESHOLD" || type === "INVENTORY_LOW" ? "HIGH" : type === "DOCUMENT_EXPIRY" ? "CRITICAL" : "INFO";
+  const sourceType = type === "MAINTENANCE_THRESHOLD" || type === "WORK_ORDER_ESCALATION" || type === "ALERT_ESCALATION" ? "WORK_ORDER" : type === "INVENTORY_LOW" || type === "PURCHASE_ORDER_DRAFT" ? "INVENTORY_LOW" : type === "DOCUMENT_EXPIRY" ? "DOCUMENT_EXPIRY" : "SYSTEM";
+  const candidates = recipients.map((recipient) => ({ id: crypto.randomUUID(), orgId, recipientId: recipient.id, title, message, type, severity, sourceType, dedupeKey: `${type}:${referenceId ?? title}:${recipient.id}`, referenceId, isRead: false, createdAt: /* @__PURE__ */ new Date() }));
+  const notifications2 = fleetDb.notification?.findFirst ? (await Promise.all(candidates.map(async (candidate) => await fleetDb.notification.findFirst({ where: { orgId, recipientId: candidate.recipientId, dedupeKey: candidate.dedupeKey, resolvedAt: null } }) ? null : candidate))).filter(Boolean) : candidates;
   if (notifications2.length) {
     await fleetDb.notification.createMany({ data: notifications2 });
-    await Promise.all(notifications2.map((notification, index) => deliverOperationalNotification(notification, recipients[index]).catch(() => void 0)));
+    await Promise.all(notifications2.map((notification) => deliverOperationalNotification(notification, recipients.find((recipient) => recipient.id === notification.recipientId)).catch(() => void 0)));
   }
-  return recipients.length;
+  return notifications2.length;
 }
 async function evaluateVehicleMaintenance(vehicleId, orgId) {
   const vehicle = await fleetDb.vehicle.findFirst({ where: { id: vehicleId, orgId } });
@@ -1248,8 +1251,8 @@ var appRouter = router({
       });
       const inviteOrg = await fleetDb.organization.findFirst({ where: { id: invite.orgId } });
       const { error: metadataError } = await supabaseAdmin.auth.admin.updateUserById(authUser.id, { user_metadata: { ...authUser.user_metadata, fullName: joined.fullName, orgId: joined.orgId, orgName: inviteOrg?.name, role: joined.role, needsOnboarding: false, invitationToken: void 0 } });
-      if (metadataError) throw new import_server3.TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `Membership was created, but the session metadata could not be finalized: ${metadataError.message}` });
-      return { email, role: joined.role, organizationName: inviteOrg?.name ?? "" };
+      if (metadataError) console.warn("[Invitation] Membership created; Auth metadata sync will be retried from the database-backed profile.", { authUserId: authUser.id, orgId: joined.orgId, reason: metadataError.message });
+      return { email, role: joined.role, organizationName: inviteOrg?.name ?? "", metadataSyncPending: Boolean(metadataError) };
     }),
     acceptInvite: publicProcedure.input(import_zod2.z.object({ token: import_zod2.z.string().uuid(), fullName: import_zod2.z.string().min(2).optional() })).mutation(async ({ ctx, input }) => {
       const authUser = await getSupabaseAuthIdentity(ctx.req);
@@ -1699,6 +1702,8 @@ var appRouter = router({
       if (!order) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Only work orders ready for review can be approved." });
       const vehicle = await fleetDb.vehicle.findFirst({ where: { id: order.vehicleId, orgId: ctx.fleetopsUser.orgId } });
       if (!vehicle) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "The work order vehicle is not available in this organization." });
+      const latestOdometer = await fleetDb.odometerLog.findFirst({ where: { vehicleId: order.vehicleId }, orderBy: { createdAt: "desc" } });
+      const serviceOdometer = latestOdometer?.reading ?? vehicle.currentOdometer;
       const checklistEvents = await fleetDb.auditEvent.findMany({ where: { orgId: ctx.fleetopsUser.orgId, entityType: "WORK_ORDER", entityId: order.id, action: "WORK_ORDER_CHECKLIST_UPDATED" }, orderBy: { createdAt: "desc" }, take: 1 });
       let items = [];
       try {
@@ -1707,7 +1712,8 @@ var appRouter = router({
         items = [];
       }
       if (!items.length || items.some((item) => !item.completed)) throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: "Complete every execution checklist item before approval." });
-      const partsCost = (order.partsUsed ?? []).reduce((sum, part) => sum + Number(part.unitPrice ?? 0) * Number(part.qtyUsed ?? 0), 0);
+      const recordedParts = await fleetDb.workOrderPart.findMany({ where: { workOrderId: order.id } });
+      const partsCost = recordedParts.reduce((sum, part) => sum + Number(part.unitPrice ?? 0) * Number(part.qtyUsed ?? 0), 0);
       const reservations = await fleetDb.auditEvent.findMany({ where: { orgId: ctx.fleetopsUser.orgId, action: "INVENTORY_PART_RESERVED" } });
       const returns = await fleetDb.auditEvent.findMany({ where: { orgId: ctx.fleetopsUser.orgId, action: "INVENTORY_PART_RETURNED" } });
       const activeReservations = reservations.map((event) => {
@@ -1764,7 +1770,7 @@ var appRouter = router({
         }
         const components2 = await tx.component.findMany({ where: { vehicleId: order.vehicleId } });
         const matching = components2.filter((component) => order.title.toLowerCase().includes(String(component.name).toLowerCase()));
-        for (const component of matching) await tx.component.update({ where: { id: component.id }, data: { lastServicedOdometer: vehicle.currentOdometer } });
+        for (const component of matching) await tx.component.update({ where: { id: component.id }, data: { lastServicedOdometer: serviceOdometer } });
         if (matching.length && vehicle.status === "MAINTENANCE") await tx.vehicle.update({ where: { id: order.vehicleId }, data: { status: "ACTIVE" } });
         if (partsCost + reservedPartsCost > 0 && tx.financialRecord?.create) await tx.financialRecord.create({ data: { id: crypto.randomUUID(), orgId: ctx.fleetopsUser.orgId, vehicleId: order.vehicleId, type: "EXPENSE", category: "MAINTENANCE_PARTS", amount: partsCost + reservedPartsCost, transactionDate: /* @__PURE__ */ new Date(), costCenterType: "WORK_ORDER", costCenterId: order.id, vendor: "Inventory", approvalStatus: "APPROVED", approvedById: ctx.fleetopsUser.id, approvalReason: `Approved parts used for ${order.title}`, createdAt: /* @__PURE__ */ new Date() } });
         if (laborCost > 0 && tx.financialRecord?.create) await tx.financialRecord.create({ data: { id: crypto.randomUUID(), orgId: ctx.fleetopsUser.orgId, vehicleId: order.vehicleId, type: "EXPENSE", category: "MAINTENANCE_LABOR", amount: laborCost, transactionDate: /* @__PURE__ */ new Date(), costCenterType: "WORK_ORDER", costCenterId: order.id, vendor: "Internal labor", approvalStatus: "APPROVED", approvedById: ctx.fleetopsUser.id, approvalReason: `Labor cost for ${order.title} at \u20B9${laborRatePerHour.toLocaleString("en-IN")}/hour`, createdAt: /* @__PURE__ */ new Date() } });
@@ -1942,11 +1948,13 @@ var appRouter = router({
       const assigned = assignments[0];
       if (!assigned) return { vehicle: null, readiness: "UNASSIGNED", latestInspection: null, openIssues: [], nextAction: "Contact Fleet Manager for an active vehicle assignment." };
       const vehicle = await fleetDb.vehicle.findFirst({ where: { id: assigned.vehicleId, orgId: ctx.fleetopsUser.orgId } });
+      const latestOdometer = await fleetDb.odometerLog.findFirst({ where: { vehicleId: assigned.vehicleId }, orderBy: { createdAt: "desc" } });
       const inspections = await fleetDb.dvirInspection.findMany({ where: { orgId: ctx.fleetopsUser.orgId, driverId: ctx.fleetopsUser.id, vehicleId: assigned.vehicleId }, orderBy: { createdAt: "desc" }, take: 10 });
       const openIssues = await fleetDb.vehicleIssue.findMany({ where: { orgId: ctx.fleetopsUser.orgId, driverId: ctx.fleetopsUser.id, vehicleId: assigned.vehicleId, status: { in: ["OPEN", "ACKNOWLEDGED", "IN_PROGRESS"] } }, orderBy: { createdAt: "desc" }, take: 20 });
       const latestInspection = inspections[0] ?? null;
       const readiness = vehicle?.status === "OUT_OF_SERVICE" ? "UNSAFE" : latestInspection?.inspectionType === "PRE_TRIP" && latestInspection.status === "PASS" && !openIssues.some((issue) => ["HIGH", "CRITICAL"].includes(issue.priority)) ? "READY" : "ACTION_REQUIRED";
-      return { vehicle, readiness, latestInspection, openIssues, nextAction: readiness === "READY" ? "Vehicle cleared for shift." : readiness === "UNSAFE" ? "Do not drive. Fleet Manager disposition required." : "Complete a passing pre-trip inspection and resolve high-priority issues." };
+      const canonicalVehicle = vehicle ? { ...vehicle, currentOdometer: latestOdometer?.reading ?? vehicle.currentOdometer, latestOdometerReading: latestOdometer?.reading ?? vehicle.currentOdometer, latestOdometerAt: latestOdometer?.createdAt ?? vehicle.updatedAt, latestOdometerSource: latestOdometer?.source ?? "VEHICLE_RECORD" } : null;
+      return { vehicle: canonicalVehicle, readiness, latestInspection, openIssues, nextAction: readiness === "READY" ? "Vehicle cleared for shift." : readiness === "UNSAFE" ? "Do not drive. Fleet Manager disposition required." : "Complete a passing pre-trip inspection and resolve high-priority issues." };
     }),
     unsafeDisposition: fleetOpsProcedure.input(import_zod2.z.object({ vehicleId: import_zod2.z.string().uuid(), disposition: import_zod2.z.enum(["UNSAFE_TO_DRIVE", "CLEARED_TO_DRIVE"]), notes: import_zod2.z.string().trim().min(3).max(1e3) })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["DRIVER"]);
@@ -1957,7 +1965,7 @@ var appRouter = router({
       const nextStatus = input.disposition === "UNSAFE_TO_DRIVE" ? "OUT_OF_SERVICE" : "ACTIVE";
       const updated = await fleetDb.vehicle.update({ where: { id: vehicle.id }, data: { status: nextStatus } });
       const managers = await fleetDb.user.findMany({ where: { orgId: ctx.fleetopsUser.orgId, role: "FLEET_MANAGER" } });
-      if (managers.length) await fleetDb.notification.createMany({ data: managers.map((manager) => ({ id: crypto.randomUUID(), orgId: ctx.fleetopsUser.orgId, recipientId: manager.id, title: input.disposition === "UNSAFE_TO_DRIVE" ? "Driver marked vehicle unsafe" : "Driver cleared vehicle", message: `${vehicleIdentity(vehicle)}: ${input.notes}`, type: "DRIVER_SAFETY_DISPOSITION", severity: input.disposition === "UNSAFE_TO_DRIVE" ? "CRITICAL" : "INFO", sourceType: "VEHICLE", dedupeKey: `DRIVER_SAFETY:${vehicle.id}:${input.disposition}`, referenceId: vehicle.id, isRead: false, createdAt: /* @__PURE__ */ new Date(), updatedAt: /* @__PURE__ */ new Date() })) });
+      if (managers.length) await fleetDb.notification.createMany({ data: managers.map((manager) => ({ id: crypto.randomUUID(), orgId: ctx.fleetopsUser.orgId, recipientId: manager.id, title: input.disposition === "UNSAFE_TO_DRIVE" ? "Driver marked vehicle unsafe" : "Driver cleared vehicle", message: `${vehicleIdentity(vehicle)}: ${input.notes}`, type: "DRIVER_SAFETY_DISPOSITION", severity: input.disposition === "UNSAFE_TO_DRIVE" ? "CRITICAL" : "INFO", sourceType: "VEHICLE", dedupeKey: `DRIVER_SAFETY:${vehicle.id}:${input.disposition}`, referenceId: vehicle.id, isRead: false, createdAt: /* @__PURE__ */ new Date() })) });
       await recordAudit(ctx, { action: "DRIVER_SAFETY_DISPOSITION", entityType: "VEHICLE", entityId: vehicle.id, summary: `${vehicleIdentity(vehicle)} marked ${input.disposition}`, metadata: { disposition: input.disposition, notes: input.notes } });
       return updated;
     })
@@ -1981,7 +1989,7 @@ var appRouter = router({
       }
       const issue = await fleetDb.vehicleIssue.create({ data: { id: crypto.randomUUID(), orgId: ctx.fleetopsUser.orgId, vehicleId: input.vehicleId, driverId: ctx.fleetopsUser.id, title: input.title, description: input.description, priority: input.priority, status: "OPEN", photoUrl, photoKey, createdAt: /* @__PURE__ */ new Date(), updatedAt: /* @__PURE__ */ new Date() } });
       const managers = await fleetDb.user.findMany({ where: { orgId: ctx.fleetopsUser.orgId, role: "FLEET_MANAGER" } });
-      if (managers.length) await fleetDb.notification.createMany({ data: managers.map((manager) => ({ id: crypto.randomUUID(), orgId: ctx.fleetopsUser.orgId, recipientId: manager.id, title: "Driver vehicle issue reported", message: `${input.title} \xB7 ${input.priority} priority`, type: "VEHICLE_ISSUE", severity: input.priority === "CRITICAL" ? "CRITICAL" : input.priority === "HIGH" ? "HIGH" : "INFO", sourceType: "VEHICLE_ISSUE", dedupeKey: `VEHICLE_ISSUE:${issue.id}`, referenceId: issue.id, isRead: false, createdAt: /* @__PURE__ */ new Date(), updatedAt: /* @__PURE__ */ new Date() })) });
+      if (managers.length) await fleetDb.notification.createMany({ data: managers.map((manager) => ({ id: crypto.randomUUID(), orgId: ctx.fleetopsUser.orgId, recipientId: manager.id, title: "Driver vehicle issue reported", message: `${input.title} \xB7 ${input.priority} priority`, type: "VEHICLE_ISSUE", severity: input.priority === "CRITICAL" ? "CRITICAL" : input.priority === "HIGH" ? "HIGH" : "INFO", sourceType: "VEHICLE_ISSUE", dedupeKey: `VEHICLE_ISSUE:${issue.id}`, referenceId: issue.id, isRead: false, createdAt: /* @__PURE__ */ new Date() })) });
       await recordAudit(ctx, { action: "VEHICLE_ISSUE_REPORTED", entityType: "VEHICLE_ISSUE", entityId: issue.id, summary: `Driver reported vehicle issue: ${issue.title}`, metadata: { priority: issue.priority } });
       return issue;
     }),

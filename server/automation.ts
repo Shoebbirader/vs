@@ -5,12 +5,15 @@ import { deliverOperationalNotification } from "./twilio";
 
 async function notifyRoles(orgId: string, roles: string[], title: string, message: string, type: string, referenceId?: string) {
   const recipients = await fleetDb.user.findMany({ where: { orgId, role: { in: roles } } });
-  const notifications = recipients.map((recipient: any) => ({ id: crypto.randomUUID(), orgId, recipientId: recipient.id, title, message, type, referenceId, isRead: false, createdAt: new Date() }));
+  const severity = type === "MAINTENANCE_THRESHOLD" || type === "INVENTORY_LOW" ? "HIGH" : type === "DOCUMENT_EXPIRY" ? "CRITICAL" : "INFO";
+  const sourceType = type === "MAINTENANCE_THRESHOLD" || type === "WORK_ORDER_ESCALATION" || type === "ALERT_ESCALATION" ? "WORK_ORDER" : type === "INVENTORY_LOW" || type === "PURCHASE_ORDER_DRAFT" ? "INVENTORY_LOW" : type === "DOCUMENT_EXPIRY" ? "DOCUMENT_EXPIRY" : "SYSTEM";
+  const candidates = recipients.map((recipient: any) => ({ id: crypto.randomUUID(), orgId, recipientId: recipient.id, title, message, type, severity, sourceType, dedupeKey: `${type}:${referenceId ?? title}:${recipient.id}`, referenceId, isRead: false, createdAt: new Date() }));
+  const notifications = fleetDb.notification?.findFirst ? (await Promise.all(candidates.map(async (candidate: any) => (await fleetDb.notification.findFirst({ where: { orgId, recipientId: candidate.recipientId, dedupeKey: candidate.dedupeKey, resolvedAt: null } })) ? null : candidate))).filter(Boolean) : candidates;
   if (notifications.length) {
     await fleetDb.notification.createMany({ data: notifications });
-    await Promise.all(notifications.map((notification: any, index: number) => deliverOperationalNotification(notification, recipients[index]).catch(() => undefined)));
+    await Promise.all(notifications.map((notification: any) => deliverOperationalNotification(notification, recipients.find((recipient: any) => recipient.id === notification.recipientId)).catch(() => undefined)));
   }
-  return recipients.length;
+  return notifications.length;
 }
 
 export async function evaluateVehicleMaintenance(vehicleId: string, orgId: string) {

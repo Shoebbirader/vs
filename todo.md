@@ -956,3 +956,8 @@
 - [x] Fix the remaining first-login invitation race so transient dashboard authorization errors do not sign out a newly invited member before session recovery completes.
 - [x] Make invitation completion failure handling safe when final Auth metadata synchronization fails, preserving a clear retry/recovery path.
 - [x] Add executable regression coverage for the first-login race and invitation completion edge case; run tests, type-check, and production build.
+
+- [x] Diagnose and fix Driver odometer persistence and cross-workspace refresh so the updated VIN-linked reading is visible to Driver and Fleet Manager.
+- [x] Diagnose and fix preventive-maintenance threshold evaluation so a component-distance alert is created and delivered to the authorized Fleet Manager at the configured threshold.
+- [x] Diagnose and fix Mechanic/Technician work-order completion after acceptance, including inventory reservation/consumption and downstream accounting visibility.
+- [x] Add focused regression coverage for odometer propagation, threshold alerts, work-order completion, inventory effects, and accounting effects; run the complete validation suite.
