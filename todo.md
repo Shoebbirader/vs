@@ -963,3 +963,6 @@
 - [x] Add focused regression coverage for odometer propagation, threshold alerts, work-order completion, inventory effects, and accounting effects; run the complete validation suite.
 
 - [x] Push the latest verified odometer, maintenance-alert, mechanic handoff, inventory, and accounting workflow fixes to the connected GitHub `main` branch without including private QA notes or secrets.
+
+- [x] Perform a bounded VahanSync bug sweep, fix only concrete high-confidence defects supported by tests or runtime evidence, add regression coverage, and preserve unrelated deferred work.
+- [x] Fix the authenticated Home dashboard vehicle projection so it displays the latest persisted odometer log instead of the stale vehicle-record value.

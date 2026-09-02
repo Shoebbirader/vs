@@ -25,4 +25,9 @@ describe("dashboard auth query gating", () => {
     expect(home).not.toContain("void signOut()");
     expect(home).not.toContain("window.location.reload()}>Retry workspace load");
   });
+
+  it("completes organization onboarding through SPA refresh", () => {
+    expect(home).toContain('window.localStorage.setItem("fleetops.openTeam", "1"); await refetchSummary();');
+    expect(home).not.toContain("window.location.reload();");
+  });
 });
