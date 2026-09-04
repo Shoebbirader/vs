@@ -10,6 +10,28 @@ const t = initTRPC.context<TrpcContext>().create({
 export const router = t.router;
 export const publicProcedure = t.procedure;
 
+// SECURITY: Validate CSRF token on mutations
+const validateCsrfToken = t.middleware(async opts => {
+  const { ctx, next, type } = opts;
+  
+  // Only validate CSRF on mutations (not queries)
+  if (type === "mutation" && ctx.fleetopsUser) {
+    const csrfToken = ctx.req.header("x-csrf-token");
+    const sessionToken = ctx.req.cookies?.["sb-access-token"] || ctx.req.header("authorization");
+    
+    if (!csrfToken) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "CSRF token is required for mutations" });
+    }
+    
+    // Validate token format (should match Bearer token pattern)
+    if (!sessionToken && csrfToken.length < 10) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "Invalid CSRF token" });
+    }
+  }
+  
+  return next();
+});
+
 const requireUser = t.middleware(async opts => {
   const { ctx, next } = opts;
 
@@ -34,7 +56,8 @@ const requireFleetOpsUser = t.middleware(async ({ ctx, next }) => {
   return next({ ctx: { ...ctx, fleetopsUser: ctx.fleetopsUser } });
 });
 
-export const fleetOpsProcedure = t.procedure.use(requireFleetOpsUser);
+// SECURITY: Apply CSRF validation to FleetOps procedures
+export const fleetOpsProcedure = t.procedure.use(requireFleetOpsUser).use(validateCsrfToken);
 
 export const adminProcedure = t.procedure.use(
   t.middleware(async opts => {

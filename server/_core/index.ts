@@ -52,7 +52,26 @@ async function startServer() {
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   app.use((req, res, next) => { const requestId = req.header("x-request-id") || createRequestId(); res.locals.requestId = requestId; res.setHeader("x-request-id", requestId); next(); });
-  const allowApiRequest = createRateLimiter(240, 60_000);
+  
+  // SECURITY: Separate rate limiters for different endpoints
+  const allowApiRequest = createRateLimiter(240, 60_000);  // 240 req/min for general API
+  const allowAuthRequest = createRateLimiter(20, 60_000);  // 20 req/min for auth (stricter)
+  
+  // Apply stricter rate limiting to auth-related endpoints
+  app.use(
+    "/api/trpc/auth",
+    (req, res, next) => { 
+      const result = allowAuthRequest(req.ip || req.socket.remoteAddress || "unknown"); 
+      res.setHeader("x-rate-limit-remaining", String(result.remaining)); 
+      if (!result.allowed) { 
+        res.setHeader("retry-after", String(Math.ceil(result.retryAfterMs / 1000))); 
+        res.status(429).json({ error: "Auth rate limit exceeded. Please try again later.", requestId: res.locals.requestId }); 
+        return; 
+      } 
+      next(); 
+    }
+  );
+  
   // tRPC API
   app.use(
     "/api/trpc",
