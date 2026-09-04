@@ -641,11 +641,12 @@ function roleCanAct(role, allowed) {
 }
 
 // server/billing-plans.ts
+// BILLING_PLANS_V2: New pricing model effective 2026-09-04
 var BILLING_PLANS = {
-  STARTER: { id: "STARTER", name: "Starter", platformFeePaise: 999900, includedVehicles: 10, overageVehicleFeePaise: 75e3, maxUsers: 10, description: "For small operators and pilots." },
-  GROWTH: { id: "GROWTH", name: "Growth", platformFeePaise: 2499900, includedVehicles: 50, overageVehicleFeePaise: 6e4, maxUsers: 50, description: "For growing regional fleets." },
-  SCALE: { id: "SCALE", name: "Scale", platformFeePaise: 5999900, includedVehicles: 150, overageVehicleFeePaise: 45e3, maxUsers: 150, description: "For multi-depot operators." },
-  ENTERPRISE: { id: "ENTERPRISE", name: "Enterprise", platformFeePaise: 125e5, includedVehicles: 500, overageVehicleFeePaise: 4e4, maxUsers: 500, description: "For large fleets with custom service and integrations." }
+  STARTER: { id: "STARTER", name: "Starter", platformFeePaise: 299900, includedVehicles: 3, overageVehicleFeePaise: 50e3, maxUsers: 10, description: "For small operators and pilots." },
+  GROWTH: { id: "GROWTH", name: "Growth", platformFeePaise: 999900, includedVehicles: 15, overageVehicleFeePaise: 45e3, maxUsers: 50, description: "For growing regional fleets." },
+  SCALE: { id: "SCALE", name: "Scale", platformFeePaise: 2499900, includedVehicles: 50, overageVehicleFeePaise: 35e3, maxUsers: 150, description: "For multi-depot operators." },
+  ENTERPRISE: { id: "ENTERPRISE", name: "Enterprise", platformFeePaise: 0, includedVehicles: 100, overageVehicleFeePaise: 30e3, maxUsers: 500, description: "For large fleets with custom service and integrations." }
 };
 function normalizePlan(value) {
   const candidate = String(value ?? "").toUpperCase();
