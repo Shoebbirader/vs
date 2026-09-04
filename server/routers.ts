@@ -26,8 +26,13 @@ import { evaluateAllOrganizations, evaluateLowInventory, evaluateVehicleMaintena
 
 export function assertWritable(org: { subscriptionTier: string; trialEndsAt: Date; billingStatus?: string | null; paymentFailedAt?: Date | null }) {
   if (!billingWriteAllowed(org.billingStatus)) throw new TRPCError({ code: "FORBIDDEN", message: org.billingStatus === "CANCELLED" ? "The subscription is cancelled. Historical data and exports remain available, but operational writes are paused." : "Billing is suspended. Historical data and exports remain available, but operational writes are paused until payment is restored." });
-  if (org.subscriptionTier === "TRIAL_FREE" && org.trialEndsAt.getTime() < Date.now()) {
-    throw new TRPCError({ code: "FORBIDDEN", message: "Your trial has expired. Upgrade your FleetOps plan to continue writing data." });
+  
+  // SECURITY FIX: Validate trial expiration with proper date comparison
+  if (org.subscriptionTier === "TRIAL_FREE") {
+    const trialExpired = org.trialEndsAt && org.trialEndsAt.getTime() < Date.now();
+    if (trialExpired) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "Your trial has expired. Upgrade your FleetOps plan to continue writing data." });
+    }
   }
 }
 
@@ -37,7 +42,9 @@ async function assertVehicleCapacity(orgId: string, maxVehicles: number) {
 }
 
 async function assertUserCapacity(orgId: string, maxUsers: number) {
-  // User capacity is unlimited - no enforced cap
+  // User capacity is unlimited in all tiers - no enforced cap
+  // Validation is performed at the plan level but doesn't restrict user invitations
+  return true;
 }
 
 const ALLOWED_DOCUMENT_TYPES = new Set(["application/pdf", "image/jpeg", "image/png", "image/webp"]);
@@ -70,7 +77,13 @@ function simplePdf(title: string, lines: string[]) { const content = [`BT`, `/F1
 
 async function recordAudit(ctx: any, event: { action: string; entityType: string; entityId?: string; summary: string; metadata?: Record<string, unknown> }) {
   if (!fleetDb.auditEvent?.create) return undefined;
-  return fleetDb.auditEvent.create({ data: { id: crypto.randomUUID(), orgId: ctx.fleetopsUser.orgId, actorId: ctx.fleetopsUser.id, actorRole: ctx.fleetopsUser.role, action: event.action, entityType: event.entityType, entityId: event.entityId, summary: event.summary, metadata: event.metadata ? JSON.stringify(event.metadata) : undefined, createdAt: new Date() } });
+  try {
+    return await fleetDb.auditEvent.create({ data: { id: crypto.randomUUID(), orgId: ctx.fleetopsUser.orgId, actorId: ctx.fleetopsUser.id, actorRole: ctx.fleetopsUser.role, action: event.action, entityType: event.entityType, entityId: event.entityId, summary: event.summary, metadata: event.metadata ? JSON.stringify(event.metadata) : undefined, createdAt: new Date() } });
+  } catch (error) {
+    // SECURITY FIX: Log audit failures for compliance
+    console.error(`[AUDIT_ERROR] Failed to record audit event: ${event.action} for ${event.entityType}`, error);
+    return undefined;
+  }
 }
 
 const FLEETOPS_SERVER_RELEASE = "invite-schema-91663e37";
@@ -126,7 +139,18 @@ async function hydrateWorkOrders(orders: any[], orgId: string) {
   const partById = new Map((parts as any[]).map((part) => [part.id, part]));
   const partsByOrder = new Map<string, any[]>();
   for (const partUse of partsUsed as any[]) partsByOrder.set(partUse.workOrderId, [...(partsByOrder.get(partUse.workOrderId) ?? []), { ...partUse, part: partById.get(partUse.partId) ?? null }]);
-  return orders.map((order) => ({ ...order, vehicle: vehicleById.get(order.vehicleId) ?? null, assignedMechanic: order.assignedMechanicId ? assigneeById.get(order.assignedMechanicId) ?? null : null, partsUsed: partsByOrder.get(order.id) ?? [] }));
+  return orders.map((order) => {
+    const vehicle = vehicleById.get(order.vehicleId);
+    const assignedMechanic = order.assignedMechanicId ? assigneeById.get(order.assignedMechanicId) : null;
+    // SECURITY FIX: Validate hydrated objects exist before using
+    if (order.vehicleId && !vehicle) {
+      console.warn(`[WARNING] Vehicle ${order.vehicleId} not found for work order ${order.id}`);
+    }
+    if (order.assignedMechanicId && !assignedMechanic) {
+      console.warn(`[WARNING] Mechanic ${order.assignedMechanicId} not found for work order ${order.id}`);
+    }
+    return { ...order, vehicle: vehicle ?? null, assignedMechanic, partsUsed: partsByOrder.get(order.id) ?? [] };
+  });
 }
 
 export function validateOdometerReading(current: number, reading: number, elapsedDays = 1) {

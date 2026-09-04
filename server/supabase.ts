@@ -106,7 +106,12 @@ export async function provisionFleetOpsUser(input: {
   const existing = await fleetDb.user.findUnique({ where: { authUserId: input.authUserId }, include: { org: true } });
   if (existing) return existing;
 
-  const role = input.role ?? "SUPERADMIN";
+  // SECURITY FIX: Only allow SUPERADMIN for new org creation. Other roles must be assigned by existing admin
+  const role = "SUPERADMIN";
+  if (input.role && input.role !== "SUPERADMIN") {
+    throw new Error("Only SUPERADMIN role is allowed for new organization creation. Other roles must be invited by organization owner.");
+  }
+  
   return fleetDb.$transaction(async (tx: any) => {
     const org = await tx.organization.create({
       data: {

@@ -23,9 +23,25 @@ function condition(field: string, value: unknown): string {
   if (value === null) return `${c} IS NULL`;
   if (value && typeof value === "object" && !Array.isArray(value)) {
     const o = value as AnyRecord;
-    if (o.in) return o.in.length ? `${c} IN (${o.in.map((v: unknown) => `'${String(v).replaceAll("'", "''")}'`).join(",")})` : "FALSE";
-    if (o.notIn) return `${c} NOT IN (${o.notIn.map((v: unknown) => `'${String(v).replaceAll("'", "''")}'`).join(",")})`;
-    if (o.contains !== undefined) return `${c} ILIKE '%${String(o.contains).replaceAll("'", "''")}%'`;
+    // SECURITY FIX: Validate input types before SQL injection
+    if (o.in) {
+      if (!Array.isArray(o.in)) throw new Error("'in' operator requires an array");
+      if (o.in.length === 0) return "FALSE";
+      // Validate all values are primitives
+      if (!o.in.every(v => v === null || typeof v !== 'object')) throw new Error("Invalid value type in 'in' operator");
+      return `${c} IN (${o.in.map((v: unknown) => `'${String(v).replaceAll("'", "''")}'`).join(",")})`;
+    }
+    if (o.notIn) {
+      if (!Array.isArray(o.notIn)) throw new Error("'notIn' operator requires an array");
+      if (o.notIn.length === 0) return "TRUE";
+      if (!o.notIn.every(v => v === null || typeof v !== 'object')) throw new Error("Invalid value type in 'notIn' operator");
+      return `${c} NOT IN (${o.notIn.map((v: unknown) => `'${String(v).replaceAll("'", "''")}'`).join(",")})`;
+    }
+    if (o.contains !== undefined) {
+      if (typeof o.contains !== 'string' && typeof o.contains !== 'number') throw new Error("'contains' requires string or number");
+      const escaped = String(o.contains).replace(/[%_\\]/g, '\\$&'); // Escape LIKE wildcards
+      return `${c} ILIKE '%${escaped.replaceAll("'", "''")}'%'`;
+    }
     if (o.gt !== undefined) return `${c} > '${String(normalize(o.gt)).replaceAll("'", "''")}'`;
     if (o.gte !== undefined) return `${c} >= '${String(normalize(o.gte)).replaceAll("'", "''")}'`;
     if (o.lt !== undefined) return `${c} < '${String(normalize(o.lt)).replaceAll("'", "''")}'`;
