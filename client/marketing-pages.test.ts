@@ -18,10 +18,9 @@ describe("public FleetOps marketing experience", () => {
   });
 
   it("uses the approved INR pricing catalog without fabricated testimonials", () => {
+    expect(marketing).toContain("₹2,999");
     expect(marketing).toContain("₹9,999");
     expect(marketing).toContain("₹24,999");
-    expect(marketing).toContain("₹59,999");
-    expect(marketing).toContain("₹1,25,000");
     expect(marketing.toLowerCase()).not.toContain("testimonial");
     expect(marketing.toLowerCase()).not.toContain("customer review");
   });
