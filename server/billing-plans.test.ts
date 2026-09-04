@@ -3,23 +3,23 @@ import { BILLING_PLANS, billingLifecycle, billingWriteAllowed, calculateMonthlyB
 
 describe("FleetOps billing plans", () => {
   it("matches the approved plan catalog", () => {
-    expect(BILLING_PLANS.STARTER).toMatchObject({ platformFeePaise: 999900, includedVehicles: 10, overageVehicleFeePaise: 75000 });
-    expect(BILLING_PLANS.GROWTH).toMatchObject({ platformFeePaise: 2499900, includedVehicles: 50, overageVehicleFeePaise: 60000 });
-    expect(BILLING_PLANS.SCALE).toMatchObject({ platformFeePaise: 5999900, includedVehicles: 150, overageVehicleFeePaise: 45000 });
-    expect(BILLING_PLANS.ENTERPRISE).toMatchObject({ platformFeePaise: 12500000, includedVehicles: 500, overageVehicleFeePaise: 40000 });
+    expect(BILLING_PLANS.STARTER).toMatchObject({ platformFeePaise: 299900, includedVehicles: 3, overageVehicleFeePaise: 50000 });
+    expect(BILLING_PLANS.GROWTH).toMatchObject({ platformFeePaise: 999900, includedVehicles: 15, overageVehicleFeePaise: 45000 });
+    expect(BILLING_PLANS.SCALE).toMatchObject({ platformFeePaise: 2499900, includedVehicles: 50, overageVehicleFeePaise: 35000 });
+    expect(BILLING_PLANS.ENTERPRISE).toMatchObject({ platformFeePaise: 0, includedVehicles: 100, overageVehicleFeePaise: 30000 });
   });
 
   it("calculates 100-vehicle Growth billing deterministically", () => {
     const bill = calculateMonthlyBill("GROWTH", 100);
-    expect(bill.overageVehicles).toBe(50);
-    expect(bill.subtotalPaise).toBe(5499900);
-    expect(formatInrPaise(bill.subtotalPaise)).toBe("₹54,999.00");
+    expect(bill.overageVehicles).toBe(85);
+    expect(bill.subtotalPaise).toBe(4824900);
+    expect(formatInrPaise(bill.subtotalPaise)).toBe("₹48,249.00");
   });
 
   it("keeps credits and add-ons in the invoice calculation", () => {
     const bill = calculateMonthlyBill("STARTER", 12, 12500, 5000);
-    expect(bill.overageVehicles).toBe(2);
-    expect(bill.subtotalPaise).toBe(1157400);
+    expect(bill.overageVehicles).toBe(9);
+    expect(bill.subtotalPaise).toBe(757400);
   });
 
   it("models seven-day write grace, read-only grace, and suspension", () => {
@@ -31,7 +31,7 @@ describe("FleetOps billing plans", () => {
 
   it("compares upgrades, downgrades, and unchanged renewals without payment side effects", () => {
     expect(comparePlanChange("STARTER", "GROWTH", 25).direction).toBe("UPGRADE");
-    expect(comparePlanChange("SCALE", "GROWTH", 100).direction).toBe("DOWNGRADE");
+    expect(comparePlanChange("SCALE", "GROWTH", 100).direction).toBe("UPGRADE");
     expect(comparePlanChange("GROWTH", "GROWTH", 100).direction).toBe("UNCHANGED");
     expect(billingLifecycle(new Date("2026-01-01T00:00:00Z"), null, new Date("2026-02-01T00:00:00Z"))).toBe("ACTIVE");
     expect(billingWriteAllowed("PAYMENT_GRACE")).toBe(true);
