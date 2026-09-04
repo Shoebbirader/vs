@@ -10,6 +10,7 @@ export type BillingPlan = {
   description: string;
 };
 
+// BILLING_PLANS_V2: New pricing model effective 2026-09-04
 export const BILLING_PLANS: Record<FleetOpsPlan, BillingPlan> = {
   STARTER: { id: "STARTER", name: "Starter", platformFeePaise: 299900, includedVehicles: 3, overageVehicleFeePaise: 50000, maxUsers: 10, description: "For small operators and pilots." },
   GROWTH: { id: "GROWTH", name: "Growth", platformFeePaise: 999900, includedVehicles: 15, overageVehicleFeePaise: 45000, maxUsers: 50, description: "For growing regional fleets." },
