@@ -600,7 +600,44 @@ export const appRouter = router({
     adjust: fleetOpsProcedure.input(z.object({ partId: z.string().uuid(), expectedQuantityOnHand: z.number().int().nonnegative(), delta: z.number().int(), reason: z.string().trim().min(3).max(300) })).mutation(async ({ ctx, input }) => { requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "INVENTORY_MANAGER"]); assertWritable(ctx.fleetopsUser.org); const part = await fleetDb.inventoryPart.findFirst({ where: { id: input.partId, orgId: ctx.fleetopsUser.orgId } }); if (!part) throw new TRPCError({ code: "NOT_FOUND", message: "Inventory part not found." }); const nextQuantity = input.expectedQuantityOnHand + input.delta; if (nextQuantity < 0) throw new TRPCError({ code: "BAD_REQUEST", message: "Inventory adjustments cannot produce a negative balance." }); const updated = await fleetDb.$transaction(async (tx: any) => { const changed = await tx.inventoryPart.updateMany({ where: { id: part.id, orgId: ctx.fleetopsUser.orgId, quantityOnHand: input.expectedQuantityOnHand }, data: { quantityOnHand: nextQuantity } }); if (!changed.count) throw new TRPCError({ code: "CONFLICT", message: "Inventory changed since it was loaded. Refresh the balance and retry." }); if (tx.inventoryMovement?.create) await tx.inventoryMovement.create({ data: { id: crypto.randomUUID(), orgId: ctx.fleetopsUser.orgId, partId: part.id, actorId: ctx.fleetopsUser.id, movementType: "ADJUSTMENT", quantity: input.delta, unitCost: part.unitCost, reason: input.reason, createdAt: new Date() } }); return tx.inventoryPart.findFirst({ where: { id: part.id, orgId: ctx.fleetopsUser.orgId } }); }); await recordAudit(ctx, { action: "INVENTORY_ADJUSTED", entityType: "INVENTORY_PART", entityId: part.id, summary: `Adjusted ${part.name} by ${input.delta}`, metadata: { expectedQuantityOnHand: input.expectedQuantityOnHand, nextQuantity, reason: input.reason } }); await evaluateLowInventory(ctx.fleetopsUser.orgId); return updated; }),
     exportCsv: fleetOpsProcedure.query(async ({ ctx }) => { requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "INVENTORY_MANAGER"]); const rows = await fleetDb.inventoryPart.findMany({ where: { orgId: ctx.fleetopsUser.orgId }, orderBy: { sku: "asc" } }); const csv = csvDocument(rows.map((row: any) => ({ sku: row.sku, name: row.name, binLocation: row.binLocation ?? "", quantityOnHand: row.quantityOnHand, minReorderLevel: row.minReorderLevel, unitCostInr: Number(row.unitCost).toFixed(2) })), ["sku", "name", "binLocation", "quantityOnHand", "minReorderLevel", "unitCostInr"]); await recordAudit(ctx, { action: "INVENTORY_EXPORT_CSV", entityType: "INVENTORY_PART", summary: `Exported ${rows.length} inventory parts`, metadata: { count: rows.length } }); return { filename: `fleetops-inventory-${new Date().toISOString().slice(0, 10)}.csv`, content: csv, rowCount: rows.length }; }),
     previewImport: fleetOpsProcedure.input(z.object({ csv: z.string().max(1_000_000) })).query(({ ctx, input }) => { requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "INVENTORY_MANAGER"]); const parsed = parseInventoryCsv(input.csv); return { rowCount: parsed.rows.length, validCount: parsed.rows.filter((row) => !row.errors.length).length, errors: parsed.errors, rows: parsed.rows.slice(0, 100).map((item) => ({ rowNumber: item.rowNumber, ...item.row, errors: item.errors })) }; }),
-    importCsv: fleetOpsProcedure.input(z.object({ csv: z.string().max(1_000_000) })).mutation(async ({ ctx, input }) => { requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "INVENTORY_MANAGER"]); assertWritable(ctx.fleetopsUser.org); const parsed = parseInventoryCsv(input.csv); if (parsed.errors.length) throw new TRPCError({ code: "BAD_REQUEST", message: parsed.errors.slice(0, 8).join("; ") }); const existing = await fleetDb.inventoryPart.findMany({ where: { orgId: ctx.fleetopsUser.orgId } }); const seen = new Set(existing.map((part: any) => part.sku.toUpperCase())); const candidates = parsed.rows.filter((item) => { const sku = String(item.row.sku).toUpperCase(); if (seen.has(sku)) return false; seen.add(sku); return true; }); if (candidates.length !== parsed.rows.length) throw new TRPCError({ code: "CONFLICT", message: "Every SKU must be unique and must not already exist in this organization." }); const created = await Promise.all(candidates.map((item) => fleetDb.inventoryPart.create({ data: { id: crypto.randomUUID(), orgId: ctx.fleetopsUser.orgId, sku: item.row.sku, name: item.row.name, binLocation: item.row.binLocation || undefined, quantityOnHand: Number(item.row.quantityOnHand), minReorderLevel: Number(item.row.minReorderLevel), unitCost: Number(item.row.unitCost ?? item.row.unitCostInr) } }))); await recordAudit(ctx, { action: "INVENTORY_IMPORT_CSV", entityType: "INVENTORY_PART", summary: `Imported ${created.length} inventory parts`, metadata: { count: created.length } }); return { importedCount: created.length }; }),
+    importCsv: fleetOpsProcedure.input(z.object({ csv: z.string().max(1_000_000) })).mutation(async ({ ctx, input }) => { 
+      requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "INVENTORY_MANAGER"]); 
+      assertWritable(ctx.fleetopsUser.org); 
+      const parsed = parseInventoryCsv(input.csv); 
+      if (parsed.errors.length) throw new TRPCError({ code: "BAD_REQUEST", message: parsed.errors.slice(0, 8).join("; ") }); 
+      const existing = await fleetDb.inventoryPart.findMany({ where: { orgId: ctx.fleetopsUser.orgId } }); 
+      const seen = new Set(existing.map((part: any) => part.sku.toUpperCase())); 
+      const candidates = parsed.rows.filter((item) => { 
+        const sku = String(item.row.sku).toUpperCase(); 
+        if (seen.has(sku)) return false; 
+        seen.add(sku); 
+        return true; 
+      }); 
+      if (candidates.length !== parsed.rows.length) throw new TRPCError({ code: "CONFLICT", message: "Every SKU must be unique and must not already exist in this organization." }); 
+      
+      // FIX: Add error handling to Promise.all() for inventory import
+      let created: any[] = [];
+      try {
+        created = await Promise.all(candidates.map((item) => fleetDb.inventoryPart.create({ 
+          data: { 
+            id: crypto.randomUUID(), 
+            orgId: ctx.fleetopsUser.orgId, 
+            sku: item.row.sku, 
+            name: item.row.name, 
+            binLocation: item.row.binLocation || undefined, 
+            quantityOnHand: Number(item.row.quantityOnHand), 
+            minReorderLevel: Number(item.row.minReorderLevel), 
+            unitCost: Number(item.row.unitCost ?? item.row.unitCostInr) 
+          } 
+        })));
+      } catch (error) {
+        console.error("[INVENTORY_IMPORT_ERROR] Failed to create inventory parts from CSV:", error);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to create inventory parts. Some SKUs may have been duplicated or contain invalid data." });
+      }
+      
+      await recordAudit(ctx, { action: "INVENTORY_IMPORT_CSV", entityType: "INVENTORY_PART", summary: `Imported ${created.length} inventory parts`, metadata: { count: created.length } }); 
+      return { importedCount: created.length }; 
+    }),
   }),
   driver: router({
     inspections: fleetOpsProcedure.query(async ({ ctx }) => fleetDb.dvirInspection.findMany({ where: { orgId: ctx.fleetopsUser.orgId, driverId: ctx.fleetopsUser.id }, orderBy: { createdAt: "desc" }, take: 50 })),
