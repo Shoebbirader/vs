@@ -5,6 +5,7 @@ import { createRoot } from "react-dom/client";
 import superjson from "superjson";
 import App from "./App";
 import { supabase } from "@/lib/supabase";
+import { initPWA } from "./pwa-init";
 import "./index.css";
 import "./redesign.css";
 import "./frontend-replacement.css";
@@ -82,3 +83,6 @@ createRoot(document.getElementById("root")!).render(
     </QueryClientProvider>
   </trpc.Provider>
 );
+
+// Initialize PWA features
+initPWA().catch(console.error);

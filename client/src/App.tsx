@@ -1,6 +1,8 @@
 /* VahanSync application shell: role-aware navigation and operational command canvas. */
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
+import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { useEffect, useState } from "react";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
@@ -64,6 +66,8 @@ function App() {
       <ThemeProvider defaultTheme="light">
         <TooltipProvider>
           <Toaster />
+          <OfflineIndicator />
+          <PWAInstallPrompt />
           <Switch>
             <Route path="/join/:token" component={JoinOrganization} />
             <Route path="/login" component={LoginRoute} />
