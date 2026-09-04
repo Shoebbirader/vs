@@ -9,6 +9,25 @@ if (process.env.NODE_ENV !== "production") globalForDb.fleetopsPool = pool;
 export const db = globalForDb.fleetopsDb ?? drizzle(pool);
 if (process.env.NODE_ENV !== "production") globalForDb.fleetopsDb = db;
 
+// FIX: Properly close database pool on process termination to prevent leaks
+if (typeof process !== "undefined" && process.on) {
+  const gracefulShutdown = async () => {
+    try {
+      if (pool && !pool.ending) {
+        console.log("[DB] Closing connection pool...");
+        await pool.end();
+        console.log("[DB] Connection pool closed");
+      }
+    } catch (error) {
+      console.error("[DB] Error closing pool:", error);
+    }
+    process.exit(0);
+  };
+  
+  process.on("SIGINT", gracefulShutdown);
+  process.on("SIGTERM", gracefulShutdown);
+}
+
 const tables: Record<string, string> = {
   organization: "organizations", organizationSetting: "organization_settings", user: "users", invitation: "invitations", vehicle: "vehicles", vehicleAssignment: "vehicle_assignments", component: "components", odometerLog: "odometer_logs", workOrder: "work_orders", inventoryPart: "inventory_parts", workOrderPart: "work_order_parts", vendor: "vendors", purchaseOrder: "purchase_orders", purchaseOrderReceipt: "purchase_order_receipts", financialRecord: "financial_records", document: "documents", documentVersion: "document_versions", notification: "notifications", notificationDelivery: "notification_deliveries", workOrderEvidence: "work_order_evidence", vehicleIssue: "vehicle_issues", dvirInspection: "dvir_inspections", fuelLog: "fuel_logs", auditEvent: "audit_events", inventoryMovement: "inventory_movements", billingInvoice: "billing_invoices", billingPayment: "billing_payments",
 };

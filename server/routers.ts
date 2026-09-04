@@ -127,13 +127,38 @@ async function hydrateWorkOrders(orders: any[], orgId: string) {
   const vehicleIds = Array.from(new Set(orders.map((order) => order.vehicleId).filter(Boolean)));
   const assigneeIds = Array.from(new Set(orders.map((order) => order.assignedMechanicId).filter(Boolean)));
   const orderIds = orders.map((order) => order.id);
-  const [vehicles, assignees, partsUsed] = await Promise.all([
-    fleetDb.vehicle.findMany({ where: { orgId, id: { in: vehicleIds } } }),
-    assigneeIds.length ? fleetDb.user.findMany({ where: { orgId, id: { in: assigneeIds } } }) : [],
-    fleetDb.workOrderPart.findMany({ where: { workOrderId: { in: orderIds } } }),
-  ]);
+  
+  // FIX: Add error handling for Promise.all() operations
+  let vehicles: any[] = [];
+  let assignees: any[] = [];
+  let partsUsed: any[] = [];
+  
+  try {
+    const results = await Promise.all([
+      vehicleIds.length ? fleetDb.vehicle.findMany({ where: { orgId, id: { in: vehicleIds } } }) : Promise.resolve([]),
+      assigneeIds.length ? fleetDb.user.findMany({ where: { orgId, id: { in: assigneeIds } } }) : Promise.resolve([]),
+      orderIds.length ? fleetDb.workOrderPart.findMany({ where: { workOrderId: { in: orderIds } } }) : Promise.resolve([]),
+    ]);
+    vehicles = results[0] || [];
+    assignees = results[1] || [];
+    partsUsed = results[2] || [];
+  } catch (error) {
+    console.error("[HYDRATE_ERROR] Failed to hydrate work orders:", error);
+    return orders;
+  }
+  
   const partIds = Array.from(new Set((partsUsed as any[]).map((part) => part.partId).filter(Boolean)));
-  const parts = partIds.length ? await fleetDb.inventoryPart.findMany({ where: { orgId, id: { in: partIds } } }) : [];
+  let parts: any[] = [];
+  
+  try {
+    if (partIds.length) {
+      parts = await fleetDb.inventoryPart.findMany({ where: { orgId, id: { in: partIds } } });
+    }
+  } catch (error) {
+    console.error("[HYDRATE_ERROR] Failed to fetch parts for work orders:", error);
+    parts = [];
+  }
+  
   const vehicleById = new Map((vehicles as any[]).map((vehicle) => [vehicle.id, vehicle]));
   const assigneeById = new Map((assignees as any[]).map((assignee) => [assignee.id, assignee]));
   const partById = new Map((parts as any[]).map((part) => [part.id, part]));
@@ -274,17 +299,34 @@ export const appRouter = router({
   dashboard: router({
     summary: fleetOpsProcedure.query(async ({ ctx }) => {
       const orgId = ctx.fleetopsUser.orgId;
-      const [vehicles, openWorkOrders, inventoryAlerts, unreadNotifications, spend] = await Promise.all([
-        fleetDb.vehicle.findMany({ where: { orgId }, orderBy: { updatedAt: "desc" }, take: 10 }),
-        fleetDb.workOrder.count({ where: { orgId, status: { in: [WorkOrderStatus.OPEN, WorkOrderStatus.IN_PROGRESS] } } }),
-        fleetDb.inventoryPart.count({ where: { orgId, quantityOnHand: { lte: 5 } } }),
-        fleetDb.notification.count({ where: { orgId, recipientId: ctx.fleetopsUser.id, isRead: false } }),
-        fleetDb.financialRecord.aggregate({ where: { orgId, type: "EXPENSE" }, _sum: { amount: true } }),
-      ]);
+      let vehicles: any[] = [];
+      let openWorkOrders = 0;
+      let inventoryAlerts = 0;
+      let unreadNotifications = 0;
+      let monthlyExpense = 0;
+      
+      // FIX: Add error handling for Promise.all() in dashboard summary
+      try {
+        const [vehicleRows, woCount, invCount, notifCount, spend] = await Promise.all([
+          fleetDb.vehicle.findMany({ where: { orgId }, orderBy: { updatedAt: "desc" }, take: 10 }),
+          fleetDb.workOrder.count({ where: { orgId, status: { in: [WorkOrderStatus.OPEN, WorkOrderStatus.IN_PROGRESS] } } }),
+          fleetDb.inventoryPart.count({ where: { orgId, quantityOnHand: { lte: 5 } } }),
+          fleetDb.notification.count({ where: { orgId, recipientId: ctx.fleetopsUser.id, isRead: false } }),
+          fleetDb.financialRecord.aggregate({ where: { orgId, type: "EXPENSE" }, _sum: { amount: true } }),
+        ]);
+        vehicles = vehicleRows;
+        openWorkOrders = woCount;
+        inventoryAlerts = invCount;
+        unreadNotifications = notifCount;
+        monthlyExpense = spend._sum.amount ?? 0;
+      } catch (error) {
+        console.error("[DASHBOARD_ERROR] Failed to load dashboard summary:", error);
+      }
+      
       const authUser = await getSupabaseAuthIdentity(ctx.req);
       const defaultOrgName = `${ctx.fleetopsUser.fullName}'s Fleet`;
       const needsOnboarding = authUser?.user_metadata?.needsOnboarding === true || authUser?.user_metadata?.needsOnboarding === "true" || ctx.fleetopsUser.org.name === defaultOrgName;
-      return { org: ctx.fleetopsUser.org, role: ctx.fleetopsUser.role, needsOnboarding, vehicles, openWorkOrders, inventoryAlerts, unreadNotifications, monthlyExpense: spend._sum.amount ?? 0 };
+      return { org: ctx.fleetopsUser.org, role: ctx.fleetopsUser.role, needsOnboarding, vehicles, openWorkOrders, inventoryAlerts, unreadNotifications, monthlyExpense };
     }),
   }),
   components: router({
@@ -331,7 +373,37 @@ export const appRouter = router({
     update: fleetOpsProcedure.input(z.object({ id: z.string().uuid(), vin: z.string().trim().min(5).max(32), licensePlate: z.string().trim().min(3).max(32), chassisNumber: z.string().trim().max(80).nullable().optional(), engineNumber: z.string().trim().max(80).nullable().optional(), vehicleType: z.enum(["BUS", "MINIBUS", "TRUCK", "VAN", "CAR", "OTHER"]).nullable().optional(), assignedRoute: z.string().trim().max(120).nullable().optional(), depotLocation: z.string().trim().max(120).nullable().optional(), make: z.string().trim().min(2), model: z.string().trim().min(2), year: z.number().int().min(1980).max(2100), currentOdometer: z.number().min(0), status: z.enum(["ACTIVE", "OUT_OF_SERVICE", "MAINTENANCE"]).optional() })).mutation(async ({ ctx, input }) => { requireRole(ctx.fleetopsUser.role, ["FLEET_MANAGER"]); assertWritable(ctx.fleetopsUser.org); const vehicle = await fleetDb.vehicle.findFirst({ where: { id: input.id, orgId: ctx.fleetopsUser.orgId } }); if (!vehicle) throw new TRPCError({ code: "NOT_FOUND", message: "Vehicle not found in your organization." }); const vin = input.vin.toUpperCase(); const licensePlate = input.licensePlate.toUpperCase(); const existingVehicles = await fleetDb.vehicle.findMany({ where: { orgId: ctx.fleetopsUser.orgId } }); if ((existingVehicles as any[]).some((item) => item.id !== vehicle.id && String(item.vin).toUpperCase() === vin)) throw new TRPCError({ code: "CONFLICT", message: "Another vehicle already uses this VIN." }); if ((existingVehicles as any[]).some((item) => item.id !== vehicle.id && String(item.licensePlate).toUpperCase() === licensePlate)) throw new TRPCError({ code: "CONFLICT", message: "Another vehicle already uses this registration number." }); const { id, ...data } = input; const updated = await fleetDb.vehicle.update({ where: { id }, data: { ...data, vin, licensePlate } }); if (Number(input.currentOdometer) > Number(vehicle.currentOdometer)) await evaluateVehicleMaintenance(vehicle.id, ctx.fleetopsUser.orgId); await recordAudit(ctx, { action: "VEHICLE_UPDATED", entityType: "VEHICLE", entityId: vehicle.id, summary: `${vehicleIdentity(updated)} details updated`, metadata: { previousOdometer: vehicle.currentOdometer, currentOdometer: updated.currentOdometer, vin: updated.vin, licensePlate: updated.licensePlate } }); return updated; }),
     remove: fleetOpsProcedure.input(z.object({ id: z.string().uuid() })).mutation(async ({ ctx, input }) => { requireRole(ctx.fleetopsUser.role, ["FLEET_MANAGER"]); assertWritable(ctx.fleetopsUser.org); const vehicle = await fleetDb.vehicle.findFirst({ where: { id: input.id, orgId: ctx.fleetopsUser.orgId } }); if (!vehicle) throw new TRPCError({ code: "NOT_FOUND", message: "Vehicle not found in your organization." }); const deleted = await fleetDb.vehicle.delete({ where: { id: vehicle.id } }); await recordAudit(ctx, { action: "VEHICLE_DELETED", entityType: "VEHICLE", entityId: vehicle.id, summary: `${vehicleIdentity(vehicle)} deleted from the fleet`, metadata: { vin: vehicle.vin, licensePlate: vehicle.licensePlate } }); return deleted; }),
     odometerHistory: fleetOpsProcedure.query(({ ctx }) => { requireRole(ctx.fleetopsUser.role, ["FLEET_MANAGER"]); return fleetDb.odometerLog.findMany({ where: { vehicle: { orgId: ctx.fleetopsUser.orgId } }, include: { vehicle: true }, orderBy: { createdAt: "desc" }, take: 100 }); }),
-    health: fleetOpsProcedure.input(z.object({ vehicleId: z.string().uuid() })).query(async ({ ctx, input }) => { requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER", "MECHANIC", "TECHNICIAN", "DRIVER"]); await assertDriverVehicle(ctx, input.vehicleId); const vehicle = await fleetDb.vehicle.findFirst({ where: { id: input.vehicleId, orgId: ctx.fleetopsUser.orgId } }); if (!vehicle) throw new TRPCError({ code: "NOT_FOUND", message: "Vehicle not found in your organization scope." }); const [components, odometers, workOrderRows, documents] = await Promise.all([fleetDb.component.findMany({ where: { vehicleId: vehicle.id }, orderBy: { name: "asc" } }), fleetDb.odometerLog.findMany({ where: { vehicleId: vehicle.id, vehicle: { orgId: ctx.fleetopsUser.orgId } }, orderBy: { createdAt: "desc" }, take: 12 }), fleetDb.workOrder.findMany({ where: { vehicleId: vehicle.id, orgId: ctx.fleetopsUser.orgId, ...(["MECHANIC", "TECHNICIAN"].includes(ctx.fleetopsUser.role) ? { assignedMechanicId: ctx.fleetopsUser.id } : {}) }, orderBy: { updatedAt: "desc" }, take: 12 }), fleetDb.document.findMany({ where: { vehicleId: vehicle.id, orgId: ctx.fleetopsUser.orgId }, orderBy: { expiryDate: "asc" }, take: 12 })]); const workOrders = await hydrateWorkOrders(workOrderRows as any[], ctx.fleetopsUser.orgId); const dueComponents = (components as any[]).filter((item: any) => Number(vehicle.currentOdometer) - Number(item.lastServicedOdometer) >= Number(item.alertThresholdKm)); const dueDocuments = documents.filter((item: any) => new Date(item.expiryDate).getTime() < Date.now() + 30 * 86_400_000); return { vehicle: { ...vehicle, components }, odometers, workOrders, documents, health: { componentCount: components.length, dueComponents: dueComponents.length, openWorkOrders: workOrders.filter((item: any) => !["COMPLETED", "CANCELLED"].includes(item.status)).length, dueDocuments: dueDocuments.length, readiness: vehicle.status === "ACTIVE" && dueComponents.length === 0 && dueDocuments.length === 0 ? "READY" : "REVIEW" } }; }),
+    health: fleetOpsProcedure.input(z.object({ vehicleId: z.string().uuid() })).query(async ({ ctx, input }) => { 
+      requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER", "MECHANIC", "TECHNICIAN", "DRIVER"]); 
+      await assertDriverVehicle(ctx, input.vehicleId); 
+      const vehicle = await fleetDb.vehicle.findFirst({ where: { id: input.vehicleId, orgId: ctx.fleetopsUser.orgId } }); 
+      if (!vehicle) throw new TRPCError({ code: "NOT_FOUND", message: "Vehicle not found in your organization scope." }); 
+      
+      // FIX: Add error handling for Promise.all() in vehicle health
+      let components: any[] = [];
+      let odometers: any[] = [];
+      let workOrders: any[] = [];
+      let documents: any[] = [];
+      
+      try {
+        const [comps, odoms, wos, docs] = await Promise.all([
+          fleetDb.component.findMany({ where: { vehicleId: vehicle.id }, orderBy: { name: "asc" } }), 
+          fleetDb.odometerLog.findMany({ where: { vehicleId: vehicle.id, vehicle: { orgId: ctx.fleetopsUser.orgId } }, orderBy: { createdAt: "desc" }, take: 12 }), 
+          fleetDb.workOrder.findMany({ where: { vehicleId: vehicle.id, orgId: ctx.fleetopsUser.orgId, ...(["MECHANIC", "TECHNICIAN"].includes(ctx.fleetopsUser.role) ? { assignedMechanicId: ctx.fleetopsUser.id } : {}) }, orderBy: { updatedAt: "desc" }, take: 12 }), 
+          fleetDb.document.findMany({ where: { vehicleId: vehicle.id, orgId: ctx.fleetopsUser.orgId }, orderBy: { expiryDate: "asc" }, take: 12 })
+        ]);
+        components = comps;
+        odometers = odoms;
+        workOrders = await hydrateWorkOrders(wos as any[], ctx.fleetopsUser.orgId);
+        documents = docs;
+      } catch (error) {
+        console.error("[VEHICLE_HEALTH_ERROR] Failed to load vehicle health:", error);
+      }
+      
+      const dueComponents = (components as any[]).filter((item: any) => Number(vehicle.currentOdometer) - Number(item.lastServicedOdometer) >= Number(item.alertThresholdKm)); 
+      const dueDocuments = documents.filter((item: any) => new Date(item.expiryDate).getTime() < Date.now() + 30 * 86_400_000); 
+      return { vehicle: { ...vehicle, components }, odometers, workOrders, documents, health: { componentCount: components.length, dueComponents: dueComponents.length, openWorkOrders: workOrders.filter((item: any) => !["COMPLETED", "CANCELLED"].includes(item.status)).length, dueDocuments: dueDocuments.length, readiness: vehicle.status === "ACTIVE" && dueComponents.length === 0 && dueDocuments.length === 0 ? "READY" : "REVIEW" } }; 
+    }),
     updateOdometer: fleetOpsProcedure.input(z.object({ vehicleId: z.string().uuid(), reading: z.number().min(0), source: z.enum(["MANUAL_DRIVER", "GPS_API", "MECHANIC"]) })).mutation(async ({ ctx, input }) => {
       assertWritable(ctx.fleetopsUser.org);
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER", "MECHANIC", "TECHNICIAN", "DRIVER"]);
@@ -358,12 +430,25 @@ export const appRouter = router({
       const from = input?.from ?? new Date();
       const to = input?.to ?? new Date(from.getTime() + 90 * 86_400_000);
       if (to < from) throw new TRPCError({ code: "BAD_REQUEST", message: "The planning end date must be on or after the start date." });
-      const [vehicleRows, documentRows, workOrderRows] = await Promise.all([
-        fleetDb.vehicle.findMany({ where: { orgId: ctx.fleetopsUser.orgId }, orderBy: { licensePlate: "asc" } }),
-        fleetDb.document.findMany({ where: { orgId: ctx.fleetopsUser.orgId }, orderBy: { expiryDate: "asc" } }),
-        fleetDb.workOrder.findMany({ where: { orgId: ctx.fleetopsUser.orgId, status: { in: ["OPEN", "IN_PROGRESS", "WAITING_FOR_PARTS", "READY_FOR_REVIEW", "REWORK"] } }, orderBy: { updatedAt: "desc" } }),
-      ]);
-      const vehicles = await hydrateVehiclesWithComponents(vehicleRows as any[]);
+      
+      // FIX: Add error handling for Promise.all() in maintenance planning
+      let vehicles: any[] = [];
+      let documentRows: any[] = [];
+      let workOrderRows: any[] = [];
+      
+      try {
+        const [vRows, dRows, woRows] = await Promise.all([
+          fleetDb.vehicle.findMany({ where: { orgId: ctx.fleetopsUser.orgId }, orderBy: { licensePlate: "asc" } }),
+          fleetDb.document.findMany({ where: { orgId: ctx.fleetopsUser.orgId }, orderBy: { expiryDate: "asc" } }),
+          fleetDb.workOrder.findMany({ where: { orgId: ctx.fleetopsUser.orgId, status: { in: ["OPEN", "IN_PROGRESS", "WAITING_FOR_PARTS", "READY_FOR_REVIEW", "REWORK"] } }, orderBy: { updatedAt: "desc" } }),
+        ]);
+        vehicles = await hydrateVehiclesWithComponents(vRows as any[]);
+        documentRows = dRows;
+        workOrderRows = woRows;
+      } catch (error) {
+        console.error("[PLANNING_ERROR] Failed to load maintenance planning:", error);
+      }
+      
       const vehicleById = new Map((vehicles as any[]).map((vehicle) => [vehicle.id, vehicle]));
       const documents = (documentRows as any[]).map((document) => ({ ...document, vehicle: document.vehicleId ? vehicleById.get(document.vehicleId) ?? null : null }));
       const workOrders = await hydrateWorkOrders(workOrderRows as any[], ctx.fleetopsUser.orgId);
@@ -377,8 +462,64 @@ export const appRouter = router({
   }),
   workOrders: router({
     list: fleetOpsProcedure.query(async ({ ctx }) => { requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER", "MECHANIC", "TECHNICIAN"]); const where = ["MECHANIC", "TECHNICIAN"].includes(ctx.fleetopsUser.role) ? { orgId: ctx.fleetopsUser.orgId, assignedMechanicId: ctx.fleetopsUser.id } : { orgId: ctx.fleetopsUser.orgId }; const orders = await fleetDb.workOrder.findMany({ where, orderBy: { createdAt: "desc" } }); return hydrateWorkOrders(orders as any[], ctx.fleetopsUser.orgId); }),
-    detail: fleetOpsProcedure.input(z.object({ workOrderId: z.string().uuid() })).query(async ({ ctx, input }) => { requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER", "MECHANIC", "TECHNICIAN", "ACCOUNTANT"]); const order = await fleetDb.workOrder.findFirst({ where: { id: input.workOrderId, orgId: ctx.fleetopsUser.orgId, ...(["MECHANIC", "TECHNICIAN"].includes(ctx.fleetopsUser.role) ? { assignedMechanicId: ctx.fleetopsUser.id } : {}) } }); if (!order) throw new TRPCError({ code: "NOT_FOUND", message: "Work order is outside your organization or role scope." }); const [hydratedRows, vehicleComponents, evidence, activity] = await Promise.all([hydrateWorkOrders([order], ctx.fleetopsUser.orgId), fleetDb.component.findMany({ where: { vehicleId: order.vehicleId }, orderBy: { name: "asc" } }), fleetDb.workOrderEvidence.findMany({ where: { orgId: ctx.fleetopsUser.orgId, workOrderId: order.id }, orderBy: { createdAt: "desc" } }), fleetDb.auditEvent.findMany({ where: { orgId: ctx.fleetopsUser.orgId, entityType: "WORK_ORDER", entityId: order.id }, orderBy: { createdAt: "desc" }, take: 100 })]); const hydratedOrder = hydratedRows[0] as any; return { order: { ...hydratedOrder, vehicle: hydratedOrder.vehicle ? { ...hydratedOrder.vehicle, components: vehicleComponents } : null, evidence }, activity }; }),
-    handoffTimeline: fleetOpsProcedure.query(async ({ ctx }) => { requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER", "MECHANIC", "TECHNICIAN", "ACCOUNTANT"]); const where = ["MECHANIC", "TECHNICIAN"].includes(ctx.fleetopsUser.role) ? { orgId: ctx.fleetopsUser.orgId, assignedMechanicId: ctx.fleetopsUser.id } : { orgId: ctx.fleetopsUser.orgId }; const orderRows = await fleetDb.workOrder.findMany({ where, orderBy: { updatedAt: "desc" }, take: 100 }); const [orders, events] = await Promise.all([hydrateWorkOrders(orderRows as any[], ctx.fleetopsUser.orgId), fleetDb.auditEvent.findMany({ where: { orgId: ctx.fleetopsUser.orgId, entityType: "WORK_ORDER" }, orderBy: { createdAt: "desc" }, take: 500 })]); const eventsByOrder = new Map<string, any[]>(); for (const event of events as any[]) { const list = eventsByOrder.get(event.entityId) ?? []; if (list.length < 20) list.push(event); eventsByOrder.set(event.entityId, list); } return orders.map((order: any) => ({ workOrderId: order.id, title: order.title, vehicle: order.vehicle ? vehicleIdentity(order.vehicle) : order.vehicleId, status: order.status, priority: order.priority, assignedMechanic: order.assignedMechanic?.fullName ?? "Unassigned", updatedAt: order.updatedAt, activity: eventsByOrder.get(order.id) ?? [] })); }),
+    detail: fleetOpsProcedure.input(z.object({ workOrderId: z.string().uuid() })).query(async ({ ctx, input }) => { 
+      requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER", "MECHANIC", "TECHNICIAN", "ACCOUNTANT"]); 
+      const order = await fleetDb.workOrder.findFirst({ where: { id: input.workOrderId, orgId: ctx.fleetopsUser.orgId, ...(["MECHANIC", "TECHNICIAN"].includes(ctx.fleetopsUser.role) ? { assignedMechanicId: ctx.fleetopsUser.id } : {}) } }); 
+      if (!order) throw new TRPCError({ code: "NOT_FOUND", message: "Work order is outside your organization or role scope." }); 
+      
+      // FIX: Add error handling for Promise.all() in work order detail
+      let hydratedOrder: any = null;
+      let vehicleComponents: any[] = [];
+      let evidence: any[] = [];
+      let activity: any[] = [];
+      
+      try {
+        const [hydratedRows, components, evid, act] = await Promise.all([
+          hydrateWorkOrders([order], ctx.fleetopsUser.orgId), 
+          fleetDb.component.findMany({ where: { vehicleId: order.vehicleId }, orderBy: { name: "asc" } }), 
+          fleetDb.workOrderEvidence.findMany({ where: { orgId: ctx.fleetopsUser.orgId, workOrderId: order.id }, orderBy: { createdAt: "desc" } }), 
+          fleetDb.auditEvent.findMany({ where: { orgId: ctx.fleetopsUser.orgId, entityType: "WORK_ORDER", entityId: order.id }, orderBy: { createdAt: "desc" }, take: 100 })
+        ]);
+        hydratedOrder = hydratedRows[0];
+        vehicleComponents = components;
+        evidence = evid;
+        activity = act;
+      } catch (error) {
+        console.error("[WO_DETAIL_ERROR] Failed to load work order detail:", error);
+        hydratedOrder = order;
+      }
+      
+      return { order: { ...hydratedOrder, vehicle: hydratedOrder?.vehicle ? { ...hydratedOrder.vehicle, components: vehicleComponents } : null, evidence }, activity }; 
+    }),
+    handoffTimeline: fleetOpsProcedure.query(async ({ ctx }) => { 
+      requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER", "MECHANIC", "TECHNICIAN", "ACCOUNTANT"]); 
+      const where = ["MECHANIC", "TECHNICIAN"].includes(ctx.fleetopsUser.role) ? { orgId: ctx.fleetopsUser.orgId, assignedMechanicId: ctx.fleetopsUser.id } : { orgId: ctx.fleetopsUser.orgId }; 
+      const orderRows = await fleetDb.workOrder.findMany({ where, orderBy: { updatedAt: "desc" }, take: 100 }); 
+      
+      // FIX: Add error handling for Promise.all() in handoff timeline
+      let orders: any[] = [];
+      let events: any[] = [];
+      
+      try {
+        const [hydOrd, evt] = await Promise.all([
+          hydrateWorkOrders(orderRows as any[], ctx.fleetopsUser.orgId), 
+          fleetDb.auditEvent.findMany({ where: { orgId: ctx.fleetopsUser.orgId, entityType: "WORK_ORDER" }, orderBy: { createdAt: "desc" }, take: 500 })
+        ]);
+        orders = hydOrd;
+        events = evt;
+      } catch (error) {
+        console.error("[HANDOFF_ERROR] Failed to load handoff timeline:", error);
+        orders = orderRows;
+      }
+      
+      const eventsByOrder = new Map<string, any[]>(); 
+      for (const event of events as any[]) { 
+        const list = eventsByOrder.get(event.entityId) ?? []; 
+        if (list.length < 20) list.push(event); 
+        eventsByOrder.set(event.entityId, list); 
+      } 
+      return orders.map((order: any) => ({ workOrderId: order.id, title: order.title, vehicle: order.vehicle ? vehicleIdentity(order.vehicle) : order.vehicleId, status: order.status, priority: order.priority, assignedMechanic: order.assignedMechanic?.fullName ?? "Unassigned", updatedAt: order.updatedAt, activity: eventsByOrder.get(order.id) ?? [] })); 
+    }),
     board: fleetOpsProcedure.query(async ({ ctx }) => { requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER", "MECHANIC", "TECHNICIAN"]); const where = ["MECHANIC", "TECHNICIAN"].includes(ctx.fleetopsUser.role) ? { orgId: ctx.fleetopsUser.orgId, assignedMechanicId: ctx.fleetopsUser.id } : { orgId: ctx.fleetopsUser.orgId }; const orderRows = await fleetDb.workOrder.findMany({ where, orderBy: { updatedAt: "desc" } }); const orders = await hydrateWorkOrders(orderRows as any[], ctx.fleetopsUser.orgId); return { columns: ["OPEN", "IN_PROGRESS", "WAITING_FOR_PARTS", "READY_FOR_REVIEW", "REWORK", "COMPLETED", "CANCELLED"].map((status) => ({ status, items: orders.filter((order: any) => order.status === status) })), totals: { all: orders.length, open: orders.filter((order: any) => order.status === "OPEN").length, inProgress: orders.filter((order: any) => order.status === "IN_PROGRESS").length, completed: orders.filter((order: any) => order.status === "COMPLETED").length } }; }),
     updateStatus: fleetOpsProcedure.input(z.object({ workOrderId: z.string().uuid(), status: z.enum(["OPEN", "IN_PROGRESS", "WAITING_FOR_PARTS", "READY_FOR_REVIEW", "REWORK", "CANCELLED"]), expectedUpdatedAt: z.coerce.date().optional() })).mutation(async ({ ctx, input }) => { requireRole(ctx.fleetopsUser.role, ["FLEET_MANAGER", "MECHANIC", "TECHNICIAN"]); assertWritable(ctx.fleetopsUser.org); const order = await fleetDb.workOrder.findFirst({ where: { id: input.workOrderId, orgId: ctx.fleetopsUser.orgId, ...(["MECHANIC", "TECHNICIAN"].includes(ctx.fleetopsUser.role) ? { assignedMechanicId: ctx.fleetopsUser.id } : {}) } }); if (!order) throw new TRPCError({ code: "NOT_FOUND", message: "Work order not found in your organization scope." }); if (input.expectedUpdatedAt && new Date(order.updatedAt).getTime() !== input.expectedUpdatedAt.getTime()) throw new TRPCError({ code: "CONFLICT", message: "This work order changed elsewhere. Refresh the queue before updating its status." }); const allowed: Record<string, string[]> = { OPEN: ["IN_PROGRESS", "CANCELLED"], IN_PROGRESS: ["WAITING_FOR_PARTS", "READY_FOR_REVIEW", "REWORK", "CANCELLED"], WAITING_FOR_PARTS: ["IN_PROGRESS", "CANCELLED"], READY_FOR_REVIEW: ["COMPLETED", "REWORK"], REWORK: ["IN_PROGRESS", "READY_FOR_REVIEW", "CANCELLED"], COMPLETED: [], CANCELLED: [] }; const roleAllowed = ctx.fleetopsUser.role === "FLEET_MANAGER" ? ["CANCELLED", "REWORK"] : ["IN_PROGRESS", "WAITING_FOR_PARTS", "READY_FOR_REVIEW", "CANCELLED"]; if (!allowed[order.status]?.includes(input.status) || !roleAllowed.includes(input.status)) throw new TRPCError({ code: "FORBIDDEN", message: `Cannot move work order from ${order.status} to ${input.status}; your role is not permitted to perform this transition.` }); if (input.status === "READY_FOR_REVIEW") { const checklistEvents = await fleetDb.auditEvent.findMany({ where: { orgId: ctx.fleetopsUser.orgId, entityType: "WORK_ORDER", entityId: order.id, action: "WORK_ORDER_CHECKLIST_UPDATED" }, orderBy: { createdAt: "desc" }, take: 1 }); let items: any[] = []; try { items = JSON.parse((checklistEvents[0] as any)?.metadata ?? "{}").items ?? []; } catch { items = []; } if (!items.length || items.some((item) => !item.completed)) throw new TRPCError({ code: "BAD_REQUEST", message: "Complete and save every execution checklist item before review." }); } const updated = await fleetDb.workOrder.update({ where: { id: order.id }, data: { status: input.status, ...(input.status === "IN_PROGRESS" && !order.startedAt ? { startedAt: new Date() } : {}) } }); await recordAudit(ctx, { action: "WORK_ORDER_STATUS_CHANGED", entityType: "WORK_ORDER", entityId: order.id, summary: `Work order moved from ${order.status} to ${input.status}`, metadata: { previousStatus: order.status, nextStatus: input.status } }); return updated; }),
     bulkUpdate: fleetOpsProcedure.input(z.object({ workOrderIds: z.array(z.string().uuid()).min(1).max(100), priority: z.nativeEnum(Priority).optional(), assignedMechanicId: z.string().uuid().nullable().optional(), scheduledFor: z.coerce.date().nullable().optional(), archive: z.boolean().optional(), cancel: z.boolean().optional() })).mutation(async ({ ctx, input }) => { requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER"]); assertWritable(ctx.fleetopsUser.org); if (!input.priority && input.assignedMechanicId === undefined && input.scheduledFor === undefined && input.archive === undefined && !input.cancel) throw new TRPCError({ code: "BAD_REQUEST", message: "Choose a priority, assignee, schedule, archive, or cancellation action." }); if (input.assignedMechanicId) { const assignee = await fleetDb.user.findFirst({ where: { id: input.assignedMechanicId, orgId: ctx.fleetopsUser.orgId, role: { in: ["MECHANIC", "TECHNICIAN"] } } }); if (!assignee) throw new TRPCError({ code: "BAD_REQUEST", message: "Assignee must belong to this organization." }); } const orders = await fleetDb.workOrder.findMany({ where: { orgId: ctx.fleetopsUser.orgId, id: { in: input.workOrderIds } } }); if (orders.length !== input.workOrderIds.length) throw new TRPCError({ code: "NOT_FOUND", message: "One or more work orders are outside this organization." }); const results = []; for (const order of orders as any[]) { if (input.cancel && ["COMPLETED", "CANCELLED"].includes(order.status)) continue; const updated = await fleetDb.workOrder.update({ where: { id: order.id }, data: { ...(input.priority ? { priority: input.priority } : {}), ...(input.assignedMechanicId !== undefined ? { assignedMechanicId: input.assignedMechanicId } : {}), ...(input.scheduledFor !== undefined ? { scheduledFor: input.scheduledFor } : {}), ...(input.archive !== undefined ? { archivedAt: input.archive ? new Date() : null } : {}), ...(input.cancel ? { status: "CANCELLED" } : {}) } }); results.push(updated); await recordAudit(ctx, { action: "WORK_ORDER_BULK_UPDATED", entityType: "WORK_ORDER", entityId: order.id, summary: `Bulk work-order update applied to ${order.title}`, metadata: { priority: input.priority, assignedMechanicId: input.assignedMechanicId, cancelled: Boolean(input.cancel), scheduledFor: input.scheduledFor, archived: input.archive } }); } return { updated: results.length, skipped: orders.length - results.length, workOrders: results }; }),
