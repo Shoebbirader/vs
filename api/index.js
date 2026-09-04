@@ -1,5 +1,10 @@
+"use strict";
+var __create = Object.create;
 var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getProtoOf = Object.getPrototypeOf;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __esm = (fn, res) => function __init() {
   return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
 };
@@ -7,30 +12,47 @@ var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, { get: all[name], enumerable: true });
 };
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+  mod
+));
 
 // vite.config.ts
-import tailwindcss from "@tailwindcss/vite";
-import react from "@vitejs/plugin-react";
-import path2 from "node:path";
-import { defineConfig } from "vite";
-var vite_config_default;
+var import_vite, import_plugin_react, import_node_path, import_vite2, import_meta, vite_config_default;
 var init_vite_config = __esm({
   "vite.config.ts"() {
     "use strict";
-    vite_config_default = defineConfig({
-      plugins: [react(), tailwindcss()],
+    import_vite = __toESM(require("@tailwindcss/vite"), 1);
+    import_plugin_react = __toESM(require("@vitejs/plugin-react"), 1);
+    import_node_path = __toESM(require("node:path"), 1);
+    import_vite2 = require("vite");
+    import_meta = {};
+    vite_config_default = (0, import_vite2.defineConfig)({
+      plugins: [(0, import_plugin_react.default)(), (0, import_vite.default)()],
       resolve: {
         alias: {
-          "@": path2.resolve(import.meta.dirname, "client", "src"),
-          "@shared": path2.resolve(import.meta.dirname, "shared"),
-          "@assets": path2.resolve(import.meta.dirname, "attached_assets")
+          "@": import_node_path.default.resolve(import_meta.dirname, "client", "src"),
+          "@shared": import_node_path.default.resolve(import_meta.dirname, "shared"),
+          "@assets": import_node_path.default.resolve(import_meta.dirname, "attached_assets")
         }
       },
-      envDir: path2.resolve(import.meta.dirname),
-      root: path2.resolve(import.meta.dirname, "client"),
-      publicDir: path2.resolve(import.meta.dirname, "client", "public"),
+      envDir: import_node_path.default.resolve(import_meta.dirname),
+      root: import_node_path.default.resolve(import_meta.dirname, "client"),
+      publicDir: import_node_path.default.resolve(import_meta.dirname, "client", "public"),
       build: {
-        outDir: path2.resolve(import.meta.dirname, "dist/public"),
+        outDir: import_node_path.default.resolve(import_meta.dirname, "dist/public"),
         emptyOutDir: true
       },
       server: {
@@ -51,18 +73,13 @@ __export(vite_exports, {
   serveStatic: () => serveStatic2,
   setupVite: () => setupVite
 });
-import express2 from "express";
-import fs2 from "fs";
-import { randomUUID as randomUUID2 } from "node:crypto";
-import path3 from "path";
-import { createServer as createViteServer } from "vite";
 async function setupVite(app, server) {
   const serverOptions = {
     middlewareMode: true,
     hmr: { server },
     allowedHosts: true
   };
-  const vite = await createViteServer({
+  const vite = await (0, import_vite3.createServer)({
     ...vite_config_default,
     configFile: false,
     server: serverOptions,
@@ -72,16 +89,16 @@ async function setupVite(app, server) {
   app.use("*", async (req, res, next) => {
     const url = req.originalUrl;
     try {
-      const clientTemplate = path3.resolve(
-        import.meta.dirname,
+      const clientTemplate = import_path2.default.resolve(
+        import_meta2.dirname,
         "../..",
         "client",
         "index.html"
       );
-      let template = await fs2.promises.readFile(clientTemplate, "utf-8");
+      let template = await import_fs2.default.promises.readFile(clientTemplate, "utf-8");
       template = template.replace(
         `src="/src/main.tsx"`,
-        `src="/src/main.tsx?v=${randomUUID2()}"`
+        `src="/src/main.tsx?v=${(0, import_node_crypto4.randomUUID)()}"`
       );
       const page = await vite.transformIndexHtml(url, template);
       res.status(200).set({ "Content-Type": "text/html" }).end(page);
@@ -92,35 +109,42 @@ async function setupVite(app, server) {
   });
 }
 function serveStatic2(app) {
-  const distPath = process.env.NODE_ENV === "development" ? path3.resolve(import.meta.dirname, "../..", "dist", "public") : path3.resolve(import.meta.dirname, "public");
-  if (!fs2.existsSync(distPath)) {
+  const distPath = process.env.NODE_ENV === "development" ? import_path2.default.resolve(import_meta2.dirname, "../..", "dist", "public") : import_path2.default.resolve(import_meta2.dirname, "public");
+  if (!import_fs2.default.existsSync(distPath)) {
     console.error(
       `Could not find the build directory: ${distPath}, make sure to build the client first`
     );
   }
-  app.use(express2.static(distPath));
+  app.use(import_express2.default.static(distPath));
   app.use("*", (_req, res) => {
-    res.sendFile(path3.resolve(distPath, "index.html"));
+    res.sendFile(import_path2.default.resolve(distPath, "index.html"));
   });
 }
+var import_express2, import_fs2, import_node_crypto4, import_path2, import_vite3, import_meta2;
 var init_vite = __esm({
   "server/_core/vite.ts"() {
     "use strict";
+    import_express2 = __toESM(require("express"), 1);
+    import_fs2 = __toESM(require("fs"), 1);
+    import_node_crypto4 = require("node:crypto");
+    import_path2 = __toESM(require("path"), 1);
+    import_vite3 = require("vite");
     init_vite_config();
+    import_meta2 = {};
   }
 });
 
 // server/_core/index.ts
-import "dotenv/config";
-import express3 from "express";
-import { createServer } from "http";
-import net from "net";
-import { createExpressMiddleware } from "@trpc/server/adapters/express";
+var import_config = require("dotenv/config");
+var import_express3 = __toESM(require("express"), 1);
+var import_http = require("http");
+var import_net = __toESM(require("net"), 1);
+var import_express4 = require("@trpc/server/adapters/express");
 
 // server/routers.ts
-import { TRPCError as TRPCError3 } from "@trpc/server";
-import { createHash } from "node:crypto";
-import { z as z2 } from "zod";
+var import_server3 = require("@trpc/server");
+var import_node_crypto3 = require("node:crypto");
+var import_zod2 = require("zod");
 
 // server/profile-validation.ts
 function isIndianE164Mobile(value) {
@@ -139,17 +163,17 @@ var UNAUTHED_ERR_MSG = "Please login (10001)";
 var NOT_ADMIN_ERR_MSG = "You do not have required permission (10002)";
 
 // server/_core/trpc.ts
-import { initTRPC, TRPCError } from "@trpc/server";
-import superjson from "superjson";
-var t = initTRPC.context().create({
-  transformer: superjson
+var import_server = require("@trpc/server");
+var import_superjson = __toESM(require("superjson"), 1);
+var t = import_server.initTRPC.context().create({
+  transformer: import_superjson.default
 });
 var router = t.router;
 var publicProcedure = t.procedure;
 var requireUser = t.middleware(async (opts) => {
   const { ctx, next } = opts;
   if (!ctx.user) {
-    throw new TRPCError({ code: "UNAUTHORIZED", message: UNAUTHED_ERR_MSG });
+    throw new import_server.TRPCError({ code: "UNAUTHORIZED", message: UNAUTHED_ERR_MSG });
   }
   return next({
     ctx: {
@@ -161,7 +185,7 @@ var requireUser = t.middleware(async (opts) => {
 var protectedProcedure = t.procedure.use(requireUser);
 var requireFleetOpsUser = t.middleware(async ({ ctx, next }) => {
   if (!ctx.fleetopsUser) {
-    throw new TRPCError({ code: "UNAUTHORIZED", message: "Supabase authentication required" });
+    throw new import_server.TRPCError({ code: "UNAUTHORIZED", message: "Supabase authentication required" });
   }
   return next({ ctx: { ...ctx, fleetopsUser: ctx.fleetopsUser } });
 });
@@ -170,7 +194,7 @@ var adminProcedure = t.procedure.use(
   t.middleware(async (opts) => {
     const { ctx, next } = opts;
     if (!ctx.user || ctx.user.role !== "admin") {
-      throw new TRPCError({ code: "FORBIDDEN", message: NOT_ADMIN_ERR_MSG });
+      throw new import_server.TRPCError({ code: "FORBIDDEN", message: NOT_ADMIN_ERR_MSG });
     }
     return next({
       ctx: {
@@ -182,27 +206,27 @@ var adminProcedure = t.procedure.use(
 );
 
 // server/_core/systemRouter.ts
-import { randomUUID } from "node:crypto";
-import { z } from "zod";
+var import_node_crypto = require("node:crypto");
+var import_zod = require("zod");
 
 // server/_core/notification.ts
-import { TRPCError as TRPCError2 } from "@trpc/server";
+var import_server2 = require("@trpc/server");
 var TITLE_MAX_LENGTH = 1200;
 var CONTENT_MAX_LENGTH = 2e4;
 var validatePayload = (input) => {
   if (typeof input.title !== "string" || !input.title.trim()) {
-    throw new TRPCError2({ code: "BAD_REQUEST", message: "Notification title is required." });
+    throw new import_server2.TRPCError({ code: "BAD_REQUEST", message: "Notification title is required." });
   }
   if (typeof input.content !== "string" || !input.content.trim()) {
-    throw new TRPCError2({ code: "BAD_REQUEST", message: "Notification content is required." });
+    throw new import_server2.TRPCError({ code: "BAD_REQUEST", message: "Notification content is required." });
   }
   const title = input.title.trim();
   const content = input.content.trim();
   if (title.length > TITLE_MAX_LENGTH) {
-    throw new TRPCError2({ code: "BAD_REQUEST", message: `Notification title must be at most ${TITLE_MAX_LENGTH} characters.` });
+    throw new import_server2.TRPCError({ code: "BAD_REQUEST", message: `Notification title must be at most ${TITLE_MAX_LENGTH} characters.` });
   }
   if (content.length > CONTENT_MAX_LENGTH) {
-    throw new TRPCError2({ code: "BAD_REQUEST", message: `Notification content must be at most ${CONTENT_MAX_LENGTH} characters.` });
+    throw new import_server2.TRPCError({ code: "BAD_REQUEST", message: `Notification content must be at most ${CONTENT_MAX_LENGTH} characters.` });
   }
   return { title, content };
 };
@@ -213,49 +237,49 @@ async function notifyOwner(payload) {
 }
 
 // server/_core/systemRouter.ts
-import { sql as sql2 } from "drizzle-orm";
+var import_drizzle_orm2 = require("drizzle-orm");
 
 // server/db.ts
-import { Pool } from "pg";
-import { drizzle } from "drizzle-orm/node-postgres";
-import { sql } from "drizzle-orm";
+var import_pg = require("pg");
+var import_node_postgres = require("drizzle-orm/node-postgres");
+var import_drizzle_orm = require("drizzle-orm");
 
 // drizzle/fleetops-schema.ts
-import { boolean, integer, numeric, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
-var audit = { createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull(), updatedAt: timestamp("updatedAt", { withTimezone: true }).defaultNow().notNull() };
-var organizations = pgTable("organizations", { id: uuid("id").defaultRandom().primaryKey(), name: text("name").notNull(), subscriptionTier: text("subscriptionTier").notNull(), trialEndsAt: timestamp("trialEndsAt", { withTimezone: true }).notNull(), subscriptionStartedAt: timestamp("subscriptionStartedAt", { withTimezone: true }), renewalAt: timestamp("renewalAt", { withTimezone: true }), paymentFailedAt: timestamp("paymentFailedAt", { withTimezone: true }), billingStatus: text("billingStatus").notNull().default("TRIAL"), suspendedAt: timestamp("suspendedAt", { withTimezone: true }), maxVehicles: integer("maxVehicles").notNull(), maxUsers: integer("maxUsers").notNull(), currency: text("currency").notNull(), ...audit });
-var organizationSettings = pgTable("organization_settings", { id: uuid("id").defaultRandom().primaryKey(), orgId: uuid("orgId").notNull(), timezone: text("timezone").notNull().default("Asia/Kolkata"), odometerMaxDailyKm: integer("odometerMaxDailyKm").notNull().default(1e3), laborRatePerHour: numeric("laborRatePerHour").notNull().default("0"), safetyContactName: text("safetyContactName"), safetyContactPhone: text("safetyContactPhone"), ...audit });
-var users = pgTable("users", { id: uuid("id").defaultRandom().primaryKey(), authUserId: uuid("authUserId").notNull(), orgId: uuid("orgId").notNull(), email: text("email").notNull(), fullName: text("fullName").notNull(), role: text("role").notNull(), mobileNumber: text("mobileNumber"), smsAlertsEnabled: boolean("smsAlertsEnabled").notNull().default(false), whatsappAlertsEnabled: boolean("whatsappAlertsEnabled").notNull().default(false), smsOptedInAt: timestamp("smsOptedInAt", { withTimezone: true }), whatsappOptedInAt: timestamp("whatsappOptedInAt", { withTimezone: true }), ...audit });
-var invitations = pgTable("invitations", { id: uuid("id").defaultRandom().primaryKey(), orgId: uuid("orgId").notNull(), email: text("email").notNull(), role: text("role").notNull(), tokenHash: text("tokenHash").notNull(), expiresAt: timestamp("expiresAt", { withTimezone: true }).notNull(), acceptedAt: timestamp("acceptedAt", { withTimezone: true }), revokedAt: timestamp("revokedAt", { withTimezone: true }), revokedById: uuid("revokedById"), resendCount: integer("resendCount").notNull().default(0), lastSentAt: timestamp("lastSentAt", { withTimezone: true }), createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull() });
-var vehicles = pgTable("vehicles", { id: uuid("id").defaultRandom().primaryKey(), orgId: uuid("orgId").notNull(), vin: text("vin").notNull(), licensePlate: text("licensePlate").notNull(), chassisNumber: text("chassisNumber"), engineNumber: text("engineNumber"), vehicleType: text("vehicleType"), assignedRoute: text("assignedRoute"), depotLocation: text("depotLocation"), make: text("make").notNull(), model: text("model").notNull(), year: integer("year").notNull(), currentOdometer: numeric("currentOdometer").notNull(), status: text("status").notNull(), ...audit });
-var vehicleAssignments = pgTable("vehicle_assignments", { id: uuid("id").defaultRandom().primaryKey(), orgId: uuid("orgId").notNull(), vehicleId: uuid("vehicleId").notNull(), driverId: uuid("driverId").notNull(), active: boolean("active").notNull().default(true), ...audit });
-var components = pgTable("components", { id: uuid("id").defaultRandom().primaryKey(), vehicleId: uuid("vehicleId").notNull(), inventoryPartId: uuid("inventoryPartId"), name: text("name").notNull(), componentType: text("componentType").notNull().default("OTHER"), componentSubtype: text("componentSubtype"), brand: text("brand"), partNumber: text("partNumber"), serialNumber: text("serialNumber"), installationDate: timestamp("installationDate", { withTimezone: true }).notNull().defaultNow(), expectedLifeKm: numeric("expectedLifeKm").notNull(), expectedLifeDays: integer("expectedLifeDays"), lastServicedOdometer: numeric("lastServicedOdometer").notNull(), alertThresholdKm: numeric("alertThresholdKm").notNull(), alertThresholdDays: integer("alertThresholdDays"), notes: text("notes"), status: text("status").notNull().default("ACTIVE") });
-var odometerLogs = pgTable("odometer_logs", { id: uuid("id").defaultRandom().primaryKey(), vehicleId: uuid("vehicleId").notNull(), driverId: uuid("driverId"), reading: numeric("reading").notNull(), source: text("source").notNull(), isFlagged: boolean("isFlagged").notNull(), ...audit });
-var workOrders = pgTable("work_orders", { id: uuid("id").defaultRandom().primaryKey(), orgId: uuid("orgId").notNull(), vehicleId: uuid("vehicleId").notNull(), assignedMechanicId: uuid("assignedMechanicId"), title: text("title").notNull(), description: text("description"), priority: text("priority").notNull(), status: text("status").notNull(), scheduledFor: timestamp("scheduledFor", { withTimezone: true }), archivedAt: timestamp("archivedAt", { withTimezone: true }), startedAt: timestamp("startedAt", { withTimezone: true }), completedAt: timestamp("completedAt", { withTimezone: true }), laborHours: numeric("laborHours"), repairNotes: text("repairNotes"), ...audit });
-var workOrderEvidence = pgTable("work_order_evidence", { id: uuid("id").defaultRandom().primaryKey(), orgId: uuid("orgId").notNull(), workOrderId: uuid("workOrderId").notNull(), uploadedById: uuid("uploadedById").notNull(), fileUrl: text("fileUrl").notNull(), fileKey: text("fileKey"), caption: text("caption"), createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull() });
-var inventoryParts = pgTable("inventory_parts", { id: uuid("id").defaultRandom().primaryKey(), orgId: uuid("orgId").notNull(), sku: text("sku").notNull(), name: text("name").notNull(), binLocation: text("binLocation"), quantityOnHand: integer("quantityOnHand").notNull(), minReorderLevel: integer("minReorderLevel").notNull(), unitCost: numeric("unitCost").notNull() });
-var workOrderParts = pgTable("work_order_parts", { id: uuid("id").defaultRandom().primaryKey(), workOrderId: uuid("workOrderId").notNull(), partId: uuid("partId").notNull(), qtyUsed: integer("qtyUsed").notNull(), unitPrice: numeric("unitPrice").notNull() });
-var vendors = pgTable("vendors", { id: uuid("id").defaultRandom().primaryKey(), orgId: uuid("orgId").notNull(), name: text("name").notNull(), contactPerson: text("contactPerson"), phone: text("phone").notNull(), email: text("email"), createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull() });
-var purchaseOrders = pgTable("purchase_orders", { id: uuid("id").defaultRandom().primaryKey(), orgId: uuid("orgId").notNull(), vendorId: uuid("vendorId").notNull(), status: text("status").notNull(), totalCost: numeric("totalCost").notNull(), supplierInvoiceNumber: text("supplierInvoiceNumber"), receivedAt: timestamp("receivedAt", { withTimezone: true }), closedAt: timestamp("closedAt", { withTimezone: true }), ...audit });
-var purchaseOrderReceipts = pgTable("purchase_order_receipts", { id: uuid("id").defaultRandom().primaryKey(), orgId: uuid("orgId").notNull(), purchaseOrderId: uuid("purchaseOrderId").notNull(), partId: uuid("partId").notNull(), quantity: integer("quantity").notNull(), damagedQuantity: integer("damagedQuantity").notNull().default(0), backorderedQuantity: integer("backorderedQuantity").notNull().default(0), varianceReason: text("varianceReason"), unitCost: numeric("unitCost").notNull(), invoiceNumber: text("invoiceNumber"), location: text("location"), receivedById: uuid("receivedById").notNull(), receivedAt: timestamp("receivedAt", { withTimezone: true }).defaultNow().notNull() });
-var financialRecords = pgTable("financial_records", { id: uuid("id").defaultRandom().primaryKey(), orgId: uuid("orgId").notNull(), vehicleId: uuid("vehicleId").notNull(), type: text("type").notNull(), category: text("category").notNull(), amount: numeric("amount").notNull(), transactionDate: timestamp("transactionDate", { withTimezone: true }).notNull(), taxAmount: numeric("taxAmount").notNull().default("0"), gstin: text("gstin"), taxCategory: text("taxCategory"), invoiceNumber: text("invoiceNumber"), vendor: text("vendor"), paymentMethod: text("paymentMethod"), costCenterType: text("costCenterType"), costCenterId: uuid("costCenterId"), tdsAmount: numeric("tdsAmount").notNull().default("0"), reconciledAt: timestamp("reconciledAt", { withTimezone: true }), reconciliationRef: text("reconciliationRef"), approvalStatus: text("approvalStatus").notNull().default("APPROVED"), approvedById: uuid("approvedById"), approvalReason: text("approvalReason"), reversalOfId: uuid("reversalOfId"), createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull() });
-var documents = pgTable("documents", { id: uuid("id").defaultRandom().primaryKey(), orgId: uuid("orgId").notNull(), vehicleId: uuid("vehicleId"), title: text("title").notNull(), docType: text("docType").notNull(), fileUrl: text("fileUrl").notNull(), fileKey: text("fileKey"), fileChecksum: text("fileChecksum"), fileSizeBytes: integer("fileSizeBytes"), retentionUntil: timestamp("retentionUntil", { withTimezone: true }), expiryDate: timestamp("expiryDate", { withTimezone: true }).notNull(), archivedAt: timestamp("archivedAt", { withTimezone: true }), archivedById: uuid("archivedById"), ...audit });
-var documentVersions = pgTable("document_versions", { id: uuid("id").defaultRandom().primaryKey(), orgId: uuid("orgId").notNull(), documentId: uuid("documentId").notNull(), versionNumber: integer("versionNumber").notNull(), title: text("title").notNull(), docType: text("docType").notNull(), fileUrl: text("fileUrl").notNull(), fileKey: text("fileKey"), fileChecksum: text("fileChecksum"), fileSizeBytes: integer("fileSizeBytes"), expiryDate: timestamp("expiryDate", { withTimezone: true }).notNull(), createdById: uuid("createdById").notNull(), createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull() });
-var notifications = pgTable("notifications", { id: uuid("id").defaultRandom().primaryKey(), orgId: uuid("orgId").notNull(), recipientId: uuid("recipientId").notNull(), title: text("title").notNull(), message: text("message").notNull(), type: text("type").notNull(), severity: text("severity").notNull().default("INFO"), sourceType: text("sourceType").notNull().default("SYSTEM"), dedupeKey: text("dedupeKey"), referenceId: uuid("referenceId"), isRead: boolean("isRead").notNull(), acknowledgedAt: timestamp("acknowledgedAt", { withTimezone: true }), escalationLevel: integer("escalationLevel").notNull().default(0), resolvedAt: timestamp("resolvedAt", { withTimezone: true }), ...audit });
-var notificationDeliveries = pgTable("notification_deliveries", { id: uuid("id").defaultRandom().primaryKey(), orgId: uuid("orgId").notNull(), notificationId: uuid("notificationId").notNull(), recipientId: uuid("recipientId").notNull(), channel: text("channel").notNull(), status: text("status").notNull(), providerMessageId: text("providerMessageId"), errorCode: text("errorCode"), errorMessage: text("errorMessage"), attempt: integer("attempt").notNull().default(1), contentSid: text("contentSid"), sentAt: timestamp("sentAt", { withTimezone: true }), deliveredAt: timestamp("deliveredAt", { withTimezone: true }), createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull(), updatedAt: timestamp("updatedAt", { withTimezone: true }).defaultNow().notNull() });
-var vehicleIssues = pgTable("vehicle_issues", { id: uuid("id").defaultRandom().primaryKey(), orgId: uuid("orgId").notNull(), vehicleId: uuid("vehicleId").notNull(), driverId: uuid("driverId").notNull(), title: text("title").notNull(), description: text("description").notNull(), priority: text("priority").notNull(), status: text("status").notNull(), photoUrl: text("photoUrl"), photoKey: text("photoKey"), ...audit });
-var auditEvents = pgTable("audit_events", { id: uuid("id").defaultRandom().primaryKey(), orgId: uuid("orgId").notNull(), actorId: uuid("actorId"), actorRole: text("actorRole"), action: text("action").notNull(), entityType: text("entityType").notNull(), entityId: uuid("entityId"), summary: text("summary").notNull(), metadata: text("metadata"), createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull() });
-var inventoryMovements = pgTable("inventory_movements", { id: uuid("id").defaultRandom().primaryKey(), orgId: uuid("orgId").notNull(), partId: uuid("partId").notNull(), workOrderId: uuid("workOrderId"), actorId: uuid("actorId"), movementType: text("movementType").notNull(), quantity: integer("quantity").notNull(), unitCost: numeric("unitCost").notNull(), reason: text("reason").notNull(), createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull() });
-var billingInvoices = pgTable("billing_invoices", { id: uuid("id").defaultRandom().primaryKey(), orgId: uuid("orgId").notNull(), billingPeriodStart: timestamp("billingPeriodStart", { withTimezone: true }).notNull(), billingPeriodEnd: timestamp("billingPeriodEnd", { withTimezone: true }).notNull(), plan: text("plan").notNull(), billableVehicles: integer("billableVehicles").notNull(), includedVehicles: integer("includedVehicles").notNull(), overageVehicles: integer("overageVehicles").notNull(), platformFeePaise: integer("platformFeePaise").notNull(), overagePaise: integer("overagePaise").notNull(), usageAddonsPaise: integer("usageAddonsPaise").notNull().default(0), creditsPaise: integer("creditsPaise").notNull().default(0), subtotalPaise: integer("subtotalPaise").notNull(), taxPaise: integer("taxPaise").notNull().default(0), totalPaise: integer("totalPaise").notNull(), status: text("status").notNull().default("DRAFT"), externalInvoiceId: text("externalInvoiceId"), createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull() });
-var billingPayments = pgTable("billing_payments", { id: uuid("id").defaultRandom().primaryKey(), orgId: uuid("orgId").notNull(), invoiceId: uuid("invoiceId").notNull(), provider: text("provider").notNull().default("RAZORPAY"), providerPaymentId: text("providerPaymentId"), status: text("status").notNull(), amountPaise: integer("amountPaise").notNull(), paidAt: timestamp("paidAt", { withTimezone: true }), failureReason: text("failureReason"), metadata: text("metadata"), createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull() });
-var dvirInspections = pgTable("dvir_inspections", { id: uuid("id").defaultRandom().primaryKey(), orgId: uuid("orgId").notNull(), vehicleId: uuid("vehicleId").notNull(), driverId: uuid("driverId").notNull(), inspectionType: text("inspectionType").notNull(), status: text("status").notNull(), notes: text("notes"), photoUrl: text("photoUrl"), photoKey: text("photoKey"), ...audit });
-var fuelLogs = pgTable("fuel_logs", { id: uuid("id").defaultRandom().primaryKey(), orgId: uuid("orgId").notNull(), vehicleId: uuid("vehicleId").notNull(), driverId: uuid("driverId").notNull(), liters: numeric("liters").notNull(), amount: numeric("amount").notNull(), odometer: numeric("odometer").notNull(), station: text("station"), receiptUrl: text("receiptUrl"), ...audit });
+var import_pg_core = require("drizzle-orm/pg-core");
+var audit = { createdAt: (0, import_pg_core.timestamp)("createdAt", { withTimezone: true }).defaultNow().notNull(), updatedAt: (0, import_pg_core.timestamp)("updatedAt", { withTimezone: true }).defaultNow().notNull() };
+var organizations = (0, import_pg_core.pgTable)("organizations", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), name: (0, import_pg_core.text)("name").notNull(), subscriptionTier: (0, import_pg_core.text)("subscriptionTier").notNull(), trialEndsAt: (0, import_pg_core.timestamp)("trialEndsAt", { withTimezone: true }).notNull(), subscriptionStartedAt: (0, import_pg_core.timestamp)("subscriptionStartedAt", { withTimezone: true }), renewalAt: (0, import_pg_core.timestamp)("renewalAt", { withTimezone: true }), paymentFailedAt: (0, import_pg_core.timestamp)("paymentFailedAt", { withTimezone: true }), billingStatus: (0, import_pg_core.text)("billingStatus").notNull().default("TRIAL"), suspendedAt: (0, import_pg_core.timestamp)("suspendedAt", { withTimezone: true }), maxVehicles: (0, import_pg_core.integer)("maxVehicles").notNull(), maxUsers: (0, import_pg_core.integer)("maxUsers").notNull(), currency: (0, import_pg_core.text)("currency").notNull(), ...audit });
+var organizationSettings = (0, import_pg_core.pgTable)("organization_settings", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), orgId: (0, import_pg_core.uuid)("orgId").notNull(), timezone: (0, import_pg_core.text)("timezone").notNull().default("Asia/Kolkata"), odometerMaxDailyKm: (0, import_pg_core.integer)("odometerMaxDailyKm").notNull().default(1e3), laborRatePerHour: (0, import_pg_core.numeric)("laborRatePerHour").notNull().default("0"), safetyContactName: (0, import_pg_core.text)("safetyContactName"), safetyContactPhone: (0, import_pg_core.text)("safetyContactPhone"), ...audit });
+var users = (0, import_pg_core.pgTable)("users", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), authUserId: (0, import_pg_core.uuid)("authUserId").notNull(), orgId: (0, import_pg_core.uuid)("orgId").notNull(), email: (0, import_pg_core.text)("email").notNull(), fullName: (0, import_pg_core.text)("fullName").notNull(), role: (0, import_pg_core.text)("role").notNull(), mobileNumber: (0, import_pg_core.text)("mobileNumber"), smsAlertsEnabled: (0, import_pg_core.boolean)("smsAlertsEnabled").notNull().default(false), whatsappAlertsEnabled: (0, import_pg_core.boolean)("whatsappAlertsEnabled").notNull().default(false), smsOptedInAt: (0, import_pg_core.timestamp)("smsOptedInAt", { withTimezone: true }), whatsappOptedInAt: (0, import_pg_core.timestamp)("whatsappOptedInAt", { withTimezone: true }), ...audit });
+var invitations = (0, import_pg_core.pgTable)("invitations", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), orgId: (0, import_pg_core.uuid)("orgId").notNull(), email: (0, import_pg_core.text)("email").notNull(), role: (0, import_pg_core.text)("role").notNull(), tokenHash: (0, import_pg_core.text)("tokenHash").notNull(), expiresAt: (0, import_pg_core.timestamp)("expiresAt", { withTimezone: true }).notNull(), acceptedAt: (0, import_pg_core.timestamp)("acceptedAt", { withTimezone: true }), revokedAt: (0, import_pg_core.timestamp)("revokedAt", { withTimezone: true }), revokedById: (0, import_pg_core.uuid)("revokedById"), resendCount: (0, import_pg_core.integer)("resendCount").notNull().default(0), lastSentAt: (0, import_pg_core.timestamp)("lastSentAt", { withTimezone: true }), createdAt: (0, import_pg_core.timestamp)("createdAt", { withTimezone: true }).defaultNow().notNull() });
+var vehicles = (0, import_pg_core.pgTable)("vehicles", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), orgId: (0, import_pg_core.uuid)("orgId").notNull(), vin: (0, import_pg_core.text)("vin").notNull(), licensePlate: (0, import_pg_core.text)("licensePlate").notNull(), chassisNumber: (0, import_pg_core.text)("chassisNumber"), engineNumber: (0, import_pg_core.text)("engineNumber"), vehicleType: (0, import_pg_core.text)("vehicleType"), assignedRoute: (0, import_pg_core.text)("assignedRoute"), depotLocation: (0, import_pg_core.text)("depotLocation"), make: (0, import_pg_core.text)("make").notNull(), model: (0, import_pg_core.text)("model").notNull(), year: (0, import_pg_core.integer)("year").notNull(), currentOdometer: (0, import_pg_core.numeric)("currentOdometer").notNull(), status: (0, import_pg_core.text)("status").notNull(), ...audit });
+var vehicleAssignments = (0, import_pg_core.pgTable)("vehicle_assignments", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), orgId: (0, import_pg_core.uuid)("orgId").notNull(), vehicleId: (0, import_pg_core.uuid)("vehicleId").notNull(), driverId: (0, import_pg_core.uuid)("driverId").notNull(), active: (0, import_pg_core.boolean)("active").notNull().default(true), ...audit });
+var components = (0, import_pg_core.pgTable)("components", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), vehicleId: (0, import_pg_core.uuid)("vehicleId").notNull(), inventoryPartId: (0, import_pg_core.uuid)("inventoryPartId"), name: (0, import_pg_core.text)("name").notNull(), componentType: (0, import_pg_core.text)("componentType").notNull().default("OTHER"), componentSubtype: (0, import_pg_core.text)("componentSubtype"), brand: (0, import_pg_core.text)("brand"), partNumber: (0, import_pg_core.text)("partNumber"), serialNumber: (0, import_pg_core.text)("serialNumber"), installationDate: (0, import_pg_core.timestamp)("installationDate", { withTimezone: true }).notNull().defaultNow(), expectedLifeKm: (0, import_pg_core.numeric)("expectedLifeKm").notNull(), expectedLifeDays: (0, import_pg_core.integer)("expectedLifeDays"), lastServicedOdometer: (0, import_pg_core.numeric)("lastServicedOdometer").notNull(), alertThresholdKm: (0, import_pg_core.numeric)("alertThresholdKm").notNull(), alertThresholdDays: (0, import_pg_core.integer)("alertThresholdDays"), notes: (0, import_pg_core.text)("notes"), status: (0, import_pg_core.text)("status").notNull().default("ACTIVE") });
+var odometerLogs = (0, import_pg_core.pgTable)("odometer_logs", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), vehicleId: (0, import_pg_core.uuid)("vehicleId").notNull(), driverId: (0, import_pg_core.uuid)("driverId"), reading: (0, import_pg_core.numeric)("reading").notNull(), source: (0, import_pg_core.text)("source").notNull(), isFlagged: (0, import_pg_core.boolean)("isFlagged").notNull(), ...audit });
+var workOrders = (0, import_pg_core.pgTable)("work_orders", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), orgId: (0, import_pg_core.uuid)("orgId").notNull(), vehicleId: (0, import_pg_core.uuid)("vehicleId").notNull(), assignedMechanicId: (0, import_pg_core.uuid)("assignedMechanicId"), title: (0, import_pg_core.text)("title").notNull(), description: (0, import_pg_core.text)("description"), priority: (0, import_pg_core.text)("priority").notNull(), status: (0, import_pg_core.text)("status").notNull(), scheduledFor: (0, import_pg_core.timestamp)("scheduledFor", { withTimezone: true }), archivedAt: (0, import_pg_core.timestamp)("archivedAt", { withTimezone: true }), startedAt: (0, import_pg_core.timestamp)("startedAt", { withTimezone: true }), completedAt: (0, import_pg_core.timestamp)("completedAt", { withTimezone: true }), laborHours: (0, import_pg_core.numeric)("laborHours"), repairNotes: (0, import_pg_core.text)("repairNotes"), ...audit });
+var workOrderEvidence = (0, import_pg_core.pgTable)("work_order_evidence", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), orgId: (0, import_pg_core.uuid)("orgId").notNull(), workOrderId: (0, import_pg_core.uuid)("workOrderId").notNull(), uploadedById: (0, import_pg_core.uuid)("uploadedById").notNull(), fileUrl: (0, import_pg_core.text)("fileUrl").notNull(), fileKey: (0, import_pg_core.text)("fileKey"), caption: (0, import_pg_core.text)("caption"), createdAt: (0, import_pg_core.timestamp)("createdAt", { withTimezone: true }).defaultNow().notNull() });
+var inventoryParts = (0, import_pg_core.pgTable)("inventory_parts", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), orgId: (0, import_pg_core.uuid)("orgId").notNull(), sku: (0, import_pg_core.text)("sku").notNull(), name: (0, import_pg_core.text)("name").notNull(), binLocation: (0, import_pg_core.text)("binLocation"), quantityOnHand: (0, import_pg_core.integer)("quantityOnHand").notNull(), minReorderLevel: (0, import_pg_core.integer)("minReorderLevel").notNull(), unitCost: (0, import_pg_core.numeric)("unitCost").notNull() });
+var workOrderParts = (0, import_pg_core.pgTable)("work_order_parts", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), workOrderId: (0, import_pg_core.uuid)("workOrderId").notNull(), partId: (0, import_pg_core.uuid)("partId").notNull(), qtyUsed: (0, import_pg_core.integer)("qtyUsed").notNull(), unitPrice: (0, import_pg_core.numeric)("unitPrice").notNull() });
+var vendors = (0, import_pg_core.pgTable)("vendors", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), orgId: (0, import_pg_core.uuid)("orgId").notNull(), name: (0, import_pg_core.text)("name").notNull(), contactPerson: (0, import_pg_core.text)("contactPerson"), phone: (0, import_pg_core.text)("phone").notNull(), email: (0, import_pg_core.text)("email"), createdAt: (0, import_pg_core.timestamp)("createdAt", { withTimezone: true }).defaultNow().notNull() });
+var purchaseOrders = (0, import_pg_core.pgTable)("purchase_orders", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), orgId: (0, import_pg_core.uuid)("orgId").notNull(), vendorId: (0, import_pg_core.uuid)("vendorId").notNull(), status: (0, import_pg_core.text)("status").notNull(), totalCost: (0, import_pg_core.numeric)("totalCost").notNull(), supplierInvoiceNumber: (0, import_pg_core.text)("supplierInvoiceNumber"), receivedAt: (0, import_pg_core.timestamp)("receivedAt", { withTimezone: true }), closedAt: (0, import_pg_core.timestamp)("closedAt", { withTimezone: true }), ...audit });
+var purchaseOrderReceipts = (0, import_pg_core.pgTable)("purchase_order_receipts", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), orgId: (0, import_pg_core.uuid)("orgId").notNull(), purchaseOrderId: (0, import_pg_core.uuid)("purchaseOrderId").notNull(), partId: (0, import_pg_core.uuid)("partId").notNull(), quantity: (0, import_pg_core.integer)("quantity").notNull(), damagedQuantity: (0, import_pg_core.integer)("damagedQuantity").notNull().default(0), backorderedQuantity: (0, import_pg_core.integer)("backorderedQuantity").notNull().default(0), varianceReason: (0, import_pg_core.text)("varianceReason"), unitCost: (0, import_pg_core.numeric)("unitCost").notNull(), invoiceNumber: (0, import_pg_core.text)("invoiceNumber"), location: (0, import_pg_core.text)("location"), receivedById: (0, import_pg_core.uuid)("receivedById").notNull(), receivedAt: (0, import_pg_core.timestamp)("receivedAt", { withTimezone: true }).defaultNow().notNull() });
+var financialRecords = (0, import_pg_core.pgTable)("financial_records", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), orgId: (0, import_pg_core.uuid)("orgId").notNull(), vehicleId: (0, import_pg_core.uuid)("vehicleId").notNull(), type: (0, import_pg_core.text)("type").notNull(), category: (0, import_pg_core.text)("category").notNull(), amount: (0, import_pg_core.numeric)("amount").notNull(), transactionDate: (0, import_pg_core.timestamp)("transactionDate", { withTimezone: true }).notNull(), taxAmount: (0, import_pg_core.numeric)("taxAmount").notNull().default("0"), gstin: (0, import_pg_core.text)("gstin"), taxCategory: (0, import_pg_core.text)("taxCategory"), invoiceNumber: (0, import_pg_core.text)("invoiceNumber"), vendor: (0, import_pg_core.text)("vendor"), paymentMethod: (0, import_pg_core.text)("paymentMethod"), costCenterType: (0, import_pg_core.text)("costCenterType"), costCenterId: (0, import_pg_core.uuid)("costCenterId"), tdsAmount: (0, import_pg_core.numeric)("tdsAmount").notNull().default("0"), reconciledAt: (0, import_pg_core.timestamp)("reconciledAt", { withTimezone: true }), reconciliationRef: (0, import_pg_core.text)("reconciliationRef"), approvalStatus: (0, import_pg_core.text)("approvalStatus").notNull().default("APPROVED"), approvedById: (0, import_pg_core.uuid)("approvedById"), approvalReason: (0, import_pg_core.text)("approvalReason"), reversalOfId: (0, import_pg_core.uuid)("reversalOfId"), createdAt: (0, import_pg_core.timestamp)("createdAt", { withTimezone: true }).defaultNow().notNull() });
+var documents = (0, import_pg_core.pgTable)("documents", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), orgId: (0, import_pg_core.uuid)("orgId").notNull(), vehicleId: (0, import_pg_core.uuid)("vehicleId"), title: (0, import_pg_core.text)("title").notNull(), docType: (0, import_pg_core.text)("docType").notNull(), fileUrl: (0, import_pg_core.text)("fileUrl").notNull(), fileKey: (0, import_pg_core.text)("fileKey"), fileChecksum: (0, import_pg_core.text)("fileChecksum"), fileSizeBytes: (0, import_pg_core.integer)("fileSizeBytes"), retentionUntil: (0, import_pg_core.timestamp)("retentionUntil", { withTimezone: true }), expiryDate: (0, import_pg_core.timestamp)("expiryDate", { withTimezone: true }).notNull(), archivedAt: (0, import_pg_core.timestamp)("archivedAt", { withTimezone: true }), archivedById: (0, import_pg_core.uuid)("archivedById"), ...audit });
+var documentVersions = (0, import_pg_core.pgTable)("document_versions", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), orgId: (0, import_pg_core.uuid)("orgId").notNull(), documentId: (0, import_pg_core.uuid)("documentId").notNull(), versionNumber: (0, import_pg_core.integer)("versionNumber").notNull(), title: (0, import_pg_core.text)("title").notNull(), docType: (0, import_pg_core.text)("docType").notNull(), fileUrl: (0, import_pg_core.text)("fileUrl").notNull(), fileKey: (0, import_pg_core.text)("fileKey"), fileChecksum: (0, import_pg_core.text)("fileChecksum"), fileSizeBytes: (0, import_pg_core.integer)("fileSizeBytes"), expiryDate: (0, import_pg_core.timestamp)("expiryDate", { withTimezone: true }).notNull(), createdById: (0, import_pg_core.uuid)("createdById").notNull(), createdAt: (0, import_pg_core.timestamp)("createdAt", { withTimezone: true }).defaultNow().notNull() });
+var notifications = (0, import_pg_core.pgTable)("notifications", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), orgId: (0, import_pg_core.uuid)("orgId").notNull(), recipientId: (0, import_pg_core.uuid)("recipientId").notNull(), title: (0, import_pg_core.text)("title").notNull(), message: (0, import_pg_core.text)("message").notNull(), type: (0, import_pg_core.text)("type").notNull(), severity: (0, import_pg_core.text)("severity").notNull().default("INFO"), sourceType: (0, import_pg_core.text)("sourceType").notNull().default("SYSTEM"), dedupeKey: (0, import_pg_core.text)("dedupeKey"), referenceId: (0, import_pg_core.uuid)("referenceId"), isRead: (0, import_pg_core.boolean)("isRead").notNull(), acknowledgedAt: (0, import_pg_core.timestamp)("acknowledgedAt", { withTimezone: true }), escalationLevel: (0, import_pg_core.integer)("escalationLevel").notNull().default(0), resolvedAt: (0, import_pg_core.timestamp)("resolvedAt", { withTimezone: true }), ...audit });
+var notificationDeliveries = (0, import_pg_core.pgTable)("notification_deliveries", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), orgId: (0, import_pg_core.uuid)("orgId").notNull(), notificationId: (0, import_pg_core.uuid)("notificationId").notNull(), recipientId: (0, import_pg_core.uuid)("recipientId").notNull(), channel: (0, import_pg_core.text)("channel").notNull(), status: (0, import_pg_core.text)("status").notNull(), providerMessageId: (0, import_pg_core.text)("providerMessageId"), errorCode: (0, import_pg_core.text)("errorCode"), errorMessage: (0, import_pg_core.text)("errorMessage"), attempt: (0, import_pg_core.integer)("attempt").notNull().default(1), contentSid: (0, import_pg_core.text)("contentSid"), sentAt: (0, import_pg_core.timestamp)("sentAt", { withTimezone: true }), deliveredAt: (0, import_pg_core.timestamp)("deliveredAt", { withTimezone: true }), createdAt: (0, import_pg_core.timestamp)("createdAt", { withTimezone: true }).defaultNow().notNull(), updatedAt: (0, import_pg_core.timestamp)("updatedAt", { withTimezone: true }).defaultNow().notNull() });
+var vehicleIssues = (0, import_pg_core.pgTable)("vehicle_issues", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), orgId: (0, import_pg_core.uuid)("orgId").notNull(), vehicleId: (0, import_pg_core.uuid)("vehicleId").notNull(), driverId: (0, import_pg_core.uuid)("driverId").notNull(), title: (0, import_pg_core.text)("title").notNull(), description: (0, import_pg_core.text)("description").notNull(), priority: (0, import_pg_core.text)("priority").notNull(), status: (0, import_pg_core.text)("status").notNull(), photoUrl: (0, import_pg_core.text)("photoUrl"), photoKey: (0, import_pg_core.text)("photoKey"), ...audit });
+var auditEvents = (0, import_pg_core.pgTable)("audit_events", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), orgId: (0, import_pg_core.uuid)("orgId").notNull(), actorId: (0, import_pg_core.uuid)("actorId"), actorRole: (0, import_pg_core.text)("actorRole"), action: (0, import_pg_core.text)("action").notNull(), entityType: (0, import_pg_core.text)("entityType").notNull(), entityId: (0, import_pg_core.uuid)("entityId"), summary: (0, import_pg_core.text)("summary").notNull(), metadata: (0, import_pg_core.text)("metadata"), createdAt: (0, import_pg_core.timestamp)("createdAt", { withTimezone: true }).defaultNow().notNull() });
+var inventoryMovements = (0, import_pg_core.pgTable)("inventory_movements", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), orgId: (0, import_pg_core.uuid)("orgId").notNull(), partId: (0, import_pg_core.uuid)("partId").notNull(), workOrderId: (0, import_pg_core.uuid)("workOrderId"), actorId: (0, import_pg_core.uuid)("actorId"), movementType: (0, import_pg_core.text)("movementType").notNull(), quantity: (0, import_pg_core.integer)("quantity").notNull(), unitCost: (0, import_pg_core.numeric)("unitCost").notNull(), reason: (0, import_pg_core.text)("reason").notNull(), createdAt: (0, import_pg_core.timestamp)("createdAt", { withTimezone: true }).defaultNow().notNull() });
+var billingInvoices = (0, import_pg_core.pgTable)("billing_invoices", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), orgId: (0, import_pg_core.uuid)("orgId").notNull(), billingPeriodStart: (0, import_pg_core.timestamp)("billingPeriodStart", { withTimezone: true }).notNull(), billingPeriodEnd: (0, import_pg_core.timestamp)("billingPeriodEnd", { withTimezone: true }).notNull(), plan: (0, import_pg_core.text)("plan").notNull(), billableVehicles: (0, import_pg_core.integer)("billableVehicles").notNull(), includedVehicles: (0, import_pg_core.integer)("includedVehicles").notNull(), overageVehicles: (0, import_pg_core.integer)("overageVehicles").notNull(), platformFeePaise: (0, import_pg_core.integer)("platformFeePaise").notNull(), overagePaise: (0, import_pg_core.integer)("overagePaise").notNull(), usageAddonsPaise: (0, import_pg_core.integer)("usageAddonsPaise").notNull().default(0), creditsPaise: (0, import_pg_core.integer)("creditsPaise").notNull().default(0), subtotalPaise: (0, import_pg_core.integer)("subtotalPaise").notNull(), taxPaise: (0, import_pg_core.integer)("taxPaise").notNull().default(0), totalPaise: (0, import_pg_core.integer)("totalPaise").notNull(), status: (0, import_pg_core.text)("status").notNull().default("DRAFT"), externalInvoiceId: (0, import_pg_core.text)("externalInvoiceId"), createdAt: (0, import_pg_core.timestamp)("createdAt", { withTimezone: true }).defaultNow().notNull() });
+var billingPayments = (0, import_pg_core.pgTable)("billing_payments", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), orgId: (0, import_pg_core.uuid)("orgId").notNull(), invoiceId: (0, import_pg_core.uuid)("invoiceId").notNull(), provider: (0, import_pg_core.text)("provider").notNull().default("RAZORPAY"), providerPaymentId: (0, import_pg_core.text)("providerPaymentId"), status: (0, import_pg_core.text)("status").notNull(), amountPaise: (0, import_pg_core.integer)("amountPaise").notNull(), paidAt: (0, import_pg_core.timestamp)("paidAt", { withTimezone: true }), failureReason: (0, import_pg_core.text)("failureReason"), metadata: (0, import_pg_core.text)("metadata"), createdAt: (0, import_pg_core.timestamp)("createdAt", { withTimezone: true }).defaultNow().notNull() });
+var dvirInspections = (0, import_pg_core.pgTable)("dvir_inspections", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), orgId: (0, import_pg_core.uuid)("orgId").notNull(), vehicleId: (0, import_pg_core.uuid)("vehicleId").notNull(), driverId: (0, import_pg_core.uuid)("driverId").notNull(), inspectionType: (0, import_pg_core.text)("inspectionType").notNull(), status: (0, import_pg_core.text)("status").notNull(), notes: (0, import_pg_core.text)("notes"), photoUrl: (0, import_pg_core.text)("photoUrl"), photoKey: (0, import_pg_core.text)("photoKey"), ...audit });
+var fuelLogs = (0, import_pg_core.pgTable)("fuel_logs", { id: (0, import_pg_core.uuid)("id").defaultRandom().primaryKey(), orgId: (0, import_pg_core.uuid)("orgId").notNull(), vehicleId: (0, import_pg_core.uuid)("vehicleId").notNull(), driverId: (0, import_pg_core.uuid)("driverId").notNull(), liters: (0, import_pg_core.numeric)("liters").notNull(), amount: (0, import_pg_core.numeric)("amount").notNull(), odometer: (0, import_pg_core.numeric)("odometer").notNull(), station: (0, import_pg_core.text)("station"), receiptUrl: (0, import_pg_core.text)("receiptUrl"), ...audit });
 
 // server/db.ts
 var globalForDb = globalThis;
-var pool = globalForDb.fleetopsPool ?? new Pool({ connectionString: process.env.SUPABASE_DATABASE_URL, max: 5, ssl: { rejectUnauthorized: false } });
+var pool = globalForDb.fleetopsPool ?? new import_pg.Pool({ connectionString: process.env.SUPABASE_DATABASE_URL, max: 5, ssl: { rejectUnauthorized: false } });
 if (process.env.NODE_ENV !== "production") globalForDb.fleetopsPool = pool;
-var db = globalForDb.fleetopsDb ?? drizzle(pool);
+var db = globalForDb.fleetopsDb ?? (0, import_node_postgres.drizzle)(pool);
 if (process.env.NODE_ENV !== "production") globalForDb.fleetopsDb = db;
 var tables = {
   organization: "organizations",
@@ -335,7 +359,7 @@ function model(modelName) {
       const select = options.select ? Object.keys(options.select).map(quote).join(", ") : "*";
       const order = options.orderBy ? Object.entries(options.orderBy).map(([k, v]) => `${quote(k)} ${String(v).toUpperCase()}`).join(", ") : void 0;
       const limit = options.take ? ` LIMIT ${Number(options.take)}` : "";
-      const result = await db.execute(sql.raw(`SELECT ${select} FROM ${quote(table)}${whereClause(options.where)}${order ? ` ORDER BY ${order}` : ""}${limit}`));
+      const result = await db.execute(import_drizzle_orm.sql.raw(`SELECT ${select} FROM ${quote(table)}${whereClause(options.where)}${order ? ` ORDER BY ${order}` : ""}${limit}`));
       return result.rows;
     },
     async findFirst(options = {}) {
@@ -346,13 +370,13 @@ function model(modelName) {
       return this.findFirst(options);
     },
     async count(options = {}) {
-      const result = await db.execute(sql.raw(`SELECT COUNT(*)::int AS count FROM ${quote(table)}${whereClause(options.where)}`));
+      const result = await db.execute(import_drizzle_orm.sql.raw(`SELECT COUNT(*)::int AS count FROM ${quote(table)}${whereClause(options.where)}`));
       return Number(result.rows[0]?.count ?? 0);
     },
     async create(options) {
       const data = { ...options.data ?? {} };
       const keys = dataColumns(data);
-      const result = await db.execute(sql.raw(`INSERT INTO ${quote(table)} (${keys.map(quote).join(", ")}) VALUES (${keys.map((k) => valueSql(data[k])).join(", ")}) RETURNING *`));
+      const result = await db.execute(import_drizzle_orm.sql.raw(`INSERT INTO ${quote(table)} (${keys.map(quote).join(", ")}) VALUES (${keys.map((k) => valueSql(data[k])).join(", ")}) RETURNING *`));
       return result.rows[0];
     },
     async createMany(options) {
@@ -367,7 +391,7 @@ function model(modelName) {
         return v && typeof v === "object" && v.decrement !== void 0 ? `${quote(k)} = ${quote(k)} - ${Number(v.decrement)}` : v && typeof v === "object" && v.increment !== void 0 ? `${quote(k)} = ${quote(k)} + ${Number(v.increment)}` : `${quote(k)} = ${valueSql(v)}`;
       }).join(", ");
       const auditSuffix = auditedTables.has(table) ? ', "updatedAt" = NOW()' : "";
-      const result = await db.execute(sql.raw(`UPDATE ${quote(table)} SET ${set}${auditSuffix} WHERE "id" = '${String(options.where.id).replaceAll("'", "''")}' RETURNING *`));
+      const result = await db.execute(import_drizzle_orm.sql.raw(`UPDATE ${quote(table)} SET ${set}${auditSuffix} WHERE "id" = '${String(options.where.id).replaceAll("'", "''")}' RETURNING *`));
       return result.rows[0];
     },
     async updateMany(options) {
@@ -376,16 +400,16 @@ function model(modelName) {
         const v = data[k];
         return v && typeof v === "object" && v.decrement !== void 0 ? `${quote(k)} = ${quote(k)} - ${Number(v.decrement)}` : v && typeof v === "object" && v.increment !== void 0 ? `${quote(k)} = ${quote(k)} + ${Number(v.increment)}` : `${quote(k)} = ${valueSql(v)}`;
       }).join(", ");
-      const result = await db.execute(sql.raw(`UPDATE ${quote(table)} SET ${set}${whereClause(options.where)}`));
+      const result = await db.execute(import_drizzle_orm.sql.raw(`UPDATE ${quote(table)} SET ${set}${whereClause(options.where)}`));
       return { count: result.rowCount ?? 0 };
     },
     async delete(options) {
-      const result = await db.execute(sql.raw(`DELETE FROM ${quote(table)} WHERE "id" = '${String(options.where.id).replaceAll("'", "''")}' RETURNING *`));
+      const result = await db.execute(import_drizzle_orm.sql.raw(`DELETE FROM ${quote(table)} WHERE "id" = '${String(options.where.id).replaceAll("'", "''")}' RETURNING *`));
       return result.rows[0];
     },
     async aggregate(options = {}) {
       const sumField = options._sum ? Object.keys(options._sum)[0] : "amount";
-      const result = await db.execute(sql.raw(`SELECT COALESCE(SUM(${quote(sumField)}), 0) AS sum FROM ${quote(table)}${whereClause(options.where)}`));
+      const result = await db.execute(import_drizzle_orm.sql.raw(`SELECT COALESCE(SUM(${quote(sumField)}), 0) AS sum FROM ${quote(table)}${whereClause(options.where)}`));
       return { _sum: { [sumField]: result.rows[0]?.sum ?? 0 } };
     },
     async upsert(options) {
@@ -404,11 +428,11 @@ async function transaction(fn) {
 // server/_core/systemRouter.ts
 var RELEASE = "fleetops-observability-20260820";
 var systemRouter = router({
-  health: publicProcedure.input(z.object({ timestamp: z.number().min(0, "timestamp cannot be negative"), correlationId: z.string().trim().min(8).max(128).optional() })).query(async ({ input }) => {
+  health: publicProcedure.input(import_zod.z.object({ timestamp: import_zod.z.number().min(0, "timestamp cannot be negative"), correlationId: import_zod.z.string().trim().min(8).max(128).optional() })).query(async ({ input }) => {
     const startedAt = Date.now();
-    const correlationId = input.correlationId ?? randomUUID();
+    const correlationId = input.correlationId ?? (0, import_node_crypto.randomUUID)();
     try {
-      await db.execute(sql2`select 1`);
+      await db.execute(import_drizzle_orm2.sql`select 1`);
       return { ok: true, release: RELEASE, database: "ok", checkedAt: (/* @__PURE__ */ new Date()).toISOString(), latencyMs: Date.now() - startedAt, clientTimestamp: input.timestamp, correlationId };
     } catch {
       return { ok: false, release: RELEASE, database: "degraded", checkedAt: (/* @__PURE__ */ new Date()).toISOString(), latencyMs: Date.now() - startedAt, clientTimestamp: input.timestamp, correlationId };
@@ -416,9 +440,9 @@ var systemRouter = router({
   }),
   release: publicProcedure.query(() => ({ release: RELEASE, service: "FleetOps API", environment: process.env.NODE_ENV === "production" ? "production" : "development" })),
   notifyOwner: adminProcedure.input(
-    z.object({
-      title: z.string().min(1, "title is required"),
-      content: z.string().min(1, "content is required")
+    import_zod.z.object({
+      title: import_zod.z.string().min(1, "title is required"),
+      content: import_zod.z.string().min(1, "content is required")
     })
   ).mutation(async ({ input }) => {
     const delivered = await notifyOwner(input);
@@ -429,7 +453,7 @@ var systemRouter = router({
 });
 
 // server/supabase.ts
-import { createClient } from "@supabase/supabase-js";
+var import_supabase_js = require("@supabase/supabase-js");
 var supabaseUrl = process.env.SUPABASE_URL;
 var serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 var authSupabaseUrl = supabaseUrl ?? process.env.VITE_SUPABASE_URL;
@@ -439,12 +463,12 @@ var supabaseJwks = /* @__PURE__ */ new Map();
 if (!supabaseUrl || !serviceRoleKey) {
   console.warn("[Supabase] SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is not configured");
 }
-var supabaseAdmin = createClient(
+var supabaseAdmin = (0, import_supabase_js.createClient)(
   supabaseUrl ?? "http://localhost:54321",
   serviceRoleKey ?? "development-placeholder",
   { auth: { autoRefreshToken: false, persistSession: false } }
 );
-var supabaseAuth = createClient(
+var supabaseAuth = (0, import_supabase_js.createClient)(
   authSupabaseUrl ?? "http://localhost:54321",
   authAnonKey ?? "development-placeholder",
   { auth: { autoRefreshToken: false, persistSession: false } }
@@ -516,7 +540,7 @@ async function provisionFleetOpsUser(input) {
     const org = await tx.organization.create({
       data: {
         name: input.orgName ?? `${input.fullName}'s Fleet`,
-        trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1e3),
+        trialEndsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1e3),
         maxVehicles: 3,
         maxUsers: 5
       }
@@ -618,10 +642,10 @@ function roleCanAct(role, allowed) {
 
 // server/billing-plans.ts
 var BILLING_PLANS = {
-  STARTER: { id: "STARTER", name: "Starter", platformFeePaise: 299900, includedVehicles: 3, overageVehicleFeePaise: 5e4, maxUsers: 10, description: "For small operators and pilots." },
-  GROWTH: { id: "GROWTH", name: "Growth", platformFeePaise: 999900, includedVehicles: 15, overageVehicleFeePaise: 45e3, maxUsers: 50, description: "For growing regional fleets." },
-  SCALE: { id: "SCALE", name: "Scale", platformFeePaise: 2499900, includedVehicles: 50, overageVehicleFeePaise: 35e3, maxUsers: 150, description: "For multi-depot operators." },
-  ENTERPRISE: { id: "ENTERPRISE", name: "Enterprise", platformFeePaise: 0, includedVehicles: 100, overageVehicleFeePaise: 3e4, maxUsers: 500, description: "For large fleets with custom service and integrations." }
+  STARTER: { id: "STARTER", name: "Starter", platformFeePaise: 999900, includedVehicles: 10, overageVehicleFeePaise: 75e3, maxUsers: 10, description: "For small operators and pilots." },
+  GROWTH: { id: "GROWTH", name: "Growth", platformFeePaise: 2499900, includedVehicles: 50, overageVehicleFeePaise: 6e4, maxUsers: 50, description: "For growing regional fleets." },
+  SCALE: { id: "SCALE", name: "Scale", platformFeePaise: 5999900, includedVehicles: 150, overageVehicleFeePaise: 45e3, maxUsers: 150, description: "For multi-depot operators." },
+  ENTERPRISE: { id: "ENTERPRISE", name: "Enterprise", platformFeePaise: 125e5, includedVehicles: 500, overageVehicleFeePaise: 4e4, maxUsers: 500, description: "For large fleets with custom service and integrations." }
 };
 function normalizePlan(value) {
   const candidate = String(value ?? "").toUpperCase();
@@ -649,7 +673,7 @@ function billingWriteAllowed(status) {
 }
 
 // server/razorpay.ts
-import { createHmac, timingSafeEqual } from "node:crypto";
+var import_node_crypto2 = require("node:crypto");
 function isRazorpayWebhookEnabled() {
   return process.env.RAZORPAY_TEST_WEBHOOK_ENABLED === "true" && Boolean(process.env.RAZORPAY_TEST_WEBHOOK_SECRET);
 }
@@ -673,10 +697,10 @@ async function createRazorpayTestOrder(input) {
 function verifyRazorpayWebhook(rawBody, signature) {
   const secret = process.env.RAZORPAY_TEST_WEBHOOK_SECRET;
   if (!secret || !signature) return false;
-  const expected = createHmac("sha256", secret).update(rawBody, "utf8").digest("hex");
+  const expected = (0, import_node_crypto2.createHmac)("sha256", secret).update(rawBody, "utf8").digest("hex");
   const expectedBuffer = Buffer.from(expected, "utf8");
   const receivedBuffer = Buffer.from(signature, "utf8");
-  return expectedBuffer.length === receivedBuffer.length && timingSafeEqual(expectedBuffer, receivedBuffer);
+  return expectedBuffer.length === receivedBuffer.length && (0, import_node_crypto2.timingSafeEqual)(expectedBuffer, receivedBuffer);
 }
 
 // server/invitation-email.ts
@@ -928,39 +952,39 @@ var COMPONENT_CATALOG = [
   "OTHER"
 ];
 function assertWritable(org) {
-  if (!billingWriteAllowed(org.billingStatus)) throw new TRPCError3({ code: "FORBIDDEN", message: org.billingStatus === "CANCELLED" ? "The subscription is cancelled. Historical data and exports remain available, but operational writes are paused." : "Billing is suspended. Historical data and exports remain available, but operational writes are paused until payment is restored." });
+  if (!billingWriteAllowed(org.billingStatus)) throw new import_server3.TRPCError({ code: "FORBIDDEN", message: org.billingStatus === "CANCELLED" ? "The subscription is cancelled. Historical data and exports remain available, but operational writes are paused." : "Billing is suspended. Historical data and exports remain available, but operational writes are paused until payment is restored." });
   if (org.subscriptionTier === "TRIAL_FREE" && org.trialEndsAt.getTime() < Date.now()) {
-    throw new TRPCError3({ code: "FORBIDDEN", message: "Your trial has expired. Upgrade your FleetOps plan to continue writing data." });
+    throw new import_server3.TRPCError({ code: "FORBIDDEN", message: "Your trial has expired. Upgrade your FleetOps plan to continue writing data." });
   }
 }
 async function assertVehicleCapacity(orgId, maxVehicles) {
   const count = await fleetDb.vehicle.count({ where: { orgId } });
-  if (count >= maxVehicles) throw new TRPCError3({ code: "FORBIDDEN", message: `Vehicle limit reached (${maxVehicles}). Upgrade your FleetOps plan to add more vehicles.` });
+  if (count >= maxVehicles) throw new import_server3.TRPCError({ code: "FORBIDDEN", message: `Vehicle limit reached (${maxVehicles}). Upgrade your FleetOps plan to add more vehicles.` });
 }
 async function assertUserCapacity(orgId, maxUsers) {
   const count = await fleetDb.user.count({ where: { orgId } });
-  if (count >= maxUsers) throw new TRPCError3({ code: "FORBIDDEN", message: `User limit reached (${maxUsers}). Upgrade your FleetOps plan to invite more team members.` });
+  if (count >= maxUsers) throw new import_server3.TRPCError({ code: "FORBIDDEN", message: `User limit reached (${maxUsers}). Upgrade your FleetOps plan to invite more team members.` });
 }
 var ALLOWED_DOCUMENT_TYPES = /* @__PURE__ */ new Set(["application/pdf", "image/jpeg", "image/png", "image/webp"]);
 var MAX_DOCUMENT_BYTES = 3 * 1024 * 1024;
 function decodeDocumentUpload(fileData, contentType = "application/octet-stream") {
-  if (!ALLOWED_DOCUMENT_TYPES.has(contentType)) throw new TRPCError3({ code: "BAD_REQUEST", message: "Only PDF, JPEG, PNG, and WebP documents are allowed." });
+  if (!ALLOWED_DOCUMENT_TYPES.has(contentType)) throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: "Only PDF, JPEG, PNG, and WebP documents are allowed." });
   const raw = fileData.replace(/^data:[^;]+;base64,/, "");
   let bytes;
   try {
     bytes = Buffer.from(raw, "base64");
   } catch {
-    throw new TRPCError3({ code: "BAD_REQUEST", message: "The uploaded document is not valid base64 data." });
+    throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: "The uploaded document is not valid base64 data." });
   }
-  if (!bytes.length || bytes.length > MAX_DOCUMENT_BYTES) throw new TRPCError3({ code: "BAD_REQUEST", message: "Document files must be between 1 byte and 3 MB." });
-  const checksum = createHash("sha256").update(bytes).digest("hex");
+  if (!bytes.length || bytes.length > MAX_DOCUMENT_BYTES) throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: "Document files must be between 1 byte and 3 MB." });
+  const checksum = (0, import_node_crypto3.createHash)("sha256").update(bytes).digest("hex");
   return { bytes, checksum, sizeBytes: bytes.length };
 }
 function retentionAfterExpiry(expiryDate) {
   return new Date(Math.max(expiryDate.getTime(), Date.now()) + 7 * 365 * 24 * 60 * 60 * 1e3);
 }
 function requireRole(role, allowed) {
-  if (!roleCanAct(role, allowed)) throw new TRPCError3({ code: "FORBIDDEN", message: "Your role cannot perform this action." });
+  if (!roleCanAct(role, allowed)) throw new import_server3.TRPCError({ code: "FORBIDDEN", message: "Your role cannot perform this action." });
 }
 function csvCell(value) {
   const text2 = value === null || value === void 0 ? "" : String(value);
@@ -1046,7 +1070,7 @@ async function withServerTimeout(promise, message, timeoutMs = INVITATION_TIMEOU
   let timer;
   try {
     return await Promise.race([promise, new Promise((_, reject) => {
-      timer = setTimeout(() => reject(new TRPCError3({ code: "TIMEOUT", message })), timeoutMs);
+      timer = setTimeout(() => reject(new import_server3.TRPCError({ code: "TIMEOUT", message })), timeoutMs);
     })]);
   } finally {
     if (timer) clearTimeout(timer);
@@ -1064,7 +1088,7 @@ async function assignedVehicleIds(ctx) {
 async function assertDriverVehicle(ctx, vehicleId) {
   if (ctx.fleetopsUser.role !== "DRIVER") return;
   const assigned = await fleetDb.vehicleAssignment.findFirst({ where: { orgId: ctx.fleetopsUser.orgId, driverId: ctx.fleetopsUser.id, vehicleId, active: true } });
-  if (!assigned) throw new TRPCError3({ code: "FORBIDDEN", message: "Drivers may only access their currently assigned vehicle." });
+  if (!assigned) throw new import_server3.TRPCError({ code: "FORBIDDEN", message: "Drivers may only access their currently assigned vehicle." });
 }
 async function hydrateVehiclesWithComponents(vehicles2) {
   if (!vehicles2.length) return vehicles2;
@@ -1093,8 +1117,8 @@ async function hydrateWorkOrders(orders, orgId) {
   return orders.map((order) => ({ ...order, vehicle: vehicleById.get(order.vehicleId) ?? null, assignedMechanic: order.assignedMechanicId ? assigneeById.get(order.assignedMechanicId) ?? null : null, partsUsed: partsByOrder.get(order.id) ?? [] }));
 }
 function validateOdometerReading(current, reading, elapsedDays = 1) {
-  if (reading < current) throw new TRPCError3({ code: "BAD_REQUEST", message: "Odometer readings cannot move backwards." });
-  if (reading - current > Math.max(1, elapsedDays) * 1e3) throw new TRPCError3({ code: "BAD_REQUEST", message: `Odometer increase exceeds the ${Math.max(1, elapsedDays) * 1e3} km limit for the elapsed period.` });
+  if (reading < current) throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: "Odometer readings cannot move backwards." });
+  if (reading - current > Math.max(1, elapsedDays) * 1e3) throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: `Odometer increase exceeds the ${Math.max(1, elapsedDays) * 1e3} km limit for the elapsed period.` });
 }
 var appRouter = router({
   system: systemRouter,
@@ -1105,25 +1129,25 @@ var appRouter = router({
   profile: router({
     get: fleetOpsProcedure.query(async ({ ctx }) => {
       const member = await fleetDb.user.findFirst({ where: { id: ctx.fleetopsUser.id, orgId: ctx.fleetopsUser.orgId } });
-      if (!member) throw new TRPCError3({ code: "NOT_FOUND", message: "Your organization profile could not be found." });
+      if (!member) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Your organization profile could not be found." });
       return { id: member.id, fullName: member.fullName, email: member.email, role: member.role, organizationName: ctx.fleetopsUser.org.name, mobileNumber: member.mobileNumber ?? "", smsAlertsEnabled: Boolean(member.smsAlertsEnabled), whatsappAlertsEnabled: Boolean(member.whatsappAlertsEnabled) };
     }),
-    update: fleetOpsProcedure.input(z2.object({ fullName: z2.string().trim().min(2).max(120), mobileNumber: z2.string().trim(), smsAlertsEnabled: z2.boolean(), whatsappAlertsEnabled: z2.boolean() })).mutation(async ({ ctx, input }) => {
+    update: fleetOpsProcedure.input(import_zod2.z.object({ fullName: import_zod2.z.string().trim().min(2).max(120), mobileNumber: import_zod2.z.string().trim(), smsAlertsEnabled: import_zod2.z.boolean(), whatsappAlertsEnabled: import_zod2.z.boolean() })).mutation(async ({ ctx, input }) => {
       let mobileNumber;
       try {
         mobileNumber = normalizeIndianE164Mobile(input.mobileNumber);
       } catch (error) {
-        throw new TRPCError3({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Use an Indian mobile number in +91XXXXXXXXXX format." });
+        throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Use an Indian mobile number in +91XXXXXXXXXX format." });
       }
-      if ((input.smsAlertsEnabled || input.whatsappAlertsEnabled) && !mobileNumber) throw new TRPCError3({ code: "BAD_REQUEST", message: "Save a mobile number before enabling SMS or WhatsApp alerts." });
+      if ((input.smsAlertsEnabled || input.whatsappAlertsEnabled) && !mobileNumber) throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: "Save a mobile number before enabling SMS or WhatsApp alerts." });
       const existing = await fleetDb.user.findFirst({ where: { id: ctx.fleetopsUser.id, orgId: ctx.fleetopsUser.orgId } });
-      if (!existing) throw new TRPCError3({ code: "NOT_FOUND", message: "Your organization profile could not be found." });
+      if (!existing) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Your organization profile could not be found." });
       const now = /* @__PURE__ */ new Date();
       const member = await fleetDb.user.update({ where: { id: ctx.fleetopsUser.id }, data: { fullName: input.fullName, mobileNumber, smsAlertsEnabled: mobileNumber ? input.smsAlertsEnabled : false, whatsappAlertsEnabled: mobileNumber ? input.whatsappAlertsEnabled : false, smsOptedInAt: mobileNumber && input.smsAlertsEnabled ? existing.smsOptedInAt ?? now : null, whatsappOptedInAt: mobileNumber && input.whatsappAlertsEnabled ? existing.whatsappOptedInAt ?? now : null } });
       const authUser = await getSupabaseAuthIdentity(ctx.req);
       if (authUser) {
         const { error } = await supabaseAdmin.auth.admin.updateUserById(authUser.id, { user_metadata: { ...authUser.user_metadata, fullName: input.fullName } });
-        if (error) throw new TRPCError3({ code: "INTERNAL_SERVER_ERROR", message: `Profile was saved, but Supabase display metadata could not be refreshed: ${error.message}` });
+        if (error) throw new import_server3.TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `Profile was saved, but Supabase display metadata could not be refreshed: ${error.message}` });
       }
       await recordAudit(ctx, { action: "PROFILE_UPDATED", entityType: "USER", entityId: member.id, summary: "Member updated their personal profile and alert preferences", metadata: { fullName: member.fullName, smsAlertsEnabled: member.smsAlertsEnabled, whatsappAlertsEnabled: member.whatsappAlertsEnabled } });
       return member;
@@ -1135,7 +1159,7 @@ var appRouter = router({
       const existing = await fleetDb.organizationSetting.findFirst({ where: { orgId: ctx.fleetopsUser.orgId } });
       return existing ?? { orgId: ctx.fleetopsUser.orgId, timezone: "Asia/Kolkata", odometerMaxDailyKm: 1e3, laborRatePerHour: "0", safetyContactName: null, safetyContactPhone: null };
     }),
-    update: fleetOpsProcedure.input(z2.object({ timezone: z2.string().trim().min(3).max(80), odometerMaxDailyKm: z2.number().int().min(100).max(5e3), laborRatePerHour: z2.number().nonnegative().max(1e5).default(0), safetyContactName: z2.string().trim().max(160).optional(), safetyContactPhone: z2.string().trim().max(40).optional() })).mutation(async ({ ctx, input }) => {
+    update: fleetOpsProcedure.input(import_zod2.z.object({ timezone: import_zod2.z.string().trim().min(3).max(80), odometerMaxDailyKm: import_zod2.z.number().int().min(100).max(5e3), laborRatePerHour: import_zod2.z.number().nonnegative().max(1e5).default(0), safetyContactName: import_zod2.z.string().trim().max(160).optional(), safetyContactPhone: import_zod2.z.string().trim().max(40).optional() })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN"]);
       assertWritable(ctx.fleetopsUser.org);
       const existing = await fleetDb.organizationSetting.findFirst({ where: { orgId: ctx.fleetopsUser.orgId } });
@@ -1149,11 +1173,11 @@ var appRouter = router({
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER"]);
       return [{ id: "CITY_BUS", name: "City bus preventive maintenance", components: CITY_BUS_MAINTENANCE_TEMPLATE }];
     }),
-    applyTemplate: fleetOpsProcedure.input(z2.object({ vehicleId: z2.string().uuid(), templateId: z2.enum(["CITY_BUS"]) })).mutation(async ({ ctx, input }) => {
+    applyTemplate: fleetOpsProcedure.input(import_zod2.z.object({ vehicleId: import_zod2.z.string().uuid(), templateId: import_zod2.z.enum(["CITY_BUS"]) })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER"]);
       assertWritable(ctx.fleetopsUser.org);
       const vehicle = await fleetDb.vehicle.findFirst({ where: { id: input.vehicleId, orgId: ctx.fleetopsUser.orgId } });
-      if (!vehicle) throw new TRPCError3({ code: "NOT_FOUND", message: "Vehicle not found in this organization." });
+      if (!vehicle) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Vehicle not found in this organization." });
       const existing = await fleetDb.component.findMany({ where: { vehicleId: vehicle.id } });
       const names = new Set(existing.map((item) => item.name));
       const added = CITY_BUS_MAINTENANCE_TEMPLATE.filter((template) => !names.has(template.name));
@@ -1163,48 +1187,48 @@ var appRouter = router({
     })
   }),
   onboarding: router({
-    bootstrap: publicProcedure.input(z2.object({ orgName: z2.string().min(2).optional(), fullName: z2.string().min(2).optional() })).mutation(async ({ ctx, input }) => {
+    bootstrap: publicProcedure.input(import_zod2.z.object({ orgName: import_zod2.z.string().min(2).optional(), fullName: import_zod2.z.string().min(2).optional() })).mutation(async ({ ctx, input }) => {
       const authUser = await getSupabaseAuthIdentity(ctx.req);
-      if (!authUser?.email) throw new TRPCError3({ code: "UNAUTHORIZED", message: "A valid Supabase access token is required." });
+      if (!authUser?.email) throw new import_server3.TRPCError({ code: "UNAUTHORIZED", message: "A valid Supabase access token is required." });
       return provisionFleetOpsUser({ authUserId: authUser.id, email: authUser.email, fullName: input.fullName ?? String(authUser.user_metadata?.fullName ?? authUser.email.split("@")[0]), orgName: input.orgName ?? String(authUser.user_metadata?.orgName ?? `${input.fullName ?? authUser.email.split("@")[0]}'s Fleet`) });
     }),
-    complete: fleetOpsProcedure.input(z2.object({ orgName: z2.string().min(2), fullName: z2.string().min(2), mobileNumber: z2.string().trim().optional().default(""), smsAlertsEnabled: z2.boolean().optional().default(false), whatsappAlertsEnabled: z2.boolean().optional().default(false) })).mutation(async ({ ctx, input }) => {
+    complete: fleetOpsProcedure.input(import_zod2.z.object({ orgName: import_zod2.z.string().min(2), fullName: import_zod2.z.string().min(2), mobileNumber: import_zod2.z.string().trim().optional().default(""), smsAlertsEnabled: import_zod2.z.boolean().optional().default(false), whatsappAlertsEnabled: import_zod2.z.boolean().optional().default(false) })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN"]);
       let mobileNumber;
       try {
         mobileNumber = normalizeIndianE164Mobile(input.mobileNumber);
       } catch (error) {
-        throw new TRPCError3({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Use an Indian mobile number in +91XXXXXXXXXX format." });
+        throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Use an Indian mobile number in +91XXXXXXXXXX format." });
       }
-      if ((input.smsAlertsEnabled || input.whatsappAlertsEnabled) && !mobileNumber) throw new TRPCError3({ code: "BAD_REQUEST", message: "Save a mobile number before enabling SMS or WhatsApp alerts." });
+      if ((input.smsAlertsEnabled || input.whatsappAlertsEnabled) && !mobileNumber) throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: "Save a mobile number before enabling SMS or WhatsApp alerts." });
       const updated = await fleetDb.$transaction(async (tx) => {
         const user = await tx.user.update({ where: { id: ctx.fleetopsUser.id }, data: { fullName: input.fullName, mobileNumber, smsAlertsEnabled: mobileNumber ? input.smsAlertsEnabled : false, whatsappAlertsEnabled: mobileNumber ? input.whatsappAlertsEnabled : false, smsOptedInAt: mobileNumber && input.smsAlertsEnabled ? /* @__PURE__ */ new Date() : null, whatsappOptedInAt: mobileNumber && input.whatsappAlertsEnabled ? /* @__PURE__ */ new Date() : null } });
         const org = await tx.organization.update({ where: { id: ctx.fleetopsUser.orgId }, data: { name: input.orgName } });
         return { user, org };
       });
       const authUser = await getSupabaseAuthIdentity(ctx.req);
-      if (!authUser) throw new TRPCError3({ code: "UNAUTHORIZED", message: "Your Supabase session expired. Sign in again to finish onboarding." });
+      if (!authUser) throw new import_server3.TRPCError({ code: "UNAUTHORIZED", message: "Your Supabase session expired. Sign in again to finish onboarding." });
       const { error: metadataError } = await supabaseAdmin.auth.admin.updateUserById(authUser.id, { user_metadata: { ...authUser.user_metadata, fullName: input.fullName, orgName: input.orgName, needsOnboarding: false } });
-      if (metadataError) throw new TRPCError3({ code: "INTERNAL_SERVER_ERROR", message: `Organization was saved, but onboarding state could not be finalized: ${metadataError.message}` });
+      if (metadataError) throw new import_server3.TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `Organization was saved, but onboarding state could not be finalized: ${metadataError.message}` });
       return updated;
     }),
-    inviteDetails: publicProcedure.input(z2.object({ token: z2.string().uuid() })).query(async ({ input }) => {
+    inviteDetails: publicProcedure.input(import_zod2.z.object({ token: import_zod2.z.string().uuid() })).query(async ({ input }) => {
       const invite = await fleetDb.invitation.findFirst({ where: { tokenHash: input.token, acceptedAt: null, expiresAt: { gt: /* @__PURE__ */ new Date() } } });
-      if (!invite) throw new TRPCError3({ code: "NOT_FOUND", message: "This invitation is invalid, expired, or already redeemed." });
+      if (!invite) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "This invitation is invalid, expired, or already redeemed." });
       const org = await fleetDb.organization.findFirst({ where: { id: invite.orgId } });
-      if (!org) throw new TRPCError3({ code: "NOT_FOUND", message: "The invitation organization no longer exists." });
+      if (!org) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "The invitation organization no longer exists." });
       return { email: invite.email, role: invite.role, organization: { id: org.id, name: org.name }, expiresAt: invite.expiresAt };
     }),
-    completeInviteWithPassword: publicProcedure.input(z2.object({ token: z2.string().uuid(), fullName: z2.string().min(2), password: z2.string().min(8).max(128), mobileNumber: z2.string().trim().optional().default(""), smsAlertsEnabled: z2.boolean().optional().default(false), whatsappAlertsEnabled: z2.boolean().optional().default(false) })).mutation(async ({ input }) => {
+    completeInviteWithPassword: publicProcedure.input(import_zod2.z.object({ token: import_zod2.z.string().uuid(), fullName: import_zod2.z.string().min(2), password: import_zod2.z.string().min(8).max(128), mobileNumber: import_zod2.z.string().trim().optional().default(""), smsAlertsEnabled: import_zod2.z.boolean().optional().default(false), whatsappAlertsEnabled: import_zod2.z.boolean().optional().default(false) })).mutation(async ({ input }) => {
       const invite = await fleetDb.invitation.findFirst({ where: { tokenHash: input.token, acceptedAt: null, expiresAt: { gt: /* @__PURE__ */ new Date() } } });
-      if (!invite) throw new TRPCError3({ code: "NOT_FOUND", message: "This invitation is invalid, expired, or already redeemed." });
+      if (!invite) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "This invitation is invalid, expired, or already redeemed." });
       let mobileNumber;
       try {
         mobileNumber = normalizeIndianE164Mobile(input.mobileNumber);
       } catch (error) {
-        throw new TRPCError3({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Use an Indian mobile number in +91XXXXXXXXXX format." });
+        throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Use an Indian mobile number in +91XXXXXXXXXX format." });
       }
-      if ((input.smsAlertsEnabled || input.whatsappAlertsEnabled) && !mobileNumber) throw new TRPCError3({ code: "BAD_REQUEST", message: "Save a mobile number before enabling SMS or WhatsApp alerts." });
+      if ((input.smsAlertsEnabled || input.whatsappAlertsEnabled) && !mobileNumber) throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: "Save a mobile number before enabling SMS or WhatsApp alerts." });
       const email = invite.email.toLowerCase();
       const existingAuth = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1e3 });
       let authUser = existingAuth.data.users.find((user) => user.email?.toLowerCase() === email);
@@ -1218,7 +1242,7 @@ var appRouter = router({
         authUser = createdAuth.data.user ?? void 0;
         authError = createdAuth.error;
       }
-      if (authError || !authUser) throw new TRPCError3({ code: "INTERNAL_SERVER_ERROR", message: `The invited account could not be prepared: ${authError?.message ?? "Auth user was not returned."}` });
+      if (authError || !authUser) throw new import_server3.TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `The invited account could not be prepared: ${authError?.message ?? "Auth user was not returned."}` });
       const joined = await fleetDb.$transaction(async (tx) => {
         const preferenceData = { mobileNumber, smsAlertsEnabled: mobileNumber ? input.smsAlertsEnabled : false, whatsappAlertsEnabled: mobileNumber ? input.whatsappAlertsEnabled : false, smsOptedInAt: mobileNumber && input.smsAlertsEnabled ? /* @__PURE__ */ new Date() : null, whatsappOptedInAt: mobileNumber && input.whatsappAlertsEnabled ? /* @__PURE__ */ new Date() : null };
         const user = await tx.user.upsert({ where: { authUserId: authUser.id }, update: { orgId: invite.orgId, role: invite.role, email, fullName: input.fullName, ...preferenceData }, create: { authUserId: authUser.id, orgId: invite.orgId, role: invite.role, email, fullName: input.fullName, ...preferenceData } });
@@ -1230,11 +1254,11 @@ var appRouter = router({
       if (metadataError) console.warn("[Invitation] Membership created; Auth metadata sync will be retried from the database-backed profile.", { authUserId: authUser.id, orgId: joined.orgId, reason: metadataError.message });
       return { email, role: joined.role, organizationName: inviteOrg?.name ?? "", metadataSyncPending: Boolean(metadataError) };
     }),
-    acceptInvite: publicProcedure.input(z2.object({ token: z2.string().uuid(), fullName: z2.string().min(2).optional() })).mutation(async ({ ctx, input }) => {
+    acceptInvite: publicProcedure.input(import_zod2.z.object({ token: import_zod2.z.string().uuid(), fullName: import_zod2.z.string().min(2).optional() })).mutation(async ({ ctx, input }) => {
       const authUser = await getSupabaseAuthIdentity(ctx.req);
-      if (!authUser?.email) throw new TRPCError3({ code: "UNAUTHORIZED", message: "A valid Supabase access token is required." });
+      if (!authUser?.email) throw new import_server3.TRPCError({ code: "UNAUTHORIZED", message: "A valid Supabase access token is required." });
       const invite = await fleetDb.invitation.findFirst({ where: { tokenHash: input.token, email: authUser.email, acceptedAt: null, expiresAt: { gt: /* @__PURE__ */ new Date() } } });
-      if (!invite) throw new TRPCError3({ code: "NOT_FOUND", message: "Invitation is invalid, expired, or already redeemed." });
+      if (!invite) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Invitation is invalid, expired, or already redeemed." });
       const user = await fleetDb.$transaction(async (tx) => {
         const joined = await tx.user.upsert({ where: { authUserId: authUser.id }, update: { orgId: invite.orgId, role: invite.role, email: authUser.email, fullName: input.fullName ?? String(authUser.user_metadata?.fullName ?? authUser.email.split("@")[0]) }, create: { authUserId: authUser.id, orgId: invite.orgId, role: invite.role, email: authUser.email, fullName: input.fullName ?? String(authUser.user_metadata?.fullName ?? authUser.email.split("@")[0]) } });
         await tx.invitation.update({ where: { id: invite.id }, data: { acceptedAt: /* @__PURE__ */ new Date() } });
@@ -1242,7 +1266,7 @@ var appRouter = router({
       });
       const inviteOrg = await fleetDb.organization.findFirst({ where: { id: invite.orgId } });
       const { error: metadataError } = await supabaseAdmin.auth.admin.updateUserById(authUser.id, { user_metadata: { ...authUser.user_metadata, fullName: user.fullName, orgId: user.orgId, orgName: inviteOrg?.name, role: user.role, needsOnboarding: false, invitationToken: void 0 } });
-      if (metadataError) throw new TRPCError3({ code: "INTERNAL_SERVER_ERROR", message: `Organization membership was created, but the session metadata could not be finalized: ${metadataError.message}` });
+      if (metadataError) throw new import_server3.TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `Organization membership was created, but the session metadata could not be finalized: ${metadataError.message}` });
       return user;
     })
   }),
@@ -1263,37 +1287,37 @@ var appRouter = router({
     })
   }),
   components: router({
-    list: fleetOpsProcedure.input(z2.object({ vehicleId: z2.string().uuid().optional() }).optional()).query(({ ctx, input }) => fleetDb.component.findMany({ where: { vehicle: { orgId: ctx.fleetopsUser.orgId }, ...input?.vehicleId ? { vehicleId: input.vehicleId } : {} }, orderBy: { name: "asc" } })),
-    create: fleetOpsProcedure.input(z2.object({ vehicleId: z2.string().uuid(), inventoryPartId: z2.string().uuid().optional(), name: z2.string().min(2), componentType: z2.enum(COMPONENT_CATALOG).default("OTHER"), componentSubtype: z2.string().trim().max(120).optional(), brand: z2.string().trim().max(120).optional(), partNumber: z2.string().trim().max(120).optional(), serialNumber: z2.string().trim().max(120).optional(), installationDate: z2.coerce.date().optional(), expectedLifeKm: z2.number().positive(), expectedLifeDays: z2.number().int().positive().optional(), lastServicedOdometer: z2.number().nonnegative(), alertThresholdKm: z2.number().positive(), alertThresholdDays: z2.number().int().positive().optional(), notes: z2.string().trim().max(2e3).optional(), status: z2.enum(["ACTIVE", "REPLACED", "REMOVED"]).default("ACTIVE") })).mutation(async ({ ctx, input }) => {
+    list: fleetOpsProcedure.input(import_zod2.z.object({ vehicleId: import_zod2.z.string().uuid().optional() }).optional()).query(({ ctx, input }) => fleetDb.component.findMany({ where: { vehicle: { orgId: ctx.fleetopsUser.orgId }, ...input?.vehicleId ? { vehicleId: input.vehicleId } : {} }, orderBy: { name: "asc" } })),
+    create: fleetOpsProcedure.input(import_zod2.z.object({ vehicleId: import_zod2.z.string().uuid(), inventoryPartId: import_zod2.z.string().uuid().optional(), name: import_zod2.z.string().min(2), componentType: import_zod2.z.enum(COMPONENT_CATALOG).default("OTHER"), componentSubtype: import_zod2.z.string().trim().max(120).optional(), brand: import_zod2.z.string().trim().max(120).optional(), partNumber: import_zod2.z.string().trim().max(120).optional(), serialNumber: import_zod2.z.string().trim().max(120).optional(), installationDate: import_zod2.z.coerce.date().optional(), expectedLifeKm: import_zod2.z.number().positive(), expectedLifeDays: import_zod2.z.number().int().positive().optional(), lastServicedOdometer: import_zod2.z.number().nonnegative(), alertThresholdKm: import_zod2.z.number().positive(), alertThresholdDays: import_zod2.z.number().int().positive().optional(), notes: import_zod2.z.string().trim().max(2e3).optional(), status: import_zod2.z.enum(["ACTIVE", "REPLACED", "REMOVED"]).default("ACTIVE") })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER", "MECHANIC"]);
       assertWritable(ctx.fleetopsUser.org);
       const vehicle = await fleetDb.vehicle.findFirst({ where: { id: input.vehicleId, orgId: ctx.fleetopsUser.orgId } });
-      if (!vehicle) throw new TRPCError3({ code: "NOT_FOUND", message: "Vehicle not found." });
+      if (!vehicle) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Vehicle not found." });
       if (input.inventoryPartId) {
         const part = await fleetDb.inventoryPart.findFirst({ where: { id: input.inventoryPartId, orgId: ctx.fleetopsUser.orgId } });
-        if (!part) throw new TRPCError3({ code: "BAD_REQUEST", message: "Linked inventory part is outside this organization." });
+        if (!part) throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: "Linked inventory part is outside this organization." });
       }
       const created = await fleetDb.component.create({ data: { id: crypto.randomUUID(), ...input, installationDate: input.installationDate ?? /* @__PURE__ */ new Date() } });
       await recordAudit(ctx, { action: "COMPONENT_CREATED", entityType: "COMPONENT", entityId: created.id, summary: `${created.name} installed on ${vehicleIdentity(vehicle)}`, metadata: { vehicleId: vehicle.id, componentType: created.componentType, inventoryPartId: created.inventoryPartId, expectedLifeKm: created.expectedLifeKm, expectedLifeDays: created.expectedLifeDays, lastServicedOdometer: created.lastServicedOdometer, alertThresholdKm: created.alertThresholdKm, alertThresholdDays: created.alertThresholdDays } });
       await evaluateVehicleMaintenance(vehicle.id, ctx.fleetopsUser.orgId);
       return created;
     }),
-    update: fleetOpsProcedure.input(z2.object({ id: z2.string().uuid(), inventoryPartId: z2.string().uuid().nullable().optional(), name: z2.string().min(2).optional(), componentType: z2.enum(COMPONENT_CATALOG).optional(), componentSubtype: z2.string().trim().max(120).nullable().optional(), brand: z2.string().trim().max(120).nullable().optional(), partNumber: z2.string().trim().max(120).nullable().optional(), serialNumber: z2.string().trim().max(120).nullable().optional(), installationDate: z2.coerce.date().optional(), expectedLifeKm: z2.number().positive().optional(), expectedLifeDays: z2.number().int().positive().nullable().optional(), lastServicedOdometer: z2.number().nonnegative().optional(), alertThresholdKm: z2.number().positive().optional(), alertThresholdDays: z2.number().int().positive().nullable().optional(), notes: z2.string().trim().max(2e3).nullable().optional(), status: z2.enum(["ACTIVE", "REPLACED", "REMOVED"]).optional() })).mutation(async ({ ctx, input }) => {
+    update: fleetOpsProcedure.input(import_zod2.z.object({ id: import_zod2.z.string().uuid(), inventoryPartId: import_zod2.z.string().uuid().nullable().optional(), name: import_zod2.z.string().min(2).optional(), componentType: import_zod2.z.enum(COMPONENT_CATALOG).optional(), componentSubtype: import_zod2.z.string().trim().max(120).nullable().optional(), brand: import_zod2.z.string().trim().max(120).nullable().optional(), partNumber: import_zod2.z.string().trim().max(120).nullable().optional(), serialNumber: import_zod2.z.string().trim().max(120).nullable().optional(), installationDate: import_zod2.z.coerce.date().optional(), expectedLifeKm: import_zod2.z.number().positive().optional(), expectedLifeDays: import_zod2.z.number().int().positive().nullable().optional(), lastServicedOdometer: import_zod2.z.number().nonnegative().optional(), alertThresholdKm: import_zod2.z.number().positive().optional(), alertThresholdDays: import_zod2.z.number().int().positive().nullable().optional(), notes: import_zod2.z.string().trim().max(2e3).nullable().optional(), status: import_zod2.z.enum(["ACTIVE", "REPLACED", "REMOVED"]).optional() })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER", "MECHANIC"]);
       assertWritable(ctx.fleetopsUser.org);
       const component = await fleetDb.component.findFirst({ where: { id: input.id, vehicle: { orgId: ctx.fleetopsUser.orgId } } });
-      if (!component) throw new TRPCError3({ code: "NOT_FOUND", message: "Component not found." });
+      if (!component) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Component not found." });
       const { id, ...data } = input;
       const updated = await fleetDb.component.update({ where: { id }, data });
       await recordAudit(ctx, { action: Number(updated.lastServicedOdometer) !== Number(component.lastServicedOdometer) ? "COMPONENT_SERVICE_BASELINE_RESET" : "COMPONENT_UPDATED", entityType: "COMPONENT", entityId: updated.id, summary: `Component ${updated.name} updated`, metadata: { vehicleId: updated.vehicleId, componentType: updated.componentType, inventoryPartId: updated.inventoryPartId, previousLastServicedOdometer: component.lastServicedOdometer, lastServicedOdometer: updated.lastServicedOdometer, previousExpectedLifeKm: component.expectedLifeKm, expectedLifeKm: updated.expectedLifeKm, expectedLifeDays: updated.expectedLifeDays, alertThresholdKm: updated.alertThresholdKm, alertThresholdDays: updated.alertThresholdDays, status: updated.status } });
       await evaluateVehicleMaintenance(component.vehicleId, ctx.fleetopsUser.orgId);
       return updated;
     }),
-    remove: fleetOpsProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
+    remove: fleetOpsProcedure.input(import_zod2.z.object({ id: import_zod2.z.string().uuid() })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER"]);
       assertWritable(ctx.fleetopsUser.org);
       const component = await fleetDb.component.findFirst({ where: { id: input.id, vehicle: { orgId: ctx.fleetopsUser.orgId } } });
-      if (!component) throw new TRPCError3({ code: "NOT_FOUND", message: "Component not found." });
+      if (!component) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Component not found." });
       const deleted = await fleetDb.component.delete({ where: { id: input.id } });
       await recordAudit(ctx, { action: "COMPONENT_REMOVED", entityType: "COMPONENT", entityId: component.id, summary: `Component ${component.name} removed`, metadata: { vehicleId: component.vehicleId, lastServicedOdometer: component.lastServicedOdometer, expectedLifeKm: component.expectedLifeKm, alertThresholdKm: component.alertThresholdKm } });
       return deleted;
@@ -1314,18 +1338,18 @@ var appRouter = router({
         return { ...vehicle, latestOdometerReading: latest?.reading ?? vehicle.currentOdometer, latestOdometerAt: latest?.createdAt ?? vehicle.updatedAt, latestOdometerSource: latest?.source ?? "VEHICLE_RECORD" };
       });
     }),
-    create: fleetOpsProcedure.input(z2.object({ vin: z2.string().trim().min(5).max(32), licensePlate: z2.string().trim().min(3).max(32), chassisNumber: z2.string().trim().max(80).optional(), engineNumber: z2.string().trim().max(80).optional(), vehicleType: z2.enum(["BUS", "MINIBUS", "TRUCK", "VAN", "CAR", "OTHER"]).optional(), assignedRoute: z2.string().trim().max(120).optional(), depotLocation: z2.string().trim().max(120).optional(), make: z2.string().trim().min(2), model: z2.string().trim().min(2), year: z2.number().int().min(1980).max(2100), currentOdometer: z2.number().min(0).default(0), maintenanceTemplate: z2.enum(["NONE", "CITY_BUS"]).default("NONE") })).mutation(async ({ ctx, input }) => {
+    create: fleetOpsProcedure.input(import_zod2.z.object({ vin: import_zod2.z.string().trim().min(5).max(32), licensePlate: import_zod2.z.string().trim().min(3).max(32), chassisNumber: import_zod2.z.string().trim().max(80).optional(), engineNumber: import_zod2.z.string().trim().max(80).optional(), vehicleType: import_zod2.z.enum(["BUS", "MINIBUS", "TRUCK", "VAN", "CAR", "OTHER"]).optional(), assignedRoute: import_zod2.z.string().trim().max(120).optional(), depotLocation: import_zod2.z.string().trim().max(120).optional(), make: import_zod2.z.string().trim().min(2), model: import_zod2.z.string().trim().min(2), year: import_zod2.z.number().int().min(1980).max(2100), currentOdometer: import_zod2.z.number().min(0).default(0), maintenanceTemplate: import_zod2.z.enum(["NONE", "CITY_BUS"]).default("NONE") })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER"]);
       assertWritable(ctx.fleetopsUser.org);
       await assertVehicleCapacity(ctx.fleetopsUser.orgId, ctx.fleetopsUser.org.maxVehicles);
       const count = await fleetDb.vehicle.count({ where: { orgId: ctx.fleetopsUser.orgId } });
-      if (ctx.fleetopsUser.org.subscriptionTier === "TRIAL_FREE" && count >= ctx.fleetopsUser.org.maxVehicles) throw new TRPCError3({ code: "FORBIDDEN", message: "Trial limit reached: maximum 3 vehicles." });
+      if (ctx.fleetopsUser.org.subscriptionTier === "TRIAL_FREE" && count >= ctx.fleetopsUser.org.maxVehicles) throw new import_server3.TRPCError({ code: "FORBIDDEN", message: "Trial limit reached: maximum 3 vehicles." });
       const { maintenanceTemplate, ...vehicleInput } = input;
       const vin = input.vin.toUpperCase();
       const licensePlate = input.licensePlate.toUpperCase();
       const existingVehicles = await fleetDb.vehicle.findMany({ where: { orgId: ctx.fleetopsUser.orgId } });
-      if (existingVehicles.some((item) => String(item.vin).toUpperCase() === vin)) throw new TRPCError3({ code: "CONFLICT", message: "A vehicle with this VIN already exists in the organization." });
-      if (existingVehicles.some((item) => String(item.licensePlate).toUpperCase() === licensePlate)) throw new TRPCError3({ code: "CONFLICT", message: "A vehicle with this registration number already exists in the organization." });
+      if (existingVehicles.some((item) => String(item.vin).toUpperCase() === vin)) throw new import_server3.TRPCError({ code: "CONFLICT", message: "A vehicle with this VIN already exists in the organization." });
+      if (existingVehicles.some((item) => String(item.licensePlate).toUpperCase() === licensePlate)) throw new import_server3.TRPCError({ code: "CONFLICT", message: "A vehicle with this registration number already exists in the organization." });
       const vehicle = await fleetDb.vehicle.create({ data: { id: crypto.randomUUID(), ...vehicleInput, vin, licensePlate, status: "ACTIVE", orgId: ctx.fleetopsUser.orgId, createdAt: /* @__PURE__ */ new Date(), updatedAt: /* @__PURE__ */ new Date() } });
       if (maintenanceTemplate === "CITY_BUS") {
         const odometer = Number(input.currentOdometer ?? 0);
@@ -1334,27 +1358,27 @@ var appRouter = router({
       await recordAudit(ctx, { action: "VEHICLE_CREATED", entityType: "VEHICLE", entityId: vehicle.id, summary: `${vehicleIdentity(vehicle)} added to the fleet`, metadata: { maintenanceTemplate, vin: vehicle.vin, licensePlate: vehicle.licensePlate, vehicleType: vehicle.vehicleType, assignedRoute: vehicle.assignedRoute, depotLocation: vehicle.depotLocation } });
       return { ...vehicle, maintenanceTemplate };
     }),
-    update: fleetOpsProcedure.input(z2.object({ id: z2.string().uuid(), vin: z2.string().trim().min(5).max(32), licensePlate: z2.string().trim().min(3).max(32), chassisNumber: z2.string().trim().max(80).nullable().optional(), engineNumber: z2.string().trim().max(80).nullable().optional(), vehicleType: z2.enum(["BUS", "MINIBUS", "TRUCK", "VAN", "CAR", "OTHER"]).nullable().optional(), assignedRoute: z2.string().trim().max(120).nullable().optional(), depotLocation: z2.string().trim().max(120).nullable().optional(), make: z2.string().trim().min(2), model: z2.string().trim().min(2), year: z2.number().int().min(1980).max(2100), currentOdometer: z2.number().min(0), status: z2.enum(["ACTIVE", "OUT_OF_SERVICE", "MAINTENANCE"]).optional() })).mutation(async ({ ctx, input }) => {
+    update: fleetOpsProcedure.input(import_zod2.z.object({ id: import_zod2.z.string().uuid(), vin: import_zod2.z.string().trim().min(5).max(32), licensePlate: import_zod2.z.string().trim().min(3).max(32), chassisNumber: import_zod2.z.string().trim().max(80).nullable().optional(), engineNumber: import_zod2.z.string().trim().max(80).nullable().optional(), vehicleType: import_zod2.z.enum(["BUS", "MINIBUS", "TRUCK", "VAN", "CAR", "OTHER"]).nullable().optional(), assignedRoute: import_zod2.z.string().trim().max(120).nullable().optional(), depotLocation: import_zod2.z.string().trim().max(120).nullable().optional(), make: import_zod2.z.string().trim().min(2), model: import_zod2.z.string().trim().min(2), year: import_zod2.z.number().int().min(1980).max(2100), currentOdometer: import_zod2.z.number().min(0), status: import_zod2.z.enum(["ACTIVE", "OUT_OF_SERVICE", "MAINTENANCE"]).optional() })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["FLEET_MANAGER"]);
       assertWritable(ctx.fleetopsUser.org);
       const vehicle = await fleetDb.vehicle.findFirst({ where: { id: input.id, orgId: ctx.fleetopsUser.orgId } });
-      if (!vehicle) throw new TRPCError3({ code: "NOT_FOUND", message: "Vehicle not found in your organization." });
+      if (!vehicle) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Vehicle not found in your organization." });
       const vin = input.vin.toUpperCase();
       const licensePlate = input.licensePlate.toUpperCase();
       const existingVehicles = await fleetDb.vehicle.findMany({ where: { orgId: ctx.fleetopsUser.orgId } });
-      if (existingVehicles.some((item) => item.id !== vehicle.id && String(item.vin).toUpperCase() === vin)) throw new TRPCError3({ code: "CONFLICT", message: "Another vehicle already uses this VIN." });
-      if (existingVehicles.some((item) => item.id !== vehicle.id && String(item.licensePlate).toUpperCase() === licensePlate)) throw new TRPCError3({ code: "CONFLICT", message: "Another vehicle already uses this registration number." });
+      if (existingVehicles.some((item) => item.id !== vehicle.id && String(item.vin).toUpperCase() === vin)) throw new import_server3.TRPCError({ code: "CONFLICT", message: "Another vehicle already uses this VIN." });
+      if (existingVehicles.some((item) => item.id !== vehicle.id && String(item.licensePlate).toUpperCase() === licensePlate)) throw new import_server3.TRPCError({ code: "CONFLICT", message: "Another vehicle already uses this registration number." });
       const { id, ...data } = input;
       const updated = await fleetDb.vehicle.update({ where: { id }, data: { ...data, vin, licensePlate } });
       if (Number(input.currentOdometer) > Number(vehicle.currentOdometer)) await evaluateVehicleMaintenance(vehicle.id, ctx.fleetopsUser.orgId);
       await recordAudit(ctx, { action: "VEHICLE_UPDATED", entityType: "VEHICLE", entityId: vehicle.id, summary: `${vehicleIdentity(updated)} details updated`, metadata: { previousOdometer: vehicle.currentOdometer, currentOdometer: updated.currentOdometer, vin: updated.vin, licensePlate: updated.licensePlate } });
       return updated;
     }),
-    remove: fleetOpsProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
+    remove: fleetOpsProcedure.input(import_zod2.z.object({ id: import_zod2.z.string().uuid() })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["FLEET_MANAGER"]);
       assertWritable(ctx.fleetopsUser.org);
       const vehicle = await fleetDb.vehicle.findFirst({ where: { id: input.id, orgId: ctx.fleetopsUser.orgId } });
-      if (!vehicle) throw new TRPCError3({ code: "NOT_FOUND", message: "Vehicle not found in your organization." });
+      if (!vehicle) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Vehicle not found in your organization." });
       const deleted = await fleetDb.vehicle.delete({ where: { id: vehicle.id } });
       await recordAudit(ctx, { action: "VEHICLE_DELETED", entityType: "VEHICLE", entityId: vehicle.id, summary: `${vehicleIdentity(vehicle)} deleted from the fleet`, metadata: { vin: vehicle.vin, licensePlate: vehicle.licensePlate } });
       return deleted;
@@ -1363,23 +1387,23 @@ var appRouter = router({
       requireRole(ctx.fleetopsUser.role, ["FLEET_MANAGER"]);
       return fleetDb.odometerLog.findMany({ where: { vehicle: { orgId: ctx.fleetopsUser.orgId } }, include: { vehicle: true }, orderBy: { createdAt: "desc" }, take: 100 });
     }),
-    health: fleetOpsProcedure.input(z2.object({ vehicleId: z2.string().uuid() })).query(async ({ ctx, input }) => {
+    health: fleetOpsProcedure.input(import_zod2.z.object({ vehicleId: import_zod2.z.string().uuid() })).query(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER", "MECHANIC", "TECHNICIAN", "DRIVER"]);
       await assertDriverVehicle(ctx, input.vehicleId);
       const vehicle = await fleetDb.vehicle.findFirst({ where: { id: input.vehicleId, orgId: ctx.fleetopsUser.orgId } });
-      if (!vehicle) throw new TRPCError3({ code: "NOT_FOUND", message: "Vehicle not found in your organization scope." });
+      if (!vehicle) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Vehicle not found in your organization scope." });
       const [components2, odometers, workOrderRows, documents2] = await Promise.all([fleetDb.component.findMany({ where: { vehicleId: vehicle.id }, orderBy: { name: "asc" } }), fleetDb.odometerLog.findMany({ where: { vehicleId: vehicle.id, vehicle: { orgId: ctx.fleetopsUser.orgId } }, orderBy: { createdAt: "desc" }, take: 12 }), fleetDb.workOrder.findMany({ where: { vehicleId: vehicle.id, orgId: ctx.fleetopsUser.orgId, ...["MECHANIC", "TECHNICIAN"].includes(ctx.fleetopsUser.role) ? { assignedMechanicId: ctx.fleetopsUser.id } : {} }, orderBy: { updatedAt: "desc" }, take: 12 }), fleetDb.document.findMany({ where: { vehicleId: vehicle.id, orgId: ctx.fleetopsUser.orgId }, orderBy: { expiryDate: "asc" }, take: 12 })]);
       const workOrders2 = await hydrateWorkOrders(workOrderRows, ctx.fleetopsUser.orgId);
       const dueComponents = components2.filter((item) => Number(vehicle.currentOdometer) - Number(item.lastServicedOdometer) >= Number(item.alertThresholdKm));
       const dueDocuments = documents2.filter((item) => new Date(item.expiryDate).getTime() < Date.now() + 30 * 864e5);
       return { vehicle: { ...vehicle, components: components2 }, odometers, workOrders: workOrders2, documents: documents2, health: { componentCount: components2.length, dueComponents: dueComponents.length, openWorkOrders: workOrders2.filter((item) => !["COMPLETED", "CANCELLED"].includes(item.status)).length, dueDocuments: dueDocuments.length, readiness: vehicle.status === "ACTIVE" && dueComponents.length === 0 && dueDocuments.length === 0 ? "READY" : "REVIEW" } };
     }),
-    updateOdometer: fleetOpsProcedure.input(z2.object({ vehicleId: z2.string().uuid(), reading: z2.number().min(0), source: z2.enum(["MANUAL_DRIVER", "GPS_API", "MECHANIC"]) })).mutation(async ({ ctx, input }) => {
+    updateOdometer: fleetOpsProcedure.input(import_zod2.z.object({ vehicleId: import_zod2.z.string().uuid(), reading: import_zod2.z.number().min(0), source: import_zod2.z.enum(["MANUAL_DRIVER", "GPS_API", "MECHANIC"]) })).mutation(async ({ ctx, input }) => {
       assertWritable(ctx.fleetopsUser.org);
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER", "MECHANIC", "TECHNICIAN", "DRIVER"]);
       await assertDriverVehicle(ctx, input.vehicleId);
       const vehicle = await fleetDb.vehicle.findFirst({ where: { id: input.vehicleId, orgId: ctx.fleetopsUser.orgId } });
-      if (!vehicle) throw new TRPCError3({ code: "NOT_FOUND", message: "Vehicle not found." });
+      if (!vehicle) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Vehicle not found." });
       const current = Number(vehicle.currentOdometer);
       const previousLog = await fleetDb.odometerLog.findFirst({ where: { vehicleId: vehicle.id }, orderBy: { createdAt: "desc" } });
       const elapsedDays = previousLog?.createdAt ? Math.max(1, Math.ceil((Date.now() - new Date(previousLog.createdAt).getTime()) / 864e5)) : 1;
@@ -1395,11 +1419,11 @@ var appRouter = router({
     })
   }),
   planning: router({
-    maintenance: fleetOpsProcedure.input(z2.object({ from: z2.coerce.date().optional(), to: z2.coerce.date().optional() }).optional()).query(async ({ ctx, input }) => {
+    maintenance: fleetOpsProcedure.input(import_zod2.z.object({ from: import_zod2.z.coerce.date().optional(), to: import_zod2.z.coerce.date().optional() }).optional()).query(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER"]);
       const from = input?.from ?? /* @__PURE__ */ new Date();
       const to = input?.to ?? new Date(from.getTime() + 90 * 864e5);
-      if (to < from) throw new TRPCError3({ code: "BAD_REQUEST", message: "The planning end date must be on or after the start date." });
+      if (to < from) throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: "The planning end date must be on or after the start date." });
       const [vehicleRows, documentRows, workOrderRows] = await Promise.all([
         fleetDb.vehicle.findMany({ where: { orgId: ctx.fleetopsUser.orgId }, orderBy: { licensePlate: "asc" } }),
         fleetDb.document.findMany({ where: { orgId: ctx.fleetopsUser.orgId }, orderBy: { expiryDate: "asc" } }),
@@ -1430,10 +1454,10 @@ var appRouter = router({
       const orders = await fleetDb.workOrder.findMany({ where, orderBy: { createdAt: "desc" } });
       return hydrateWorkOrders(orders, ctx.fleetopsUser.orgId);
     }),
-    detail: fleetOpsProcedure.input(z2.object({ workOrderId: z2.string().uuid() })).query(async ({ ctx, input }) => {
+    detail: fleetOpsProcedure.input(import_zod2.z.object({ workOrderId: import_zod2.z.string().uuid() })).query(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER", "MECHANIC", "TECHNICIAN", "ACCOUNTANT"]);
       const order = await fleetDb.workOrder.findFirst({ where: { id: input.workOrderId, orgId: ctx.fleetopsUser.orgId, ...["MECHANIC", "TECHNICIAN"].includes(ctx.fleetopsUser.role) ? { assignedMechanicId: ctx.fleetopsUser.id } : {} } });
-      if (!order) throw new TRPCError3({ code: "NOT_FOUND", message: "Work order is outside your organization or role scope." });
+      if (!order) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Work order is outside your organization or role scope." });
       const [hydratedRows, vehicleComponents, evidence, activity] = await Promise.all([hydrateWorkOrders([order], ctx.fleetopsUser.orgId), fleetDb.component.findMany({ where: { vehicleId: order.vehicleId }, orderBy: { name: "asc" } }), fleetDb.workOrderEvidence.findMany({ where: { orgId: ctx.fleetopsUser.orgId, workOrderId: order.id }, orderBy: { createdAt: "desc" } }), fleetDb.auditEvent.findMany({ where: { orgId: ctx.fleetopsUser.orgId, entityType: "WORK_ORDER", entityId: order.id }, orderBy: { createdAt: "desc" }, take: 100 })]);
       const hydratedOrder = hydratedRows[0];
       return { order: { ...hydratedOrder, vehicle: hydratedOrder.vehicle ? { ...hydratedOrder.vehicle, components: vehicleComponents } : null, evidence }, activity };
@@ -1458,15 +1482,15 @@ var appRouter = router({
       const orders = await hydrateWorkOrders(orderRows, ctx.fleetopsUser.orgId);
       return { columns: ["OPEN", "IN_PROGRESS", "WAITING_FOR_PARTS", "READY_FOR_REVIEW", "REWORK", "COMPLETED", "CANCELLED"].map((status) => ({ status, items: orders.filter((order) => order.status === status) })), totals: { all: orders.length, open: orders.filter((order) => order.status === "OPEN").length, inProgress: orders.filter((order) => order.status === "IN_PROGRESS").length, completed: orders.filter((order) => order.status === "COMPLETED").length } };
     }),
-    updateStatus: fleetOpsProcedure.input(z2.object({ workOrderId: z2.string().uuid(), status: z2.enum(["OPEN", "IN_PROGRESS", "WAITING_FOR_PARTS", "READY_FOR_REVIEW", "REWORK", "CANCELLED"]), expectedUpdatedAt: z2.coerce.date().optional() })).mutation(async ({ ctx, input }) => {
+    updateStatus: fleetOpsProcedure.input(import_zod2.z.object({ workOrderId: import_zod2.z.string().uuid(), status: import_zod2.z.enum(["OPEN", "IN_PROGRESS", "WAITING_FOR_PARTS", "READY_FOR_REVIEW", "REWORK", "CANCELLED"]), expectedUpdatedAt: import_zod2.z.coerce.date().optional() })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["FLEET_MANAGER", "MECHANIC", "TECHNICIAN"]);
       assertWritable(ctx.fleetopsUser.org);
       const order = await fleetDb.workOrder.findFirst({ where: { id: input.workOrderId, orgId: ctx.fleetopsUser.orgId, ...["MECHANIC", "TECHNICIAN"].includes(ctx.fleetopsUser.role) ? { assignedMechanicId: ctx.fleetopsUser.id } : {} } });
-      if (!order) throw new TRPCError3({ code: "NOT_FOUND", message: "Work order not found in your organization scope." });
-      if (input.expectedUpdatedAt && new Date(order.updatedAt).getTime() !== input.expectedUpdatedAt.getTime()) throw new TRPCError3({ code: "CONFLICT", message: "This work order changed elsewhere. Refresh the queue before updating its status." });
+      if (!order) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Work order not found in your organization scope." });
+      if (input.expectedUpdatedAt && new Date(order.updatedAt).getTime() !== input.expectedUpdatedAt.getTime()) throw new import_server3.TRPCError({ code: "CONFLICT", message: "This work order changed elsewhere. Refresh the queue before updating its status." });
       const allowed = { OPEN: ["IN_PROGRESS", "CANCELLED"], IN_PROGRESS: ["WAITING_FOR_PARTS", "READY_FOR_REVIEW", "REWORK", "CANCELLED"], WAITING_FOR_PARTS: ["IN_PROGRESS", "CANCELLED"], READY_FOR_REVIEW: ["COMPLETED", "REWORK"], REWORK: ["IN_PROGRESS", "READY_FOR_REVIEW", "CANCELLED"], COMPLETED: [], CANCELLED: [] };
       const roleAllowed = ctx.fleetopsUser.role === "FLEET_MANAGER" ? ["CANCELLED", "REWORK"] : ["IN_PROGRESS", "WAITING_FOR_PARTS", "READY_FOR_REVIEW", "CANCELLED"];
-      if (!allowed[order.status]?.includes(input.status) || !roleAllowed.includes(input.status)) throw new TRPCError3({ code: "FORBIDDEN", message: `Cannot move work order from ${order.status} to ${input.status}; your role is not permitted to perform this transition.` });
+      if (!allowed[order.status]?.includes(input.status) || !roleAllowed.includes(input.status)) throw new import_server3.TRPCError({ code: "FORBIDDEN", message: `Cannot move work order from ${order.status} to ${input.status}; your role is not permitted to perform this transition.` });
       if (input.status === "READY_FOR_REVIEW") {
         const checklistEvents = await fleetDb.auditEvent.findMany({ where: { orgId: ctx.fleetopsUser.orgId, entityType: "WORK_ORDER", entityId: order.id, action: "WORK_ORDER_CHECKLIST_UPDATED" }, orderBy: { createdAt: "desc" }, take: 1 });
         let items = [];
@@ -1475,22 +1499,22 @@ var appRouter = router({
         } catch {
           items = [];
         }
-        if (!items.length || items.some((item) => !item.completed)) throw new TRPCError3({ code: "BAD_REQUEST", message: "Complete and save every execution checklist item before review." });
+        if (!items.length || items.some((item) => !item.completed)) throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: "Complete and save every execution checklist item before review." });
       }
       const updated = await fleetDb.workOrder.update({ where: { id: order.id }, data: { status: input.status, ...input.status === "IN_PROGRESS" && !order.startedAt ? { startedAt: /* @__PURE__ */ new Date() } : {} } });
       await recordAudit(ctx, { action: "WORK_ORDER_STATUS_CHANGED", entityType: "WORK_ORDER", entityId: order.id, summary: `Work order moved from ${order.status} to ${input.status}`, metadata: { previousStatus: order.status, nextStatus: input.status } });
       return updated;
     }),
-    bulkUpdate: fleetOpsProcedure.input(z2.object({ workOrderIds: z2.array(z2.string().uuid()).min(1).max(100), priority: z2.nativeEnum(Priority).optional(), assignedMechanicId: z2.string().uuid().nullable().optional(), scheduledFor: z2.coerce.date().nullable().optional(), archive: z2.boolean().optional(), cancel: z2.boolean().optional() })).mutation(async ({ ctx, input }) => {
+    bulkUpdate: fleetOpsProcedure.input(import_zod2.z.object({ workOrderIds: import_zod2.z.array(import_zod2.z.string().uuid()).min(1).max(100), priority: import_zod2.z.nativeEnum(Priority).optional(), assignedMechanicId: import_zod2.z.string().uuid().nullable().optional(), scheduledFor: import_zod2.z.coerce.date().nullable().optional(), archive: import_zod2.z.boolean().optional(), cancel: import_zod2.z.boolean().optional() })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER"]);
       assertWritable(ctx.fleetopsUser.org);
-      if (!input.priority && input.assignedMechanicId === void 0 && input.scheduledFor === void 0 && input.archive === void 0 && !input.cancel) throw new TRPCError3({ code: "BAD_REQUEST", message: "Choose a priority, assignee, schedule, archive, or cancellation action." });
+      if (!input.priority && input.assignedMechanicId === void 0 && input.scheduledFor === void 0 && input.archive === void 0 && !input.cancel) throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: "Choose a priority, assignee, schedule, archive, or cancellation action." });
       if (input.assignedMechanicId) {
         const assignee = await fleetDb.user.findFirst({ where: { id: input.assignedMechanicId, orgId: ctx.fleetopsUser.orgId, role: { in: ["MECHANIC", "TECHNICIAN"] } } });
-        if (!assignee) throw new TRPCError3({ code: "BAD_REQUEST", message: "Assignee must belong to this organization." });
+        if (!assignee) throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: "Assignee must belong to this organization." });
       }
       const orders = await fleetDb.workOrder.findMany({ where: { orgId: ctx.fleetopsUser.orgId, id: { in: input.workOrderIds } } });
-      if (orders.length !== input.workOrderIds.length) throw new TRPCError3({ code: "NOT_FOUND", message: "One or more work orders are outside this organization." });
+      if (orders.length !== input.workOrderIds.length) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "One or more work orders are outside this organization." });
       const results = [];
       for (const order of orders) {
         if (input.cancel && ["COMPLETED", "CANCELLED"].includes(order.status)) continue;
@@ -1500,39 +1524,39 @@ var appRouter = router({
       }
       return { updated: results.length, skipped: orders.length - results.length, workOrders: results };
     }),
-    assign: fleetOpsProcedure.input(z2.object({ workOrderId: z2.string().uuid(), assignedMechanicId: z2.string().uuid().nullable() })).mutation(async ({ ctx, input }) => {
+    assign: fleetOpsProcedure.input(import_zod2.z.object({ workOrderId: import_zod2.z.string().uuid(), assignedMechanicId: import_zod2.z.string().uuid().nullable() })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER"]);
       assertWritable(ctx.fleetopsUser.org);
       const order = await fleetDb.workOrder.findFirst({ where: { id: input.workOrderId, orgId: ctx.fleetopsUser.orgId } });
-      if (!order) throw new TRPCError3({ code: "NOT_FOUND", message: "Work order not found in this organization." });
+      if (!order) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Work order not found in this organization." });
       let assignee = null;
       if (input.assignedMechanicId) {
         assignee = await fleetDb.user.findFirst({ where: { id: input.assignedMechanicId, orgId: ctx.fleetopsUser.orgId, role: { in: ["MECHANIC", "TECHNICIAN"] } } });
-        if (!assignee) throw new TRPCError3({ code: "BAD_REQUEST", message: "Owner must be a mechanic or technician in this organization." });
+        if (!assignee) throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: "Owner must be a mechanic or technician in this organization." });
       }
       const updated = await fleetDb.workOrder.update({ where: { id: order.id }, data: { assignedMechanicId: input.assignedMechanicId } });
       await recordAudit(ctx, { action: "WORK_ORDER_ASSIGNED", entityType: "WORK_ORDER", entityId: order.id, summary: `${order.title} assigned to ${assignee?.fullName ?? "unassigned"}`, metadata: { previousAssignedMechanicId: order.assignedMechanicId, assignedMechanicId: input.assignedMechanicId } });
       return updated;
     }),
-    startWork: fleetOpsProcedure.input(z2.object({ workOrderId: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
+    startWork: fleetOpsProcedure.input(import_zod2.z.object({ workOrderId: import_zod2.z.string().uuid() })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["MECHANIC", "TECHNICIAN"]);
       assertWritable(ctx.fleetopsUser.org);
       const order = await fleetDb.workOrder.findFirst({ where: { id: input.workOrderId, orgId: ctx.fleetopsUser.orgId, assignedMechanicId: ctx.fleetopsUser.id } });
-      if (!order) throw new TRPCError3({ code: "NOT_FOUND", message: "Work order is not assigned to you." });
-      if (["COMPLETED", "CANCELLED"].includes(order.status)) throw new TRPCError3({ code: "BAD_REQUEST", message: "Closed work orders cannot be started." });
+      if (!order) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Work order is not assigned to you." });
+      if (["COMPLETED", "CANCELLED"].includes(order.status)) throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: "Closed work orders cannot be started." });
       const started = await fleetDb.workOrder.update({ where: { id: order.id }, data: { status: "IN_PROGRESS", startedAt: order.startedAt ?? /* @__PURE__ */ new Date() } });
       await recordAudit(ctx, { action: "WORK_ORDER_STARTED", entityType: "WORK_ORDER", entityId: order.id, summary: `Work started on ${order.title}`, metadata: { previousStatus: order.status } });
       const managers = await fleetDb.user.findMany({ where: { orgId: ctx.fleetopsUser.orgId, role: { in: ["FLEET_MANAGER", "SUPERADMIN"] } } });
       if (managers.length && fleetDb.notification?.createMany) await fleetDb.notification.createMany({ data: managers.map((manager) => ({ id: crypto.randomUUID(), orgId: ctx.fleetopsUser.orgId, recipientId: manager.id, title: "Work order started", message: `${order.title} is now in progress by ${ctx.fleetopsUser.fullName}.`, type: "WORK_ORDER_STARTED", severity: "INFO", sourceType: "WORK_ORDER", dedupeKey: `WORK_ORDER_STARTED:${order.id}:${ctx.fleetopsUser.id}`, referenceId: order.id, isRead: false, createdAt: /* @__PURE__ */ new Date() })) });
       return started;
     }),
-    reservePart: fleetOpsProcedure.input(z2.object({ workOrderId: z2.string().uuid(), partId: z2.string().uuid(), quantity: z2.number().int().positive(), reason: z2.string().trim().min(3).max(300).default("Reserved for work order") })).mutation(async ({ ctx, input }) => {
+    reservePart: fleetOpsProcedure.input(import_zod2.z.object({ workOrderId: import_zod2.z.string().uuid(), partId: import_zod2.z.string().uuid(), quantity: import_zod2.z.number().int().positive(), reason: import_zod2.z.string().trim().min(3).max(300).default("Reserved for work order") })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["FLEET_MANAGER", "INVENTORY_MANAGER", "MECHANIC", "TECHNICIAN"]);
       assertWritable(ctx.fleetopsUser.org);
       const order = await fleetDb.workOrder.findFirst({ where: { id: input.workOrderId, orgId: ctx.fleetopsUser.orgId, ...["MECHANIC", "TECHNICIAN"].includes(ctx.fleetopsUser.role) ? { assignedMechanicId: ctx.fleetopsUser.id } : {} } });
-      if (!order) throw new TRPCError3({ code: "NOT_FOUND", message: "Work order not found in your organization scope." });
+      if (!order) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Work order not found in your organization scope." });
       const part = await fleetDb.inventoryPart.findFirst({ where: { id: input.partId, orgId: ctx.fleetopsUser.orgId } });
-      if (!part) throw new TRPCError3({ code: "NOT_FOUND", message: "Inventory part not found." });
+      if (!part) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Inventory part not found." });
       const [reservations, releases] = await Promise.all([fleetDb.auditEvent.findMany({ where: { orgId: ctx.fleetopsUser.orgId, action: "INVENTORY_PART_RESERVED" } }), fleetDb.auditEvent.findMany({ where: { orgId: ctx.fleetopsUser.orgId, action: "INVENTORY_PART_RETURNED" } })]);
       const activeReserved = reservations.filter((event) => {
         try {
@@ -1555,13 +1579,13 @@ var appRouter = router({
           return sum;
         }
       }, 0);
-      if (Number(part.quantityOnHand) - activeReserved < input.quantity) throw new TRPCError3({ code: "BAD_REQUEST", message: "Insufficient available stock after existing reservations." });
+      if (Number(part.quantityOnHand) - activeReserved < input.quantity) throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: "Insufficient available stock after existing reservations." });
       const reservationId = crypto.randomUUID();
       if (fleetDb.inventoryMovement?.create) await fleetDb.inventoryMovement.create({ data: { id: crypto.randomUUID(), orgId: ctx.fleetopsUser.orgId, partId: part.id, workOrderId: order.id, actorId: ctx.fleetopsUser.id, movementType: "RESERVATION", quantity: input.quantity, unitCost: part.unitCost, reason: input.reason, createdAt: /* @__PURE__ */ new Date() } });
       await recordAudit(ctx, { action: "INVENTORY_PART_RESERVED", entityType: "WORK_ORDER_PART", entityId: order.id, summary: `Reserved ${input.quantity} ${part.name} for work order`, metadata: { reservationId, workOrderId: order.id, partId: part.id, quantity: input.quantity, reason: input.reason } });
       return { reservationId, workOrderId: order.id, partId: part.id, quantity: input.quantity };
     }),
-    returnReservedPart: fleetOpsProcedure.input(z2.object({ reservationId: z2.string().uuid(), quantity: z2.number().int().positive(), reason: z2.string().trim().min(3).max(300).default("Returned unused reserved stock") })).mutation(async ({ ctx, input }) => {
+    returnReservedPart: fleetOpsProcedure.input(import_zod2.z.object({ reservationId: import_zod2.z.string().uuid(), quantity: import_zod2.z.number().int().positive(), reason: import_zod2.z.string().trim().min(3).max(300).default("Returned unused reserved stock") })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["FLEET_MANAGER", "INVENTORY_MANAGER", "MECHANIC", "TECHNICIAN"]);
       assertWritable(ctx.fleetopsUser.org);
       const reservations = await fleetDb.auditEvent.findMany({ where: { orgId: ctx.fleetopsUser.orgId, action: "INVENTORY_PART_RESERVED" } });
@@ -1573,7 +1597,7 @@ var appRouter = router({
           return false;
         }
       });
-      if (!reservation) throw new TRPCError3({ code: "NOT_FOUND", message: "Active part reservation not found." });
+      if (!reservation) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Active part reservation not found." });
       const metadata = JSON.parse(reservation.metadata ?? "{}");
       const returnedQuantity = releases.filter((event) => {
         try {
@@ -1588,49 +1612,49 @@ var appRouter = router({
           return sum;
         }
       }, 0);
-      if (returnedQuantity >= Number(metadata.quantity)) throw new TRPCError3({ code: "BAD_REQUEST", message: "This part reservation has already been returned." });
-      if (input.quantity > Number(metadata.quantity) - returnedQuantity) throw new TRPCError3({ code: "BAD_REQUEST", message: "Return quantity cannot exceed the remaining reserved quantity." });
+      if (returnedQuantity >= Number(metadata.quantity)) throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: "This part reservation has already been returned." });
+      if (input.quantity > Number(metadata.quantity) - returnedQuantity) throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: "Return quantity cannot exceed the remaining reserved quantity." });
       const part = await fleetDb.inventoryPart.findFirst({ where: { id: metadata.partId, orgId: ctx.fleetopsUser.orgId } });
-      if (!part) throw new TRPCError3({ code: "NOT_FOUND", message: "Reserved part is no longer in this organization." });
+      if (!part) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Reserved part is no longer in this organization." });
       const order = await fleetDb.workOrder.findFirst({ where: { id: metadata.workOrderId, orgId: ctx.fleetopsUser.orgId, ...["MECHANIC", "TECHNICIAN"].includes(ctx.fleetopsUser.role) ? { assignedMechanicId: ctx.fleetopsUser.id } : {} } });
-      if (!order) throw new TRPCError3({ code: "NOT_FOUND", message: "Work order is outside your role scope." });
+      if (!order) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Work order is outside your role scope." });
       if (fleetDb.inventoryMovement?.create) await fleetDb.inventoryMovement.create({ data: { id: crypto.randomUUID(), orgId: ctx.fleetopsUser.orgId, partId: part.id, workOrderId: order.id, actorId: ctx.fleetopsUser.id, movementType: "RETURN", quantity: input.quantity, unitCost: part.unitCost, reason: input.reason, createdAt: /* @__PURE__ */ new Date() } });
       await recordAudit(ctx, { action: "INVENTORY_PART_RETURNED", entityType: "WORK_ORDER_PART", entityId: order.id, summary: `Returned ${input.quantity} ${part.name} from work order reservation`, metadata: { reservationId: input.reservationId, workOrderId: order.id, partId: part.id, quantity: input.quantity, reason: input.reason } });
       return { reservationId: input.reservationId, workOrderId: order.id, partId: part.id, quantity: input.quantity };
     }),
-    create: fleetOpsProcedure.input(z2.object({ vehicleId: z2.string().uuid(), title: z2.string().min(3), description: z2.string().optional(), priority: z2.nativeEnum(Priority).default(Priority.MEDIUM), assignedMechanicId: z2.string().uuid().optional() })).mutation(async ({ ctx, input }) => {
+    create: fleetOpsProcedure.input(import_zod2.z.object({ vehicleId: import_zod2.z.string().uuid(), title: import_zod2.z.string().min(3), description: import_zod2.z.string().optional(), priority: import_zod2.z.nativeEnum(Priority).default(Priority.MEDIUM), assignedMechanicId: import_zod2.z.string().uuid().optional() })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER", "MECHANIC", "TECHNICIAN"]);
       assertWritable(ctx.fleetopsUser.org);
       const vehicle = await fleetDb.vehicle.findFirst({ where: { id: input.vehicleId, orgId: ctx.fleetopsUser.orgId } });
-      if (!vehicle) throw new TRPCError3({ code: "NOT_FOUND", message: "Vehicle not found." });
+      if (!vehicle) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Vehicle not found." });
       if (input.assignedMechanicId) {
         const assignee = await fleetDb.user.findFirst({ where: { id: input.assignedMechanicId, orgId: ctx.fleetopsUser.orgId, role: { in: ["MECHANIC", "TECHNICIAN"] } } });
-        if (!assignee) throw new TRPCError3({ code: "BAD_REQUEST", message: "Mechanic or Technician must belong to this organization." });
+        if (!assignee) throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: "Mechanic or Technician must belong to this organization." });
       }
       const created = await fleetDb.workOrder.create({ data: { id: crypto.randomUUID(), ...input, status: "OPEN", orgId: ctx.fleetopsUser.orgId, createdAt: /* @__PURE__ */ new Date() } });
       await recordAudit(ctx, { action: "WORK_ORDER_CREATED", entityType: "WORK_ORDER", entityId: created.id, summary: `Work order created: ${created.title}`, metadata: { priority: created.priority, assignedMechanicId: created.assignedMechanicId } });
       return created;
     }),
-    update: fleetOpsProcedure.input(z2.object({ workOrderId: z2.string().uuid(), title: z2.string().trim().min(3).max(160).optional(), description: z2.string().trim().max(2e3).nullable().optional(), priority: z2.nativeEnum(Priority).optional(), assignedMechanicId: z2.string().uuid().nullable().optional() }).refine((input) => input.title !== void 0 || input.description !== void 0 || input.priority !== void 0 || input.assignedMechanicId !== void 0, { message: "Provide at least one work-order field to update." })).mutation(async ({ ctx, input }) => {
+    update: fleetOpsProcedure.input(import_zod2.z.object({ workOrderId: import_zod2.z.string().uuid(), title: import_zod2.z.string().trim().min(3).max(160).optional(), description: import_zod2.z.string().trim().max(2e3).nullable().optional(), priority: import_zod2.z.nativeEnum(Priority).optional(), assignedMechanicId: import_zod2.z.string().uuid().nullable().optional() }).refine((input) => input.title !== void 0 || input.description !== void 0 || input.priority !== void 0 || input.assignedMechanicId !== void 0, { message: "Provide at least one work-order field to update." })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER"]);
       assertWritable(ctx.fleetopsUser.org);
       const order = await fleetDb.workOrder.findFirst({ where: { id: input.workOrderId, orgId: ctx.fleetopsUser.orgId } });
-      if (!order) throw new TRPCError3({ code: "NOT_FOUND", message: "Work order not found in this organization." });
+      if (!order) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Work order not found in this organization." });
       if (input.assignedMechanicId) {
         const assignee = await fleetDb.user.findFirst({ where: { id: input.assignedMechanicId, orgId: ctx.fleetopsUser.orgId, role: { in: ["MECHANIC", "TECHNICIAN"] } } });
-        if (!assignee) throw new TRPCError3({ code: "BAD_REQUEST", message: "Mechanic or Technician must belong to this organization." });
+        if (!assignee) throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: "Mechanic or Technician must belong to this organization." });
       }
       const updated = await fleetDb.workOrder.update({ where: { id: order.id }, data: { ...input.title !== void 0 ? { title: input.title } : {}, ...input.description !== void 0 ? { description: input.description } : {}, ...input.priority !== void 0 ? { priority: input.priority } : {}, ...input.assignedMechanicId !== void 0 ? { assignedMechanicId: input.assignedMechanicId } : {} } });
       await recordAudit(ctx, { action: "WORK_ORDER_UPDATED", entityType: "WORK_ORDER", entityId: updated.id, summary: `Updated work order: ${updated.title}`, metadata: { title: input.title, descriptionChanged: input.description !== void 0, priority: input.priority, assignedMechanicId: input.assignedMechanicId ?? null } });
       return updated;
     }),
-    complete: fleetOpsProcedure.input(z2.object({ workOrderId: z2.string().uuid(), expectedUpdatedAt: z2.coerce.date().optional(), parts: z2.array(z2.object({ partId: z2.string().uuid(), qtyUsed: z2.number().int().positive() })).default([]), laborHours: z2.number().nonnegative().max(1e3).default(0), repairNotes: z2.string().trim().min(3).max(5e3).default("Completed from organization oversight."), evidence: z2.array(z2.object({ fileData: z2.string().max(6e6), contentType: z2.string().startsWith("image/"), fileName: z2.string().min(1).max(200), caption: z2.string().max(500).optional() })).max(8).default([]) })).mutation(async ({ ctx, input }) => {
+    complete: fleetOpsProcedure.input(import_zod2.z.object({ workOrderId: import_zod2.z.string().uuid(), expectedUpdatedAt: import_zod2.z.coerce.date().optional(), parts: import_zod2.z.array(import_zod2.z.object({ partId: import_zod2.z.string().uuid(), qtyUsed: import_zod2.z.number().int().positive() })).default([]), laborHours: import_zod2.z.number().nonnegative().max(1e3).default(0), repairNotes: import_zod2.z.string().trim().min(3).max(5e3).default("Completed from organization oversight."), evidence: import_zod2.z.array(import_zod2.z.object({ fileData: import_zod2.z.string().max(6e6), contentType: import_zod2.z.string().startsWith("image/"), fileName: import_zod2.z.string().min(1).max(200), caption: import_zod2.z.string().max(500).optional() })).max(8).default([]) })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["MECHANIC", "TECHNICIAN"]);
       assertWritable(ctx.fleetopsUser.org);
       const order = await fleetDb.workOrder.findFirst({ where: { id: input.workOrderId, orgId: ctx.fleetopsUser.orgId, ...["MECHANIC", "TECHNICIAN"].includes(ctx.fleetopsUser.role) ? { assignedMechanicId: ctx.fleetopsUser.id } : {} }, include: { vehicle: true } });
-      if (!order) throw new TRPCError3({ code: "NOT_FOUND", message: "Work order not found." });
-      if (input.expectedUpdatedAt && new Date(order.updatedAt).getTime() !== input.expectedUpdatedAt.getTime()) throw new TRPCError3({ code: "CONFLICT", message: "This work order changed elsewhere. Refresh before submitting completion." });
-      if (!["IN_PROGRESS", "REWORK"].includes(order.status)) throw new TRPCError3({ code: "BAD_REQUEST", message: "Start work and move the order into execution before submitting completion." });
+      if (!order) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Work order not found." });
+      if (input.expectedUpdatedAt && new Date(order.updatedAt).getTime() !== input.expectedUpdatedAt.getTime()) throw new import_server3.TRPCError({ code: "CONFLICT", message: "This work order changed elsewhere. Refresh before submitting completion." });
+      if (!["IN_PROGRESS", "REWORK"].includes(order.status)) throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: "Start work and move the order into execution before submitting completion." });
       const checklistEvents = await fleetDb.auditEvent.findMany({ where: { orgId: ctx.fleetopsUser.orgId, entityType: "WORK_ORDER", entityId: order.id, action: "WORK_ORDER_CHECKLIST_UPDATED" }, orderBy: { createdAt: "desc" }, take: 1 });
       let checklistItems = [];
       try {
@@ -1638,7 +1662,7 @@ var appRouter = router({
       } catch {
         checklistItems = [];
       }
-      if (!checklistItems.length || checklistItems.some((item) => !item.completed)) throw new TRPCError3({ code: "BAD_REQUEST", message: "Complete and save every execution checklist item before submitting completion." });
+      if (!checklistItems.length || checklistItems.some((item) => !item.completed)) throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: "Complete and save every execution checklist item before submitting completion." });
       const uploadedEvidence = await Promise.all(input.evidence.map(async (item, index) => {
         const raw = item.fileData.replace(/^data:[^;]+;base64,/, "");
         return { ...item, uploaded: await storagePut(`fleetops/work-orders/${ctx.fleetopsUser.orgId}/${order.id}/${Date.now()}-${index}-${item.fileName}`, Buffer.from(raw, "base64"), item.contentType) };
@@ -1647,7 +1671,7 @@ var appRouter = router({
         let partsCost = 0;
         for (const requested of input.parts) {
           const part = await tx.inventoryPart.findFirst({ where: { id: requested.partId, orgId: ctx.fleetopsUser.orgId } });
-          if (!part || part.quantityOnHand < requested.qtyUsed) throw new TRPCError3({ code: "BAD_REQUEST", message: "Insufficient inventory for one or more parts." });
+          if (!part || part.quantityOnHand < requested.qtyUsed) throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: "Insufficient inventory for one or more parts." });
           partsCost += Number(part.unitCost) * requested.qtyUsed;
           await tx.inventoryPart.update({ where: { id: part.id }, data: { quantityOnHand: { decrement: requested.qtyUsed } } });
           await tx.workOrderPart.create({ data: { id: crypto.randomUUID(), workOrderId: order.id, partId: part.id, qtyUsed: requested.qtyUsed, unitPrice: part.unitCost } });
@@ -1663,21 +1687,21 @@ var appRouter = router({
       await evaluateLowInventory(ctx.fleetopsUser.orgId);
       return result;
     }),
-    updateChecklist: fleetOpsProcedure.input(z2.object({ workOrderId: z2.string().uuid(), items: z2.array(z2.object({ id: z2.string().min(1).max(80), title: z2.string().trim().min(2).max(160), completed: z2.boolean() })).min(1).max(30) })).mutation(async ({ ctx, input }) => {
+    updateChecklist: fleetOpsProcedure.input(import_zod2.z.object({ workOrderId: import_zod2.z.string().uuid(), items: import_zod2.z.array(import_zod2.z.object({ id: import_zod2.z.string().min(1).max(80), title: import_zod2.z.string().trim().min(2).max(160), completed: import_zod2.z.boolean() })).min(1).max(30) })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["MECHANIC", "TECHNICIAN"]);
       assertWritable(ctx.fleetopsUser.org);
       const order = await fleetDb.workOrder.findFirst({ where: { id: input.workOrderId, orgId: ctx.fleetopsUser.orgId, assignedMechanicId: ctx.fleetopsUser.id } });
-      if (!order) throw new TRPCError3({ code: "NOT_FOUND", message: "Work order is not assigned to you." });
+      if (!order) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Work order is not assigned to you." });
       await recordAudit(ctx, { action: "WORK_ORDER_CHECKLIST_UPDATED", entityType: "WORK_ORDER", entityId: order.id, summary: `Checklist updated for ${order.title}`, metadata: { items: input.items } });
       return { workOrderId: order.id, items: input.items };
     }),
-    approve: fleetOpsProcedure.input(z2.object({ workOrderId: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
+    approve: fleetOpsProcedure.input(import_zod2.z.object({ workOrderId: import_zod2.z.string().uuid() })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER"]);
       assertWritable(ctx.fleetopsUser.org);
       const order = await fleetDb.workOrder.findFirst({ where: { id: input.workOrderId, orgId: ctx.fleetopsUser.orgId, status: "READY_FOR_REVIEW" }, include: { vehicle: true, partsUsed: true } });
-      if (!order) throw new TRPCError3({ code: "NOT_FOUND", message: "Only work orders ready for review can be approved." });
+      if (!order) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Only work orders ready for review can be approved." });
       const vehicle = await fleetDb.vehicle.findFirst({ where: { id: order.vehicleId, orgId: ctx.fleetopsUser.orgId } });
-      if (!vehicle) throw new TRPCError3({ code: "NOT_FOUND", message: "The work order vehicle is not available in this organization." });
+      if (!vehicle) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "The work order vehicle is not available in this organization." });
       const latestOdometer = await fleetDb.odometerLog.findFirst({ where: { vehicleId: order.vehicleId }, orderBy: { createdAt: "desc" } });
       const serviceOdometer = latestOdometer?.reading ?? vehicle.currentOdometer;
       const checklistEvents = await fleetDb.auditEvent.findMany({ where: { orgId: ctx.fleetopsUser.orgId, entityType: "WORK_ORDER", entityId: order.id, action: "WORK_ORDER_CHECKLIST_UPDATED" }, orderBy: { createdAt: "desc" }, take: 1 });
@@ -1687,7 +1711,7 @@ var appRouter = router({
       } catch {
         items = [];
       }
-      if (!items.length || items.some((item) => !item.completed)) throw new TRPCError3({ code: "BAD_REQUEST", message: "Complete every execution checklist item before approval." });
+      if (!items.length || items.some((item) => !item.completed)) throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: "Complete every execution checklist item before approval." });
       const recordedParts = await fleetDb.workOrderPart.findMany({ where: { workOrderId: order.id } });
       const partsCost = recordedParts.reduce((sum, part) => sum + Number(part.unitPrice ?? 0) * Number(part.qtyUsed ?? 0), 0);
       const reservations = await fleetDb.auditEvent.findMany({ where: { orgId: ctx.fleetopsUser.orgId, action: "INVENTORY_PART_RESERVED" } });
@@ -1740,7 +1764,7 @@ var appRouter = router({
           const part = reservedPartRows.find((row) => row.id === metadata.partId);
           if (!part || quantityToConsume <= 0) continue;
           const changed = await tx.inventoryPart.updateMany({ where: { id: part.id, orgId: ctx.fleetopsUser.orgId, quantityOnHand: { gte: quantityToConsume } }, data: { quantityOnHand: { decrement: quantityToConsume } } });
-          if (!changed.count) throw new TRPCError3({ code: "CONFLICT", message: `Insufficient stock to consume reserved part ${part.name}.` });
+          if (!changed.count) throw new import_server3.TRPCError({ code: "CONFLICT", message: `Insufficient stock to consume reserved part ${part.name}.` });
           await tx.workOrderPart.create({ data: { id: crypto.randomUUID(), workOrderId: order.id, partId: part.id, qtyUsed: quantityToConsume, unitPrice: part.unitCost } });
           if (tx.inventoryMovement?.create) await tx.inventoryMovement.create({ data: { id: crypto.randomUUID(), orgId: ctx.fleetopsUser.orgId, partId: part.id, workOrderId: order.id, actorId: ctx.fleetopsUser.id, movementType: "ISSUE", quantity: -quantityToConsume, unitCost: part.unitCost, reason: `Consumed for approved work order ${order.id}`, createdAt: /* @__PURE__ */ new Date() } });
         }
@@ -1757,10 +1781,10 @@ var appRouter = router({
     })
   }),
   inventory: router({
-    get: fleetOpsProcedure.input(z2.object({ partId: z2.string().uuid() })).query(async ({ ctx, input }) => {
+    get: fleetOpsProcedure.input(import_zod2.z.object({ partId: import_zod2.z.string().uuid() })).query(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "INVENTORY_MANAGER"]);
       const part = await fleetDb.inventoryPart.findFirst({ where: { id: input.partId, orgId: ctx.fleetopsUser.orgId } });
-      if (!part) throw new TRPCError3({ code: "NOT_FOUND", message: "Inventory part not found." });
+      if (!part) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Inventory part not found." });
       const movements = await fleetDb.inventoryMovement.findMany({ where: { orgId: ctx.fleetopsUser.orgId, partId: part.id }, orderBy: { createdAt: "desc" }, take: 100 });
       const reserved = movements.filter((movement) => movement.movementType === "RESERVATION" && Number(movement.quantity) > 0).reduce((sum, movement) => sum + Number(movement.quantity), 0);
       const released = movements.filter((movement) => movement.movementType === "RELEASE" || movement.movementType === "ISSUE").reduce((sum, movement) => sum + Math.abs(Number(movement.quantity)), 0);
@@ -1774,14 +1798,14 @@ var appRouter = router({
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "INVENTORY_MANAGER", "FLEET_MANAGER", "MECHANIC", "TECHNICIAN"]);
       return fleetDb.inventoryPart.findMany({ where: { orgId: ctx.fleetopsUser.orgId }, select: { id: true, sku: true, name: true }, orderBy: { name: "asc" } });
     }),
-    movements: fleetOpsProcedure.input(z2.object({ partId: z2.string().uuid().optional(), workOrderId: z2.string().uuid().optional() }).optional()).query(async ({ ctx, input }) => {
+    movements: fleetOpsProcedure.input(import_zod2.z.object({ partId: import_zod2.z.string().uuid().optional(), workOrderId: import_zod2.z.string().uuid().optional() }).optional()).query(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "INVENTORY_MANAGER", "MECHANIC", "TECHNICIAN"]);
       const filters = { ...input?.partId ? { partId: input.partId } : {}, ...input?.workOrderId ? { workOrderId: input.workOrderId } : {} };
       if (ctx.fleetopsUser.role === "SUPERADMIN" || ctx.fleetopsUser.role === "INVENTORY_MANAGER") return fleetDb.inventoryMovement.findMany({ where: { orgId: ctx.fleetopsUser.orgId, ...filters }, orderBy: { createdAt: "desc" }, take: 100 });
       const assignedOrders = await fleetDb.workOrder.findMany({ where: { orgId: ctx.fleetopsUser.orgId, assignedMechanicId: ctx.fleetopsUser.id }, select: { id: true } });
       return fleetDb.inventoryMovement.findMany({ where: { orgId: ctx.fleetopsUser.orgId, workOrderId: { in: assignedOrders.map((order) => order.id) }, ...input?.partId ? { partId: input.partId } : {}, ...input?.workOrderId ? { workOrderId: input.workOrderId } : {} }, orderBy: { createdAt: "desc" }, take: 100 });
     }),
-    create: fleetOpsProcedure.input(z2.object({ sku: z2.string().min(1), name: z2.string().min(2), binLocation: z2.string().optional(), quantityOnHand: z2.number().int().nonnegative(), minReorderLevel: z2.number().int().nonnegative().default(5), unitCost: z2.number().nonnegative() })).mutation(async ({ ctx, input }) => {
+    create: fleetOpsProcedure.input(import_zod2.z.object({ sku: import_zod2.z.string().min(1), name: import_zod2.z.string().min(2), binLocation: import_zod2.z.string().optional(), quantityOnHand: import_zod2.z.number().int().nonnegative(), minReorderLevel: import_zod2.z.number().int().nonnegative().default(5), unitCost: import_zod2.z.number().nonnegative() })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "INVENTORY_MANAGER"]);
       assertWritable(ctx.fleetopsUser.org);
       const part = await fleetDb.inventoryPart.create({ data: { id: crypto.randomUUID(), ...input, orgId: ctx.fleetopsUser.orgId } });
@@ -1790,11 +1814,11 @@ var appRouter = router({
       await evaluateLowInventory(ctx.fleetopsUser.orgId);
       return part;
     }),
-    receive: fleetOpsProcedure.input(z2.object({ partId: z2.string().uuid(), quantity: z2.number().int().positive(), unitCost: z2.number().nonnegative().optional(), reason: z2.string().min(3).max(300) })).mutation(async ({ ctx, input }) => {
+    receive: fleetOpsProcedure.input(import_zod2.z.object({ partId: import_zod2.z.string().uuid(), quantity: import_zod2.z.number().int().positive(), unitCost: import_zod2.z.number().nonnegative().optional(), reason: import_zod2.z.string().min(3).max(300) })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "INVENTORY_MANAGER"]);
       assertWritable(ctx.fleetopsUser.org);
       const part = await fleetDb.inventoryPart.findFirst({ where: { id: input.partId, orgId: ctx.fleetopsUser.orgId } });
-      if (!part) throw new TRPCError3({ code: "NOT_FOUND", message: "Inventory part not found." });
+      if (!part) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Inventory part not found." });
       const updated = await fleetDb.$transaction(async (tx) => {
         const next = await tx.inventoryPart.update({ where: { id: part.id }, data: { quantityOnHand: { increment: input.quantity }, ...input.unitCost !== void 0 ? { unitCost: input.unitCost } : {} } });
         if (tx.inventoryMovement?.create) await tx.inventoryMovement.create({ data: { id: crypto.randomUUID(), orgId: ctx.fleetopsUser.orgId, partId: part.id, actorId: ctx.fleetopsUser.id, movementType: "RECEIPT", quantity: input.quantity, unitCost: input.unitCost ?? part.unitCost, reason: input.reason, createdAt: /* @__PURE__ */ new Date() } });
@@ -1803,18 +1827,18 @@ var appRouter = router({
       await recordAudit(ctx, { action: "INVENTORY_RECEIVED", entityType: "INVENTORY_PART", entityId: part.id, summary: `Received ${input.quantity} units of ${part.name}`, metadata: { quantity: input.quantity, reason: input.reason } });
       return updated;
     }),
-    issue: fleetOpsProcedure.input(z2.object({ partId: z2.string().uuid(), quantity: z2.number().int().positive(), reason: z2.string().min(3).max(300), workOrderId: z2.string().uuid().optional() })).mutation(async ({ ctx, input }) => {
+    issue: fleetOpsProcedure.input(import_zod2.z.object({ partId: import_zod2.z.string().uuid(), quantity: import_zod2.z.number().int().positive(), reason: import_zod2.z.string().min(3).max(300), workOrderId: import_zod2.z.string().uuid().optional() })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "INVENTORY_MANAGER", "MECHANIC", "TECHNICIAN"]);
       assertWritable(ctx.fleetopsUser.org);
       const part = await fleetDb.inventoryPart.findFirst({ where: { id: input.partId, orgId: ctx.fleetopsUser.orgId } });
-      if (!part) throw new TRPCError3({ code: "NOT_FOUND", message: "Inventory part not found." });
-      if ((ctx.fleetopsUser.role === "MECHANIC" || ctx.fleetopsUser.role === "TECHNICIAN") && !input.workOrderId) throw new TRPCError3({ code: "BAD_REQUEST", message: "Mechanics and Technicians must link issued parts to an assigned work order." });
+      if (!part) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Inventory part not found." });
+      if ((ctx.fleetopsUser.role === "MECHANIC" || ctx.fleetopsUser.role === "TECHNICIAN") && !input.workOrderId) throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: "Mechanics and Technicians must link issued parts to an assigned work order." });
       const workOrder = input.workOrderId ? await fleetDb.workOrder.findFirst({ where: { id: input.workOrderId, orgId: ctx.fleetopsUser.orgId, status: { notIn: ["COMPLETED", "CANCELLED"] }, ...ctx.fleetopsUser.role === "MECHANIC" || ctx.fleetopsUser.role === "TECHNICIAN" ? { assignedMechanicId: ctx.fleetopsUser.id } : {} } }) : null;
-      if (input.workOrderId && !workOrder) throw new TRPCError3({ code: "BAD_REQUEST", message: "Work order is not active or is outside your assigned maintenance scope." });
-      if (part.quantityOnHand < input.quantity) throw new TRPCError3({ code: "BAD_REQUEST", message: "Insufficient inventory for this issue." });
+      if (input.workOrderId && !workOrder) throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: "Work order is not active or is outside your assigned maintenance scope." });
+      if (part.quantityOnHand < input.quantity) throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: "Insufficient inventory for this issue." });
       const updated = await fleetDb.$transaction(async (tx) => {
         const changed = await tx.inventoryPart.updateMany({ where: { id: part.id, orgId: ctx.fleetopsUser.orgId, quantityOnHand: { gte: input.quantity } }, data: { quantityOnHand: { decrement: input.quantity } } });
-        if (!changed.count) throw new TRPCError3({ code: "CONFLICT", message: "Inventory changed while this part was being issued. Refresh the balance and retry." });
+        if (!changed.count) throw new import_server3.TRPCError({ code: "CONFLICT", message: "Inventory changed while this part was being issued. Refresh the balance and retry." });
         const next = await tx.inventoryPart.findFirst({ where: { id: part.id, orgId: ctx.fleetopsUser.orgId } });
         if (tx.inventoryMovement?.create) await tx.inventoryMovement.create({ data: { id: crypto.randomUUID(), orgId: ctx.fleetopsUser.orgId, partId: part.id, workOrderId: input.workOrderId, actorId: ctx.fleetopsUser.id, movementType: "ISSUE", quantity: -input.quantity, unitCost: part.unitCost, reason: input.reason, createdAt: /* @__PURE__ */ new Date() } });
         return next;
@@ -1823,11 +1847,11 @@ var appRouter = router({
       await evaluateLowInventory(ctx.fleetopsUser.orgId);
       return updated;
     }),
-    transfer: fleetOpsProcedure.input(z2.object({ partId: z2.string().uuid(), toBinLocation: z2.string().trim().min(1).max(80), reason: z2.string().trim().min(3).max(300) })).mutation(async ({ ctx, input }) => {
+    transfer: fleetOpsProcedure.input(import_zod2.z.object({ partId: import_zod2.z.string().uuid(), toBinLocation: import_zod2.z.string().trim().min(1).max(80), reason: import_zod2.z.string().trim().min(3).max(300) })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "INVENTORY_MANAGER"]);
       assertWritable(ctx.fleetopsUser.org);
       const part = await fleetDb.inventoryPart.findFirst({ where: { id: input.partId, orgId: ctx.fleetopsUser.orgId } });
-      if (!part) throw new TRPCError3({ code: "NOT_FOUND", message: "Inventory part not found." });
+      if (!part) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Inventory part not found." });
       const updated = await fleetDb.$transaction(async (tx) => {
         const next = await tx.inventoryPart.update({ where: { id: part.id }, data: { binLocation: input.toBinLocation } });
         if (tx.inventoryMovement?.create) await tx.inventoryMovement.create({ data: { id: crypto.randomUUID(), orgId: ctx.fleetopsUser.orgId, partId: part.id, actorId: ctx.fleetopsUser.id, movementType: "TRANSFER", quantity: 0, unitCost: part.unitCost, reason: `${part.binLocation ?? "Unassigned"} \u2192 ${input.toBinLocation}: ${input.reason}`, createdAt: /* @__PURE__ */ new Date() } });
@@ -1836,16 +1860,16 @@ var appRouter = router({
       await recordAudit(ctx, { action: "INVENTORY_TRANSFERRED", entityType: "INVENTORY_PART", entityId: part.id, summary: `Transferred ${part.name} to ${input.toBinLocation}`, metadata: { fromBinLocation: part.binLocation, toBinLocation: input.toBinLocation, reason: input.reason } });
       return updated;
     }),
-    adjust: fleetOpsProcedure.input(z2.object({ partId: z2.string().uuid(), expectedQuantityOnHand: z2.number().int().nonnegative(), delta: z2.number().int(), reason: z2.string().trim().min(3).max(300) })).mutation(async ({ ctx, input }) => {
+    adjust: fleetOpsProcedure.input(import_zod2.z.object({ partId: import_zod2.z.string().uuid(), expectedQuantityOnHand: import_zod2.z.number().int().nonnegative(), delta: import_zod2.z.number().int(), reason: import_zod2.z.string().trim().min(3).max(300) })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "INVENTORY_MANAGER"]);
       assertWritable(ctx.fleetopsUser.org);
       const part = await fleetDb.inventoryPart.findFirst({ where: { id: input.partId, orgId: ctx.fleetopsUser.orgId } });
-      if (!part) throw new TRPCError3({ code: "NOT_FOUND", message: "Inventory part not found." });
+      if (!part) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Inventory part not found." });
       const nextQuantity = input.expectedQuantityOnHand + input.delta;
-      if (nextQuantity < 0) throw new TRPCError3({ code: "BAD_REQUEST", message: "Inventory adjustments cannot produce a negative balance." });
+      if (nextQuantity < 0) throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: "Inventory adjustments cannot produce a negative balance." });
       const updated = await fleetDb.$transaction(async (tx) => {
         const changed = await tx.inventoryPart.updateMany({ where: { id: part.id, orgId: ctx.fleetopsUser.orgId, quantityOnHand: input.expectedQuantityOnHand }, data: { quantityOnHand: nextQuantity } });
-        if (!changed.count) throw new TRPCError3({ code: "CONFLICT", message: "Inventory changed since it was loaded. Refresh the balance and retry." });
+        if (!changed.count) throw new import_server3.TRPCError({ code: "CONFLICT", message: "Inventory changed since it was loaded. Refresh the balance and retry." });
         if (tx.inventoryMovement?.create) await tx.inventoryMovement.create({ data: { id: crypto.randomUUID(), orgId: ctx.fleetopsUser.orgId, partId: part.id, actorId: ctx.fleetopsUser.id, movementType: "ADJUSTMENT", quantity: input.delta, unitCost: part.unitCost, reason: input.reason, createdAt: /* @__PURE__ */ new Date() } });
         return tx.inventoryPart.findFirst({ where: { id: part.id, orgId: ctx.fleetopsUser.orgId } });
       });
@@ -1860,16 +1884,16 @@ var appRouter = router({
       await recordAudit(ctx, { action: "INVENTORY_EXPORT_CSV", entityType: "INVENTORY_PART", summary: `Exported ${rows.length} inventory parts`, metadata: { count: rows.length } });
       return { filename: `fleetops-inventory-${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}.csv`, content: csv, rowCount: rows.length };
     }),
-    previewImport: fleetOpsProcedure.input(z2.object({ csv: z2.string().max(1e6) })).query(({ ctx, input }) => {
+    previewImport: fleetOpsProcedure.input(import_zod2.z.object({ csv: import_zod2.z.string().max(1e6) })).query(({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "INVENTORY_MANAGER"]);
       const parsed = parseInventoryCsv(input.csv);
       return { rowCount: parsed.rows.length, validCount: parsed.rows.filter((row) => !row.errors.length).length, errors: parsed.errors, rows: parsed.rows.slice(0, 100).map((item) => ({ rowNumber: item.rowNumber, ...item.row, errors: item.errors })) };
     }),
-    importCsv: fleetOpsProcedure.input(z2.object({ csv: z2.string().max(1e6) })).mutation(async ({ ctx, input }) => {
+    importCsv: fleetOpsProcedure.input(import_zod2.z.object({ csv: import_zod2.z.string().max(1e6) })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "INVENTORY_MANAGER"]);
       assertWritable(ctx.fleetopsUser.org);
       const parsed = parseInventoryCsv(input.csv);
-      if (parsed.errors.length) throw new TRPCError3({ code: "BAD_REQUEST", message: parsed.errors.slice(0, 8).join("; ") });
+      if (parsed.errors.length) throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: parsed.errors.slice(0, 8).join("; ") });
       const existing = await fleetDb.inventoryPart.findMany({ where: { orgId: ctx.fleetopsUser.orgId } });
       const seen = new Set(existing.map((part) => part.sku.toUpperCase()));
       const candidates = parsed.rows.filter((item) => {
@@ -1878,7 +1902,7 @@ var appRouter = router({
         seen.add(sku);
         return true;
       });
-      if (candidates.length !== parsed.rows.length) throw new TRPCError3({ code: "CONFLICT", message: "Every SKU must be unique and must not already exist in this organization." });
+      if (candidates.length !== parsed.rows.length) throw new import_server3.TRPCError({ code: "CONFLICT", message: "Every SKU must be unique and must not already exist in this organization." });
       const created = await Promise.all(candidates.map((item) => fleetDb.inventoryPart.create({ data: { id: crypto.randomUUID(), orgId: ctx.fleetopsUser.orgId, sku: item.row.sku, name: item.row.name, binLocation: item.row.binLocation || void 0, quantityOnHand: Number(item.row.quantityOnHand), minReorderLevel: Number(item.row.minReorderLevel), unitCost: Number(item.row.unitCost ?? item.row.unitCostInr) } })));
       await recordAudit(ctx, { action: "INVENTORY_IMPORT_CSV", entityType: "INVENTORY_PART", summary: `Imported ${created.length} inventory parts`, metadata: { count: created.length } });
       return { importedCount: created.length };
@@ -1886,12 +1910,12 @@ var appRouter = router({
   }),
   driver: router({
     inspections: fleetOpsProcedure.query(async ({ ctx }) => fleetDb.dvirInspection.findMany({ where: { orgId: ctx.fleetopsUser.orgId, driverId: ctx.fleetopsUser.id }, orderBy: { createdAt: "desc" }, take: 50 })),
-    createInspection: fleetOpsProcedure.input(z2.object({ vehicleId: z2.string().uuid(), inspectionType: z2.enum(["PRE_TRIP", "POST_TRIP"]), status: z2.enum(["PASS", "FAIL"]), notes: z2.string().max(2e3).optional(), photoData: z2.string().max(2e6).optional(), photoContentType: z2.string().optional() })).mutation(async ({ ctx, input }) => {
+    createInspection: fleetOpsProcedure.input(import_zod2.z.object({ vehicleId: import_zod2.z.string().uuid(), inspectionType: import_zod2.z.enum(["PRE_TRIP", "POST_TRIP"]), status: import_zod2.z.enum(["PASS", "FAIL"]), notes: import_zod2.z.string().max(2e3).optional(), photoData: import_zod2.z.string().max(2e6).optional(), photoContentType: import_zod2.z.string().optional() })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["DRIVER", "SUPERADMIN"]);
       assertWritable(ctx.fleetopsUser.org);
       await assertDriverVehicle(ctx, input.vehicleId);
       const vehicle = await fleetDb.vehicle.findFirst({ where: { id: input.vehicleId, orgId: ctx.fleetopsUser.orgId } });
-      if (!vehicle) throw new TRPCError3({ code: "NOT_FOUND", message: "Vehicle not found." });
+      if (!vehicle) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Vehicle not found." });
       let photoUrl;
       let photoKey;
       if (input.photoData) {
@@ -1903,12 +1927,12 @@ var appRouter = router({
       return fleetDb.dvirInspection.create({ data: { id: crypto.randomUUID(), orgId: ctx.fleetopsUser.orgId, vehicleId: vehicle.id, driverId: ctx.fleetopsUser.id, inspectionType: input.inspectionType, status: input.status, notes: input.notes, photoUrl, photoKey, createdAt: /* @__PURE__ */ new Date() } });
     }),
     fuelLogs: fleetOpsProcedure.query(({ ctx }) => fleetDb.fuelLog.findMany({ where: { orgId: ctx.fleetopsUser.orgId, driverId: ctx.fleetopsUser.id }, orderBy: { createdAt: "desc" }, take: 50 })),
-    createFuelLog: fleetOpsProcedure.input(z2.object({ vehicleId: z2.string().uuid(), liters: z2.number().positive(), amount: z2.number().nonnegative(), odometer: z2.number().nonnegative(), station: z2.string().max(200).optional(), receiptData: z2.string().max(2e6).optional(), receiptContentType: z2.string().optional() })).mutation(async ({ ctx, input }) => {
+    createFuelLog: fleetOpsProcedure.input(import_zod2.z.object({ vehicleId: import_zod2.z.string().uuid(), liters: import_zod2.z.number().positive(), amount: import_zod2.z.number().nonnegative(), odometer: import_zod2.z.number().nonnegative(), station: import_zod2.z.string().max(200).optional(), receiptData: import_zod2.z.string().max(2e6).optional(), receiptContentType: import_zod2.z.string().optional() })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["DRIVER", "SUPERADMIN"]);
       assertWritable(ctx.fleetopsUser.org);
       await assertDriverVehicle(ctx, input.vehicleId);
       const vehicle = await fleetDb.vehicle.findFirst({ where: { id: input.vehicleId, orgId: ctx.fleetopsUser.orgId } });
-      if (!vehicle) throw new TRPCError3({ code: "NOT_FOUND", message: "Vehicle not found." });
+      if (!vehicle) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Vehicle not found." });
       const previousLog = await fleetDb.odometerLog.findFirst({ where: { vehicleId: vehicle.id }, orderBy: { createdAt: "desc" } });
       const elapsedDays = previousLog?.createdAt ? Math.max(1, Math.ceil((Date.now() - new Date(previousLog.createdAt).getTime()) / 864e5)) : 1;
       validateOdometerReading(previousLog ? Number(previousLog.reading) : Number(vehicle.currentOdometer), input.odometer, elapsedDays);
@@ -1932,12 +1956,12 @@ var appRouter = router({
       const canonicalVehicle = vehicle ? { ...vehicle, currentOdometer: latestOdometer?.reading ?? vehicle.currentOdometer, latestOdometerReading: latestOdometer?.reading ?? vehicle.currentOdometer, latestOdometerAt: latestOdometer?.createdAt ?? vehicle.updatedAt, latestOdometerSource: latestOdometer?.source ?? "VEHICLE_RECORD" } : null;
       return { vehicle: canonicalVehicle, readiness, latestInspection, openIssues, nextAction: readiness === "READY" ? "Vehicle cleared for shift." : readiness === "UNSAFE" ? "Do not drive. Fleet Manager disposition required." : "Complete a passing pre-trip inspection and resolve high-priority issues." };
     }),
-    unsafeDisposition: fleetOpsProcedure.input(z2.object({ vehicleId: z2.string().uuid(), disposition: z2.enum(["UNSAFE_TO_DRIVE", "CLEARED_TO_DRIVE"]), notes: z2.string().trim().min(3).max(1e3) })).mutation(async ({ ctx, input }) => {
+    unsafeDisposition: fleetOpsProcedure.input(import_zod2.z.object({ vehicleId: import_zod2.z.string().uuid(), disposition: import_zod2.z.enum(["UNSAFE_TO_DRIVE", "CLEARED_TO_DRIVE"]), notes: import_zod2.z.string().trim().min(3).max(1e3) })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["DRIVER"]);
       assertWritable(ctx.fleetopsUser.org);
       await assertDriverVehicle(ctx, input.vehicleId);
       const vehicle = await fleetDb.vehicle.findFirst({ where: { id: input.vehicleId, orgId: ctx.fleetopsUser.orgId } });
-      if (!vehicle) throw new TRPCError3({ code: "NOT_FOUND", message: "Assigned vehicle not found." });
+      if (!vehicle) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Assigned vehicle not found." });
       const nextStatus = input.disposition === "UNSAFE_TO_DRIVE" ? "OUT_OF_SERVICE" : "ACTIVE";
       const updated = await fleetDb.vehicle.update({ where: { id: vehicle.id }, data: { status: nextStatus } });
       const managers = await fleetDb.user.findMany({ where: { orgId: ctx.fleetopsUser.orgId, role: "FLEET_MANAGER" } });
@@ -1952,7 +1976,7 @@ var appRouter = router({
       const where = ctx.fleetopsUser.role === "DRIVER" ? { orgId: ctx.fleetopsUser.orgId, driverId: ctx.fleetopsUser.id } : { orgId: ctx.fleetopsUser.orgId };
       return fleetDb.vehicleIssue.findMany({ where, orderBy: { createdAt: "desc" }, take: 50 });
     }),
-    create: fleetOpsProcedure.input(z2.object({ vehicleId: z2.string().uuid(), title: z2.string().trim().min(3).max(160), description: z2.string().trim().min(5).max(4e3), priority: z2.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).default("MEDIUM"), photoData: z2.string().max(4e6).optional(), photoContentType: z2.string().startsWith("image/").optional() })).mutation(async ({ ctx, input }) => {
+    create: fleetOpsProcedure.input(import_zod2.z.object({ vehicleId: import_zod2.z.string().uuid(), title: import_zod2.z.string().trim().min(3).max(160), description: import_zod2.z.string().trim().min(5).max(4e3), priority: import_zod2.z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).default("MEDIUM"), photoData: import_zod2.z.string().max(4e6).optional(), photoContentType: import_zod2.z.string().startsWith("image/").optional() })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["DRIVER"]);
       assertWritable(ctx.fleetopsUser.org);
       await assertDriverVehicle(ctx, input.vehicleId);
@@ -1969,34 +1993,34 @@ var appRouter = router({
       await recordAudit(ctx, { action: "VEHICLE_ISSUE_REPORTED", entityType: "VEHICLE_ISSUE", entityId: issue.id, summary: `Driver reported vehicle issue: ${issue.title}`, metadata: { priority: issue.priority } });
       return issue;
     }),
-    updateStatus: fleetOpsProcedure.input(z2.object({ issueId: z2.string().uuid(), status: z2.enum(["OPEN", "ACKNOWLEDGED", "IN_PROGRESS", "RESOLVED", "CLOSED"]) })).mutation(async ({ ctx, input }) => {
+    updateStatus: fleetOpsProcedure.input(import_zod2.z.object({ issueId: import_zod2.z.string().uuid(), status: import_zod2.z.enum(["OPEN", "ACKNOWLEDGED", "IN_PROGRESS", "RESOLVED", "CLOSED"]) })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER"]);
       assertWritable(ctx.fleetopsUser.org);
       const issue = await fleetDb.vehicleIssue.findFirst({ where: { id: input.issueId, orgId: ctx.fleetopsUser.orgId } });
-      if (!issue) throw new TRPCError3({ code: "NOT_FOUND", message: "Vehicle issue not found in this organization." });
+      if (!issue) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Vehicle issue not found in this organization." });
       const updated = await fleetDb.vehicleIssue.update({ where: { id: issue.id }, data: { status: input.status } });
       await recordAudit(ctx, { action: "VEHICLE_ISSUE_STATUS_CHANGED", entityType: "VEHICLE_ISSUE", entityId: issue.id, summary: `Vehicle issue moved from ${issue.status} to ${input.status}`, metadata: { previousStatus: issue.status, nextStatus: input.status } });
       return updated;
     })
   }),
   triage: router({
-    update: fleetOpsProcedure.input(z2.object({ kind: z2.enum(["VEHICLE_ISSUE", "WORK_ORDER", "DOCUMENT", "LOW_STOCK"]), referenceId: z2.string().uuid(), state: z2.enum(["ACKNOWLEDGED", "ASSIGNED", "DEFERRED", "RESOLVED"]), note: z2.string().trim().max(500).optional() })).mutation(async ({ ctx, input }) => {
+    update: fleetOpsProcedure.input(import_zod2.z.object({ kind: import_zod2.z.enum(["VEHICLE_ISSUE", "WORK_ORDER", "DOCUMENT", "LOW_STOCK"]), referenceId: import_zod2.z.string().uuid(), state: import_zod2.z.enum(["ACKNOWLEDGED", "ASSIGNED", "DEFERRED", "RESOLVED"]), note: import_zod2.z.string().trim().max(500).optional() })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER"]);
       assertWritable(ctx.fleetopsUser.org);
       const triageEntity = input.kind === "VEHICLE_ISSUE" ? await fleetDb.vehicleIssue.findFirst({ where: { id: input.referenceId, orgId: ctx.fleetopsUser.orgId } }) : input.kind === "WORK_ORDER" ? await fleetDb.workOrder.findFirst({ where: { id: input.referenceId, orgId: ctx.fleetopsUser.orgId } }) : input.kind === "DOCUMENT" ? await fleetDb.document.findFirst({ where: { id: input.referenceId, orgId: ctx.fleetopsUser.orgId } }) : await fleetDb.inventoryPart.findFirst({ where: { id: input.referenceId, orgId: ctx.fleetopsUser.orgId } });
-      if (!triageEntity) throw new TRPCError3({ code: "NOT_FOUND", message: "Triage item was not found in this organization." });
+      if (!triageEntity) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Triage item was not found in this organization." });
       await recordAudit(ctx, { action: "TRIAGE_STATE_CHANGED", entityType: input.kind, entityId: input.referenceId, summary: `${input.kind} triage marked ${input.state.toLowerCase()}`, metadata: { state: input.state, assigneeId: input.state === "ASSIGNED" ? ctx.fleetopsUser.id : null, note: input.note ?? null } });
       return { kind: input.kind, referenceId: input.referenceId, state: input.state, assigneeId: input.state === "ASSIGNED" ? ctx.fleetopsUser.id : null };
     }),
-    createWorkOrderFromIssue: fleetOpsProcedure.input(z2.object({ issueId: z2.string().uuid(), assignedMechanicId: z2.string().uuid().optional(), priority: z2.nativeEnum(Priority).optional(), note: z2.string().trim().max(1e3).optional() })).mutation(async ({ ctx, input }) => {
+    createWorkOrderFromIssue: fleetOpsProcedure.input(import_zod2.z.object({ issueId: import_zod2.z.string().uuid(), assignedMechanicId: import_zod2.z.string().uuid().optional(), priority: import_zod2.z.nativeEnum(Priority).optional(), note: import_zod2.z.string().trim().max(1e3).optional() })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER"]);
       assertWritable(ctx.fleetopsUser.org);
       const issue = await fleetDb.vehicleIssue.findFirst({ where: { id: input.issueId, orgId: ctx.fleetopsUser.orgId }, include: { vehicle: true } });
-      if (!issue) throw new TRPCError3({ code: "NOT_FOUND", message: "Vehicle issue not found in this organization." });
-      if (["RESOLVED", "CLOSED"].includes(issue.status)) throw new TRPCError3({ code: "BAD_REQUEST", message: "Resolved issues cannot be dispatched." });
+      if (!issue) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Vehicle issue not found in this organization." });
+      if (["RESOLVED", "CLOSED"].includes(issue.status)) throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: "Resolved issues cannot be dispatched." });
       if (input.assignedMechanicId) {
         const assignee = await fleetDb.user.findFirst({ where: { id: input.assignedMechanicId, orgId: ctx.fleetopsUser.orgId, role: { in: ["MECHANIC", "TECHNICIAN"] } } });
-        if (!assignee) throw new TRPCError3({ code: "BAD_REQUEST", message: "Assignee must belong to this organization and be a mechanic or technician." });
+        if (!assignee) throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: "Assignee must belong to this organization and be a mechanic or technician." });
       }
       const existingLinks = await fleetDb.auditEvent.findMany({ where: { orgId: ctx.fleetopsUser.orgId, action: "WORK_ORDER_CREATED", entityType: "WORK_ORDER" } });
       const alreadyDispatched = existingLinks.some((event) => {
@@ -2006,7 +2030,7 @@ var appRouter = router({
           return false;
         }
       });
-      if (alreadyDispatched) throw new TRPCError3({ code: "CONFLICT", message: "This driver issue already has a dispatched work order." });
+      if (alreadyDispatched) throw new import_server3.TRPCError({ code: "CONFLICT", message: "This driver issue already has a dispatched work order." });
       const workOrder = await fleetDb.workOrder.create({ data: { id: crypto.randomUUID(), orgId: ctx.fleetopsUser.orgId, vehicleId: issue.vehicleId, title: `Driver issue: ${issue.title}`, description: [issue.description, input.note].filter(Boolean).join("\n\n"), priority: input.priority ?? issue.priority, status: "OPEN", assignedMechanicId: input.assignedMechanicId, createdAt: /* @__PURE__ */ new Date() } });
       await fleetDb.vehicleIssue.update({ where: { id: issue.id }, data: { status: "ACKNOWLEDGED", updatedAt: /* @__PURE__ */ new Date() } });
       await recordAudit(ctx, { action: "WORK_ORDER_CREATED", entityType: "WORK_ORDER", entityId: workOrder.id, summary: `Work order dispatched from driver issue: ${issue.title}`, metadata: { sourceIssueId: issue.id, sourceType: "VEHICLE_ISSUE", assignedMechanicId: input.assignedMechanicId ?? null } });
@@ -2041,7 +2065,7 @@ var appRouter = router({
     })
   }),
   audit: router({
-    list: fleetOpsProcedure.input(z2.object({ actorId: z2.string().uuid().optional(), actorRole: z2.string().optional(), entityType: z2.string().optional(), action: z2.string().optional(), outcome: z2.enum(["SUCCESS", "ERROR"]).optional(), dateFrom: z2.string().datetime().optional(), dateTo: z2.string().datetime().optional(), limit: z2.number().int().min(1).max(200).default(100) }).optional()).query(async ({ ctx, input }) => {
+    list: fleetOpsProcedure.input(import_zod2.z.object({ actorId: import_zod2.z.string().uuid().optional(), actorRole: import_zod2.z.string().optional(), entityType: import_zod2.z.string().optional(), action: import_zod2.z.string().optional(), outcome: import_zod2.z.enum(["SUCCESS", "ERROR"]).optional(), dateFrom: import_zod2.z.string().datetime().optional(), dateTo: import_zod2.z.string().datetime().optional(), limit: import_zod2.z.number().int().min(1).max(200).default(100) }).optional()).query(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN"]);
       const rows = await fleetDb.auditEvent.findMany({ where: { orgId: ctx.fleetopsUser.orgId, ...input?.actorId ? { actorId: input.actorId } : {}, ...input?.actorRole ? { actorRole: input.actorRole } : {}, ...input?.entityType ? { entityType: input.entityType } : {}, ...input?.action ? { action: input.action } : {}, ...input?.dateFrom || input?.dateTo ? { createdAt: { ...input?.dateFrom ? { gte: new Date(input.dateFrom) } : {}, ...input?.dateTo ? { lte: new Date(input.dateTo) } : {} } } : {} }, orderBy: { createdAt: "desc" }, take: input?.limit ?? 100 });
       if (!input?.outcome) return rows;
@@ -2076,13 +2100,13 @@ var appRouter = router({
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN"]);
       return fleetDb.invitation.findMany({ where: { orgId: ctx.fleetopsUser.orgId }, orderBy: { createdAt: "desc" } });
     }),
-    invite: fleetOpsProcedure.input(z2.object({ email: z2.string().email(), role: z2.enum(["FLEET_MANAGER", "MECHANIC", "TECHNICIAN", "DRIVER", "INVENTORY_MANAGER", "ACCOUNTANT"]) })).mutation(async ({ ctx, input }) => {
+    invite: fleetOpsProcedure.input(import_zod2.z.object({ email: import_zod2.z.string().email(), role: import_zod2.z.enum(["FLEET_MANAGER", "MECHANIC", "TECHNICIAN", "DRIVER", "INVENTORY_MANAGER", "ACCOUNTANT"]) })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN"]);
       assertWritable(ctx.fleetopsUser.org);
       await assertUserCapacity(ctx.fleetopsUser.orgId, ctx.fleetopsUser.org.maxUsers);
       const normalizedEmail = input.email.toLowerCase();
       const existing = await fleetDb.invitation.findFirst({ where: { orgId: ctx.fleetopsUser.orgId, email: normalizedEmail, acceptedAt: null, revokedAt: null } });
-      if (existing && new Date(existing.expiresAt).getTime() > Date.now()) throw new TRPCError3({ code: "CONFLICT", message: "An active invitation already exists for this email." });
+      if (existing && new Date(existing.expiresAt).getTime() > Date.now()) throw new import_server3.TRPCError({ code: "CONFLICT", message: "An active invitation already exists for this email." });
       const invitation = await withServerTimeout(fleetDb.invitation.create({ data: { id: crypto.randomUUID(), orgId: ctx.fleetopsUser.orgId, email: normalizedEmail, role: input.role, tokenHash: crypto.randomUUID(), expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1e3), lastSentAt: /* @__PURE__ */ new Date(), createdAt: /* @__PURE__ */ new Date() } }), "Invitation storage did not respond within 12 seconds. No invitation was confirmed.");
       await recordAudit(ctx, { action: "INVITATION_CREATED", entityType: "INVITATION", entityId: invitation.id, summary: `Invitation created for ${input.email.toLowerCase()}`, metadata: { role: input.role } });
       const origin = String(ctx.req?.headers?.origin ?? process.env.PUBLIC_APP_URL ?? "https://fleetops-v2.vercel.app");
@@ -2091,12 +2115,12 @@ var appRouter = router({
       const emailResult = authInvite.error ? { error: { message: authInvite.error.message } } : await sendInvitationEmail({ organizationName: ctx.fleetopsUser.org.name, inviteeEmail: normalizedEmail, role: input.role, joinUrl, expiresAt: invitation.expiresAt ? new Date(invitation.expiresAt) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1e3) });
       return { ...invitation, joinUrl, delivery: emailResult.error ? "MANUAL_TOKEN" : "EMAIL", deliveryError: emailResult.error?.message, serverRelease: FLEETOPS_SERVER_RELEASE };
     }),
-    resendInvitation: fleetOpsProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
+    resendInvitation: fleetOpsProcedure.input(import_zod2.z.object({ id: import_zod2.z.string().uuid() })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN"]);
       assertWritable(ctx.fleetopsUser.org);
       const invitation = await fleetDb.invitation.findFirst({ where: { id: input.id, orgId: ctx.fleetopsUser.orgId } });
-      if (!invitation) throw new TRPCError3({ code: "NOT_FOUND", message: "Invitation not found in this organization." });
-      if (invitation.acceptedAt || invitation.revokedAt) throw new TRPCError3({ code: "BAD_REQUEST", message: "Accepted or revoked invitations cannot be resent." });
+      if (!invitation) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Invitation not found in this organization." });
+      if (invitation.acceptedAt || invitation.revokedAt) throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: "Accepted or revoked invitations cannot be resent." });
       const token = crypto.randomUUID();
       const updated = await fleetDb.invitation.update({ where: { id: invitation.id }, data: { tokenHash: token, expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1e3), resendCount: Number(invitation.resendCount ?? 0) + 1, lastSentAt: /* @__PURE__ */ new Date() } });
       const origin = String(ctx.req?.headers?.origin ?? process.env.PUBLIC_APP_URL ?? "https://fleetops-v2.vercel.app");
@@ -2106,35 +2130,35 @@ var appRouter = router({
       await recordAudit(ctx, { action: "INVITATION_RESENT", entityType: "INVITATION", entityId: invitation.id, summary: `Invitation resent to ${invitation.email}`, metadata: { resendCount: updated.resendCount, delivery: emailResult.error ? "MANUAL_TOKEN" : "EMAIL" } });
       return { ...updated, joinUrl, delivery: emailResult.error ? "MANUAL_TOKEN" : "EMAIL", deliveryError: emailResult.error?.message, serverRelease: FLEETOPS_SERVER_RELEASE };
     }),
-    revokeInvitation: fleetOpsProcedure.input(z2.object({ id: z2.string().uuid(), reason: z2.string().trim().min(3).max(500) })).mutation(async ({ ctx, input }) => {
+    revokeInvitation: fleetOpsProcedure.input(import_zod2.z.object({ id: import_zod2.z.string().uuid(), reason: import_zod2.z.string().trim().min(3).max(500) })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN"]);
       assertWritable(ctx.fleetopsUser.org);
       const invitation = await fleetDb.invitation.findFirst({ where: { id: input.id, orgId: ctx.fleetopsUser.orgId } });
-      if (!invitation) throw new TRPCError3({ code: "NOT_FOUND", message: "Invitation not found in this organization." });
-      if (invitation.acceptedAt) throw new TRPCError3({ code: "BAD_REQUEST", message: "Accepted invitations cannot be revoked." });
+      if (!invitation) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Invitation not found in this organization." });
+      if (invitation.acceptedAt) throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: "Accepted invitations cannot be revoked." });
       if (invitation.revokedAt) return invitation;
       const revoked = await fleetDb.invitation.update({ where: { id: invitation.id }, data: { revokedAt: /* @__PURE__ */ new Date(), revokedById: ctx.fleetopsUser.id } });
       await recordAudit(ctx, { action: "INVITATION_REVOKED", entityType: "INVITATION", entityId: invitation.id, summary: `Invitation revoked for ${invitation.email}`, metadata: { reason: input.reason } });
       return revoked;
     }),
-    updateRole: fleetOpsProcedure.input(z2.object({ userId: z2.string().uuid(), role: z2.enum(["FLEET_MANAGER", "MECHANIC", "TECHNICIAN", "DRIVER", "INVENTORY_MANAGER", "ACCOUNTANT"]) })).mutation(async ({ ctx, input }) => {
+    updateRole: fleetOpsProcedure.input(import_zod2.z.object({ userId: import_zod2.z.string().uuid(), role: import_zod2.z.enum(["FLEET_MANAGER", "MECHANIC", "TECHNICIAN", "DRIVER", "INVENTORY_MANAGER", "ACCOUNTANT"]) })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN"]);
       assertWritable(ctx.fleetopsUser.org);
       const member = await fleetDb.user.findFirst({ where: { id: input.userId, orgId: ctx.fleetopsUser.orgId } });
-      if (!member) throw new TRPCError3({ code: "NOT_FOUND", message: "Team member not found." });
+      if (!member) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Team member not found." });
       const updated = await fleetDb.user.update({ where: { id: input.userId }, data: { role: input.role } });
       await recordAudit(ctx, { action: "ROLE_CHANGED", entityType: "USER", entityId: member.id, summary: `Role changed for ${member.fullName}`, metadata: { previousRole: member.role, nextRole: input.role } });
       return updated;
     }),
-    removeMember: fleetOpsProcedure.input(z2.object({ userId: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
+    removeMember: fleetOpsProcedure.input(import_zod2.z.object({ userId: import_zod2.z.string().uuid() })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN"]);
       assertWritable(ctx.fleetopsUser.org);
-      if (input.userId === ctx.fleetopsUser.id) throw new TRPCError3({ code: "FORBIDDEN", message: "You cannot remove your own organization owner account." });
+      if (input.userId === ctx.fleetopsUser.id) throw new import_server3.TRPCError({ code: "FORBIDDEN", message: "You cannot remove your own organization owner account." });
       const member = await fleetDb.user.findFirst({ where: { id: input.userId, orgId: ctx.fleetopsUser.orgId } });
-      if (!member) throw new TRPCError3({ code: "NOT_FOUND", message: "Team member not found in this organization." });
-      if (member.role === "SUPERADMIN") throw new TRPCError3({ code: "FORBIDDEN", message: "Organization owner accounts cannot be removed from Team." });
+      if (!member) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Team member not found in this organization." });
+      if (member.role === "SUPERADMIN") throw new import_server3.TRPCError({ code: "FORBIDDEN", message: "Organization owner accounts cannot be removed from Team." });
       const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(member.authUserId);
-      if (authError && !/not found|already deleted/i.test(authError.message)) throw new TRPCError3({ code: "INTERNAL_SERVER_ERROR", message: `Auth account could not be removed: ${authError.message}` });
+      if (authError && !/not found|already deleted/i.test(authError.message)) throw new import_server3.TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `Auth account could not be removed: ${authError.message}` });
       const deleted = await fleetDb.user.delete({ where: { id: member.id } });
       await recordAudit(ctx, { action: "TEAM_MEMBER_REMOVED", entityType: "USER", entityId: member.id, summary: `Removed ${member.fullName} from the organization`, metadata: { email: member.email, role: member.role, authUserId: member.authUserId } });
       return { id: deleted.id, email: deleted.email, role: deleted.role };
@@ -2165,12 +2189,12 @@ var appRouter = router({
         return { assignmentId: assignment.id, driverId: assignment.driverId, driverName: driver?.fullName ?? "Unknown driver", driverEmail: driver?.email ?? "", vehicleId: assignment.vehicleId, vehicleLabel: vehicle?.licensePlate ?? assignment.vehicleId, vehicleStatus: vehicle?.status ?? "UNKNOWN", safety, latestIssue: issue ? { id: issue.id, title: issue.title, priority: issue.priority, status: issue.status, createdAt: issue.createdAt } : null, latestDisposition: disposition ? { severity: disposition.severity, message: disposition.message, createdAt: disposition.createdAt } : null, acknowledgedAt: issue?.status === "ACKNOWLEDGED" ? issue.updatedAt : null };
       });
     }),
-    assignVehicle: fleetOpsProcedure.input(z2.object({ driverId: z2.string().uuid(), vehicleId: z2.string().uuid(), active: z2.boolean().default(true) })).mutation(async ({ ctx, input }) => {
+    assignVehicle: fleetOpsProcedure.input(import_zod2.z.object({ driverId: import_zod2.z.string().uuid(), vehicleId: import_zod2.z.string().uuid(), active: import_zod2.z.boolean().default(true) })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER"]);
       assertWritable(ctx.fleetopsUser.org);
       const driver = await fleetDb.user.findFirst({ where: { id: input.driverId, orgId: ctx.fleetopsUser.orgId, role: "DRIVER" } });
       const vehicle = await fleetDb.vehicle.findFirst({ where: { id: input.vehicleId, orgId: ctx.fleetopsUser.orgId } });
-      if (!driver || !vehicle) throw new TRPCError3({ code: "NOT_FOUND", message: "Driver or vehicle not found in this organization." });
+      if (!driver || !vehicle) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Driver or vehicle not found in this organization." });
       const conflicting = await fleetDb.vehicleAssignment.findMany({ where: { orgId: ctx.fleetopsUser.orgId, active: true } });
       const closed = conflicting.filter((item) => item.driverId === input.driverId || item.vehicleId === input.vehicleId);
       await Promise.all(closed.map((item) => fleetDb.vehicleAssignment.update({ where: { id: item.id }, data: { active: false } })));
@@ -2184,17 +2208,17 @@ var appRouter = router({
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "INVENTORY_MANAGER"]);
       return fleetDb.vendor.findMany({ where: { orgId: ctx.fleetopsUser.orgId }, orderBy: { name: "asc" } });
     }),
-    create: fleetOpsProcedure.input(z2.object({ name: z2.string().trim().min(2).max(160), contactPerson: z2.string().trim().max(120).optional(), phone: z2.string().trim().min(5).max(40), email: z2.string().trim().email().optional() })).mutation(async ({ ctx, input }) => {
+    create: fleetOpsProcedure.input(import_zod2.z.object({ name: import_zod2.z.string().trim().min(2).max(160), contactPerson: import_zod2.z.string().trim().max(120).optional(), phone: import_zod2.z.string().trim().min(5).max(40), email: import_zod2.z.string().trim().email().optional() })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "INVENTORY_MANAGER"]);
       assertWritable(ctx.fleetopsUser.org);
       const created = await fleetDb.vendor.create({ data: { id: crypto.randomUUID(), orgId: ctx.fleetopsUser.orgId, name: input.name, contactPerson: input.contactPerson || void 0, phone: input.phone, email: input.email || void 0, createdAt: /* @__PURE__ */ new Date() } });
       await recordAudit(ctx, { action: "VENDOR_CREATED", entityType: "VENDOR", entityId: created.id, summary: `Vendor created: ${created.name}`, metadata: { phone: created.phone } });
       return created;
     }),
-    pricingHistory: fleetOpsProcedure.input(z2.object({ vendorId: z2.string().uuid(), partId: z2.string().uuid().optional() })).query(async ({ ctx, input }) => {
+    pricingHistory: fleetOpsProcedure.input(import_zod2.z.object({ vendorId: import_zod2.z.string().uuid(), partId: import_zod2.z.string().uuid().optional() })).query(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "INVENTORY_MANAGER"]);
       const vendor = await fleetDb.vendor.findFirst({ where: { id: input.vendorId, orgId: ctx.fleetopsUser.orgId } });
-      if (!vendor) throw new TRPCError3({ code: "NOT_FOUND", message: "Vendor not found in your organization." });
+      if (!vendor) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Vendor not found in your organization." });
       const [orders, receipts, parts] = await Promise.all([fleetDb.purchaseOrder.findMany({ where: { orgId: ctx.fleetopsUser.orgId, vendorId: vendor.id }, orderBy: { createdAt: "desc" } }), fleetDb.purchaseOrderReceipt.findMany({ where: { orgId: ctx.fleetopsUser.orgId }, orderBy: { receivedAt: "desc" } }), fleetDb.inventoryPart.findMany({ where: { orgId: ctx.fleetopsUser.orgId } })]);
       const orderIds = new Set(orders.map((order) => order.id));
       const partById = new Map(parts.map((part) => [part.id, part]));
@@ -2210,42 +2234,42 @@ var appRouter = router({
       const vendorById = new Map(vendors2.map((vendor) => [vendor.id, vendor]));
       return orders.map((order) => ({ ...order, vendor: vendorById.get(order.vendorId) ?? null }));
     }),
-    create: fleetOpsProcedure.input(z2.object({ vendorId: z2.string().uuid(), totalCost: z2.number().nonnegative() })).mutation(async ({ ctx, input }) => {
+    create: fleetOpsProcedure.input(import_zod2.z.object({ vendorId: import_zod2.z.string().uuid(), totalCost: import_zod2.z.number().nonnegative() })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "INVENTORY_MANAGER"]);
       assertWritable(ctx.fleetopsUser.org);
       const vendor = await fleetDb.vendor.findFirst({ where: { id: input.vendorId, orgId: ctx.fleetopsUser.orgId } });
-      if (!vendor) throw new TRPCError3({ code: "NOT_FOUND", message: "Vendor not found in your organization." });
+      if (!vendor) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Vendor not found in your organization." });
       const created = await fleetDb.purchaseOrder.create({ data: { id: crypto.randomUUID(), ...input, status: "DRAFT", totalCost: input.totalCost, orgId: ctx.fleetopsUser.orgId, createdAt: /* @__PURE__ */ new Date() } });
       await recordAudit(ctx, { action: "PURCHASE_ORDER_CREATED", entityType: "PURCHASE_ORDER", entityId: created.id, summary: `Purchase order created: \u20B9${Number(created.totalCost).toLocaleString("en-IN")}`, metadata: { vendorId: created.vendorId } });
       return created;
     }),
-    updateStatus: fleetOpsProcedure.input(z2.object({ id: z2.string().uuid(), status: z2.enum(["DRAFT", "SENT", "APPROVED", "ORDERED", "PARTIALLY_RECEIVED", "RECEIVED", "CANCELLED", "CLOSED"]), expectedUpdatedAt: z2.coerce.date().optional() })).mutation(async ({ ctx, input }) => {
+    updateStatus: fleetOpsProcedure.input(import_zod2.z.object({ id: import_zod2.z.string().uuid(), status: import_zod2.z.enum(["DRAFT", "SENT", "APPROVED", "ORDERED", "PARTIALLY_RECEIVED", "RECEIVED", "CANCELLED", "CLOSED"]), expectedUpdatedAt: import_zod2.z.coerce.date().optional() })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "INVENTORY_MANAGER"]);
-      if (input.status === "APPROVED" && ctx.fleetopsUser.role !== "SUPERADMIN") throw new TRPCError3({ code: "FORBIDDEN", message: "Only a Superadmin can approve a purchase order." });
+      if (input.status === "APPROVED" && ctx.fleetopsUser.role !== "SUPERADMIN") throw new import_server3.TRPCError({ code: "FORBIDDEN", message: "Only a Superadmin can approve a purchase order." });
       assertWritable(ctx.fleetopsUser.org);
       const order = await fleetDb.purchaseOrder.findFirst({ where: { id: input.id, orgId: ctx.fleetopsUser.orgId } });
-      if (!order) throw new TRPCError3({ code: "NOT_FOUND", message: "Purchase order not found in your organization." });
-      if (input.expectedUpdatedAt && new Date(order.updatedAt).getTime() !== input.expectedUpdatedAt.getTime()) throw new TRPCError3({ code: "CONFLICT", message: "This purchase order changed elsewhere. Refresh before updating its status." });
+      if (!order) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Purchase order not found in your organization." });
+      if (input.expectedUpdatedAt && new Date(order.updatedAt).getTime() !== input.expectedUpdatedAt.getTime()) throw new import_server3.TRPCError({ code: "CONFLICT", message: "This purchase order changed elsewhere. Refresh before updating its status." });
       const allowed = { DRAFT: ["SENT", "APPROVED", "CANCELLED"], SENT: ["APPROVED", "ORDERED", "PARTIALLY_RECEIVED", "RECEIVED", "CANCELLED"], APPROVED: ["ORDERED", "CANCELLED"], ORDERED: ["PARTIALLY_RECEIVED", "RECEIVED", "CANCELLED"], PARTIALLY_RECEIVED: ["RECEIVED", "CANCELLED"], RECEIVED: ["CLOSED"], CLOSED: [], CANCELLED: [] };
-      if (!allowed[order.status]?.includes(input.status)) throw new TRPCError3({ code: "BAD_REQUEST", message: `Cannot move purchase order from ${order.status} to ${input.status}.` });
+      if (!allowed[order.status]?.includes(input.status)) throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: `Cannot move purchase order from ${order.status} to ${input.status}.` });
       const updated = await fleetDb.purchaseOrder.update({ where: { id: order.id }, data: { status: input.status, ...input.status === "RECEIVED" ? { receivedAt: /* @__PURE__ */ new Date() } : {}, ...input.status === "CLOSED" ? { closedAt: /* @__PURE__ */ new Date() } : {} } });
       await recordAudit(ctx, { action: "PURCHASE_ORDER_STATUS_CHANGED", entityType: "PURCHASE_ORDER", entityId: order.id, summary: `Purchase order moved from ${order.status} to ${input.status}`, metadata: { previousStatus: order.status, nextStatus: input.status } });
       return updated;
     }),
-    receivePartial: fleetOpsProcedure.input(z2.object({ purchaseOrderId: z2.string().uuid(), partId: z2.string().uuid(), quantity: z2.number().int().positive(), damagedQuantity: z2.number().int().nonnegative().default(0), backorderedQuantity: z2.number().int().nonnegative().default(0), varianceReason: z2.string().trim().min(3).max(300).optional(), expectedQuantityOnHand: z2.number().int().nonnegative(), unitCost: z2.number().nonnegative(), invoiceNumber: z2.string().trim().max(120).optional(), location: z2.string().trim().max(120).optional(), complete: z2.boolean().default(false) })).mutation(async ({ ctx, input }) => {
+    receivePartial: fleetOpsProcedure.input(import_zod2.z.object({ purchaseOrderId: import_zod2.z.string().uuid(), partId: import_zod2.z.string().uuid(), quantity: import_zod2.z.number().int().positive(), damagedQuantity: import_zod2.z.number().int().nonnegative().default(0), backorderedQuantity: import_zod2.z.number().int().nonnegative().default(0), varianceReason: import_zod2.z.string().trim().min(3).max(300).optional(), expectedQuantityOnHand: import_zod2.z.number().int().nonnegative(), unitCost: import_zod2.z.number().nonnegative(), invoiceNumber: import_zod2.z.string().trim().max(120).optional(), location: import_zod2.z.string().trim().max(120).optional(), complete: import_zod2.z.boolean().default(false) })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "INVENTORY_MANAGER"]);
-      if ((input.damagedQuantity > 0 || input.backorderedQuantity > 0) && !input.varianceReason) throw new TRPCError3({ code: "BAD_REQUEST", message: "A variance reason is required for damaged or back-ordered quantities." });
+      if ((input.damagedQuantity > 0 || input.backorderedQuantity > 0) && !input.varianceReason) throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: "A variance reason is required for damaged or back-ordered quantities." });
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "INVENTORY_MANAGER"]);
       assertWritable(ctx.fleetopsUser.org);
       const order = await fleetDb.purchaseOrder.findFirst({ where: { id: input.purchaseOrderId, orgId: ctx.fleetopsUser.orgId } });
-      if (!order || ["CANCELLED", "CLOSED"].includes(order.status)) throw new TRPCError3({ code: "NOT_FOUND", message: "Purchase order is not receivable in this organization." });
+      if (!order || ["CANCELLED", "CLOSED"].includes(order.status)) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Purchase order is not receivable in this organization." });
       const vendor = await fleetDb.vendor.findFirst({ where: { id: order.vendorId, orgId: ctx.fleetopsUser.orgId } });
-      if (!vendor) throw new TRPCError3({ code: "NOT_FOUND", message: "Purchase order vendor is not in this organization." });
+      if (!vendor) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Purchase order vendor is not in this organization." });
       const part = await fleetDb.inventoryPart.findFirst({ where: { id: input.partId, orgId: ctx.fleetopsUser.orgId } });
-      if (!part) throw new TRPCError3({ code: "NOT_FOUND", message: "Inventory part not found in this organization." });
+      if (!part) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Inventory part not found in this organization." });
       const received = await fleetDb.$transaction(async (tx) => {
         const changed = await tx.inventoryPart.updateMany({ where: { id: part.id, orgId: ctx.fleetopsUser.orgId, quantityOnHand: input.expectedQuantityOnHand }, data: { quantityOnHand: input.expectedQuantityOnHand + input.quantity, unitCost: input.unitCost, ...input.location ? { binLocation: input.location } : {} } });
-        if (!changed.count) throw new TRPCError3({ code: "CONFLICT", message: "Inventory changed since it was loaded. Refresh the balance and retry." });
+        if (!changed.count) throw new import_server3.TRPCError({ code: "CONFLICT", message: "Inventory changed since it was loaded. Refresh the balance and retry." });
         const receipt = await tx.purchaseOrderReceipt.create({ data: { id: crypto.randomUUID(), orgId: ctx.fleetopsUser.orgId, purchaseOrderId: order.id, partId: part.id, quantity: input.quantity, damagedQuantity: input.damagedQuantity, backorderedQuantity: input.backorderedQuantity, varianceReason: input.varianceReason, unitCost: input.unitCost, invoiceNumber: input.invoiceNumber, location: input.location, receivedById: ctx.fleetopsUser.id, receivedAt: /* @__PURE__ */ new Date() } });
         if (tx.inventoryMovement?.create) await tx.inventoryMovement.create({ data: { id: crypto.randomUUID(), orgId: ctx.fleetopsUser.orgId, partId: part.id, actorId: ctx.fleetopsUser.id, movementType: "RECEIPT", quantity: input.quantity, unitCost: input.unitCost, reason: `Purchase order receipt ${order.id}`, createdAt: /* @__PURE__ */ new Date() } });
         const updatedOrder = await tx.purchaseOrder.update({ where: { id: order.id }, data: { status: input.complete ? "RECEIVED" : "PARTIALLY_RECEIVED", ...input.invoiceNumber ? { supplierInvoiceNumber: input.invoiceNumber } : {}, ...input.complete ? { receivedAt: /* @__PURE__ */ new Date() } : {} } });
@@ -2254,15 +2278,15 @@ var appRouter = router({
       await recordAudit(ctx, { action: "PURCHASE_ORDER_PARTIALLY_RECEIVED", entityType: "PURCHASE_ORDER", entityId: order.id, summary: `Received ${input.quantity} units into ${part.name}`, metadata: { partId: part.id, quantity: input.quantity, damagedQuantity: input.damagedQuantity, backorderedQuantity: input.backorderedQuantity, varianceReason: input.varianceReason, unitCost: input.unitCost, invoiceNumber: input.invoiceNumber, location: input.location, complete: input.complete } });
       return received;
     }),
-    receipts: fleetOpsProcedure.input(z2.object({ purchaseOrderId: z2.string().uuid() })).query(async ({ ctx, input }) => {
+    receipts: fleetOpsProcedure.input(import_zod2.z.object({ purchaseOrderId: import_zod2.z.string().uuid() })).query(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "INVENTORY_MANAGER"]);
       const order = await fleetDb.purchaseOrder.findFirst({ where: { id: input.purchaseOrderId, orgId: ctx.fleetopsUser.orgId } });
-      if (!order) throw new TRPCError3({ code: "NOT_FOUND", message: "Purchase order not found in your organization." });
+      if (!order) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Purchase order not found in your organization." });
       return fleetDb.purchaseOrderReceipt.findMany({ where: { purchaseOrderId: order.id, orgId: ctx.fleetopsUser.orgId }, orderBy: { receivedAt: "desc" } });
     })
   }),
   compliance: router({
-    summary: fleetOpsProcedure.input(z2.object({ expiryWindowDays: z2.number().int().min(1).max(365).default(30) }).optional()).query(async ({ ctx, input }) => {
+    summary: fleetOpsProcedure.input(import_zod2.z.object({ expiryWindowDays: import_zod2.z.number().int().min(1).max(365).default(30) }).optional()).query(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER"]);
       const windowDays = input?.expiryWindowDays ?? 30;
       const [vehicles2, assignments, documents2, users2] = await Promise.all([fleetDb.vehicle.findMany({ where: { orgId: ctx.fleetopsUser.orgId }, orderBy: { licensePlate: "asc" } }), fleetDb.vehicleAssignment.findMany({ where: { orgId: ctx.fleetopsUser.orgId, active: true } }), fleetDb.document.findMany({ where: { orgId: ctx.fleetopsUser.orgId, archivedAt: null } }), fleetDb.user.findMany({ where: { orgId: ctx.fleetopsUser.orgId } })]);
@@ -2310,16 +2334,16 @@ var appRouter = router({
       await recordAudit(ctx, { action: "DOCUMENT_EXPORT_CSV", entityType: "DOCUMENT", summary: `Exported ${rows.length} compliance documents`, metadata: { count: rows.length } });
       return { filename: `vahansync-compliance-${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}.csv`, content: csv, rowCount: rows.length };
     }),
-    previewImport: fleetOpsProcedure.input(z2.object({ csv: z2.string().max(1e6) })).query(({ ctx, input }) => {
+    previewImport: fleetOpsProcedure.input(import_zod2.z.object({ csv: import_zod2.z.string().max(1e6) })).query(({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER"]);
       const parsed = parseComplianceCsv(input.csv);
       return { rowCount: parsed.rows.length, validCount: parsed.rows.filter((row) => !row.errors.length).length, errors: parsed.errors, rows: parsed.rows.slice(0, 100).map((item) => ({ rowNumber: item.rowNumber, ...item.row, errors: item.errors })) };
     }),
-    importCsv: fleetOpsProcedure.input(z2.object({ csv: z2.string().max(1e6) })).mutation(async ({ ctx, input }) => {
+    importCsv: fleetOpsProcedure.input(import_zod2.z.object({ csv: import_zod2.z.string().max(1e6) })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER"]);
       assertWritable(ctx.fleetopsUser.org);
       const parsed = parseComplianceCsv(input.csv);
-      if (parsed.errors.length) throw new TRPCError3({ code: "BAD_REQUEST", message: parsed.errors.slice(0, 8).join("; ") });
+      if (parsed.errors.length) throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: parsed.errors.slice(0, 8).join("; ") });
       const vehicles2 = await fleetDb.vehicle.findMany({ where: { orgId: ctx.fleetopsUser.orgId } });
       const vehicleIds = new Set(vehicles2.map((vehicle) => vehicle.id));
       const existing = await fleetDb.document.findMany({ where: { orgId: ctx.fleetopsUser.orgId, archivedAt: null } });
@@ -2330,7 +2354,7 @@ var appRouter = router({
         seen.add(key);
         return true;
       });
-      if (candidates.length !== parsed.rows.length) throw new TRPCError3({ code: "BAD_REQUEST", message: "Every row must reference an organization vehicle and must not duplicate an existing compliance document." });
+      if (candidates.length !== parsed.rows.length) throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: "Every row must reference an organization vehicle and must not duplicate an existing compliance document." });
       const created = await Promise.all(candidates.map((item) => fleetDb.document.create({ data: { id: crypto.randomUUID(), orgId: ctx.fleetopsUser.orgId, title: item.row.title, docType: item.row.docType, expiryDate: new Date(item.row.expiryDate), vehicleId: item.row.vehicleId, fileUrl: item.row.fileUrl || void 0, createdAt: /* @__PURE__ */ new Date() } })));
       await recordAudit(ctx, { action: "DOCUMENT_IMPORT_CSV", entityType: "DOCUMENT", summary: `Imported ${created.length} compliance documents`, metadata: { count: created.length } });
       return { importedCount: created.length };
@@ -2341,13 +2365,13 @@ var appRouter = router({
       const vehicleById = new Map(vehicles2.map((vehicle) => [vehicle.id, vehicle]));
       return documents2.map((document) => ({ ...document, vehicle: document.vehicleId ? vehicleById.get(document.vehicleId) ?? null : null }));
     }),
-    versions: fleetOpsProcedure.input(z2.object({ documentId: z2.string().uuid() })).query(async ({ ctx, input }) => {
+    versions: fleetOpsProcedure.input(import_zod2.z.object({ documentId: import_zod2.z.string().uuid() })).query(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER"]);
       const document = await fleetDb.document.findFirst({ where: { id: input.documentId, orgId: ctx.fleetopsUser.orgId } });
-      if (!document) throw new TRPCError3({ code: "NOT_FOUND", message: "Document not found in this organization." });
+      if (!document) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Document not found in this organization." });
       return fleetDb.documentVersion.findMany({ where: { orgId: ctx.fleetopsUser.orgId, documentId: document.id }, orderBy: { versionNumber: "desc" }, take: 50 });
     }),
-    create: fleetOpsProcedure.input(z2.object({ title: z2.string().min(2), docType: z2.string().min(2), fileUrl: z2.string().url().optional(), fileKey: z2.string().optional(), fileData: z2.string().max(4e6).optional(), fileContentType: z2.string().optional(), expiryDate: z2.coerce.date(), vehicleId: z2.string().uuid().optional() })).mutation(async ({ ctx, input }) => {
+    create: fleetOpsProcedure.input(import_zod2.z.object({ title: import_zod2.z.string().min(2), docType: import_zod2.z.string().min(2), fileUrl: import_zod2.z.string().url().optional(), fileKey: import_zod2.z.string().optional(), fileData: import_zod2.z.string().max(4e6).optional(), fileContentType: import_zod2.z.string().optional(), expiryDate: import_zod2.z.coerce.date(), vehicleId: import_zod2.z.string().uuid().optional() })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER"]);
       assertWritable(ctx.fleetopsUser.org);
       const { fileData, fileContentType, ...data } = input;
@@ -2358,30 +2382,30 @@ var appRouter = router({
       if (fileData) {
         const decoded = decodeDocumentUpload(fileData, fileContentType);
         const duplicate = await fleetDb.document.findFirst({ where: { orgId: ctx.fleetopsUser.orgId, fileChecksum: decoded.checksum } });
-        if (duplicate) throw new TRPCError3({ code: "CONFLICT", message: "This exact document file already exists in the organization." });
+        if (duplicate) throw new import_server3.TRPCError({ code: "CONFLICT", message: "This exact document file already exists in the organization." });
         const uploaded = await storagePut(`fleetops/documents/${ctx.fleetopsUser.orgId}/${input.title}`, decoded.bytes, fileContentType);
         fileUrl = uploaded.url;
         fileKey = uploaded.key;
         fileChecksum = decoded.checksum;
         fileSizeBytes = decoded.sizeBytes;
       }
-      if (!fileUrl) throw new TRPCError3({ code: "BAD_REQUEST", message: "A document file is required." });
+      if (!fileUrl) throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: "A document file is required." });
       const created = await fleetDb.document.create({ data: { id: crypto.randomUUID(), ...data, fileUrl, fileKey, fileChecksum, fileSizeBytes, retentionUntil: retentionAfterExpiry(input.expiryDate), orgId: ctx.fleetopsUser.orgId, createdAt: /* @__PURE__ */ new Date() } });
       await fleetDb.documentVersion.create({ data: { id: crypto.randomUUID(), orgId: ctx.fleetopsUser.orgId, documentId: created.id, versionNumber: 1, title: created.title, docType: created.docType, fileUrl: created.fileUrl, fileKey: created.fileKey, fileChecksum: created.fileChecksum, fileSizeBytes: created.fileSizeBytes, expiryDate: created.expiryDate, createdById: ctx.fleetopsUser.id, createdAt: /* @__PURE__ */ new Date() } });
       await recordAudit(ctx, { action: "DOCUMENT_CREATED", entityType: "DOCUMENT", entityId: created.id, summary: `Compliance document added: ${created.title}`, metadata: { docType: created.docType, fileChecksum, fileSizeBytes, malwareScan: "NOT_AVAILABLE_POLICY_RECORDED" } });
       return created;
     }),
-    update: fleetOpsProcedure.input(z2.object({ id: z2.string().uuid(), title: z2.string().min(2).optional(), expiryDate: z2.coerce.date().optional(), fileData: z2.string().max(4e6).optional(), fileContentType: z2.string().optional() })).mutation(async ({ ctx, input }) => {
+    update: fleetOpsProcedure.input(import_zod2.z.object({ id: import_zod2.z.string().uuid(), title: import_zod2.z.string().min(2).optional(), expiryDate: import_zod2.z.coerce.date().optional(), fileData: import_zod2.z.string().max(4e6).optional(), fileContentType: import_zod2.z.string().optional() })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER"]);
       assertWritable(ctx.fleetopsUser.org);
       const existing = await fleetDb.document.findFirst({ where: { id: input.id, orgId: ctx.fleetopsUser.orgId } });
-      if (!existing) throw new TRPCError3({ code: "NOT_FOUND", message: "Document not found." });
+      if (!existing) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Document not found." });
       const { id, fileData, fileContentType, ...data } = input;
       let updateData = { ...data };
       if (fileData) {
         const decoded = decodeDocumentUpload(fileData, fileContentType);
         const duplicate = await fleetDb.document.findFirst({ where: { orgId: ctx.fleetopsUser.orgId, fileChecksum: decoded.checksum } });
-        if (duplicate && duplicate.id !== existing.id) throw new TRPCError3({ code: "CONFLICT", message: "This exact replacement file already exists in the organization." });
+        if (duplicate && duplicate.id !== existing.id) throw new import_server3.TRPCError({ code: "CONFLICT", message: "This exact replacement file already exists in the organization." });
         const uploaded = await storagePut(`fleetops/documents/${ctx.fleetopsUser.orgId}/${existing.title}`, decoded.bytes, fileContentType);
         updateData = { ...updateData, fileUrl: uploaded.url, fileKey: uploaded.key, fileChecksum: decoded.checksum, fileSizeBytes: decoded.sizeBytes };
       }
@@ -2393,11 +2417,11 @@ var appRouter = router({
       await recordAudit(ctx, { action: "DOCUMENT_UPDATED", entityType: "DOCUMENT", entityId: existing.id, summary: `Compliance document updated: ${updated.title}`, metadata: { fileChecksum: updateData.fileChecksum, fileSizeBytes: updateData.fileSizeBytes, retentionUntil: updateData.retentionUntil } });
       return updated;
     }),
-    archive: fleetOpsProcedure.input(z2.object({ id: z2.string().uuid(), reason: z2.string().trim().min(3).max(500) })).mutation(async ({ ctx, input }) => {
+    archive: fleetOpsProcedure.input(import_zod2.z.object({ id: import_zod2.z.string().uuid(), reason: import_zod2.z.string().trim().min(3).max(500) })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER"]);
       assertWritable(ctx.fleetopsUser.org);
       const document = await fleetDb.document.findFirst({ where: { id: input.id, orgId: ctx.fleetopsUser.orgId, archivedAt: null } });
-      if (!document) throw new TRPCError3({ code: "NOT_FOUND", message: "Active document not found." });
+      if (!document) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Active document not found." });
       const archived = await fleetDb.document.update({ where: { id: document.id }, data: { archivedAt: /* @__PURE__ */ new Date(), archivedById: ctx.fleetopsUser.id } });
       await recordAudit(ctx, { action: "DOCUMENT_ARCHIVED", entityType: "DOCUMENT", entityId: document.id, summary: `Archived compliance document: ${document.title}`, metadata: { reason: input.reason, retentionUntil: document.retentionUntil } });
       return archived;
@@ -2410,20 +2434,20 @@ var appRouter = router({
       const retentionExpired = rows.filter((row) => row.retentionUntil && new Date(row.retentionUntil).getTime() < now);
       return { total: rows.length, missingMetadata: missingMetadata.map((row) => row.id), retentionExpired: retentionExpired.map((row) => row.id), malwareScanPolicy: "EXTERNAL_SCAN_REQUIRED_BEFORE_PRODUCTION_UPLOAD", accessLogging: "FILE_ACCESSED audit events enabled" };
     }),
-    access: fleetOpsProcedure.input(z2.object({ id: z2.string().uuid(), kind: z2.enum(["DOCUMENT", "WORK_ORDER_EVIDENCE"]).default("DOCUMENT") })).mutation(async ({ ctx, input }) => {
+    access: fleetOpsProcedure.input(import_zod2.z.object({ id: import_zod2.z.string().uuid(), kind: import_zod2.z.enum(["DOCUMENT", "WORK_ORDER_EVIDENCE"]).default("DOCUMENT") })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, input.kind === "DOCUMENT" ? ["SUPERADMIN", "FLEET_MANAGER"] : ["SUPERADMIN", "FLEET_MANAGER", "MECHANIC", "TECHNICIAN"]);
       const row = input.kind === "DOCUMENT" ? await fleetDb.document.findFirst({ where: { id: input.id, orgId: ctx.fleetopsUser.orgId } }) : await fleetDb.workOrderEvidence.findFirst({ where: { id: input.id, orgId: ctx.fleetopsUser.orgId } });
-      if (!row?.fileKey) throw new TRPCError3({ code: "NOT_FOUND", message: "The requested file is unavailable." });
+      if (!row?.fileKey) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "The requested file is unavailable." });
       await recordAudit(ctx, { action: "FILE_ACCESSED", entityType: input.kind, entityId: input.id, summary: `Authorized file access for ${input.kind.toLowerCase()}` });
       return { url: await storageGetSignedUrl(row.fileKey), expiresInSeconds: 900 };
     })
   }),
   reports: router({
-    maintenancePerformance: fleetOpsProcedure.input(z2.object({ from: z2.coerce.date().optional(), to: z2.coerce.date().optional() }).optional()).query(async ({ ctx, input }) => {
+    maintenancePerformance: fleetOpsProcedure.input(import_zod2.z.object({ from: import_zod2.z.coerce.date().optional(), to: import_zod2.z.coerce.date().optional() }).optional()).query(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER", "ACCOUNTANT"]);
       const to = input?.to ?? /* @__PURE__ */ new Date();
       const from = input?.from ?? new Date(to.getTime() - 90 * 864e5);
-      if (from > to) throw new TRPCError3({ code: "BAD_REQUEST", message: "Report start date must be before end date." });
+      if (from > to) throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: "Report start date must be before end date." });
       const orders = await fleetDb.workOrder.findMany({ where: { orgId: ctx.fleetopsUser.orgId, createdAt: { gte: from, lte: to } }, include: { vehicle: true }, orderBy: { createdAt: "asc" } });
       const completed = orders.filter((order) => order.completedAt);
       const durations = completed.map((order) => Math.max(0, new Date(order.completedAt).getTime() - new Date(order.startedAt ?? order.createdAt).getTime())).filter((value) => Number.isFinite(value));
@@ -2451,7 +2475,7 @@ var appRouter = router({
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "ACCOUNTANT"]);
       return fleetDb.vehicle.findMany({ where: { orgId: ctx.fleetopsUser.orgId }, select: { id: true, vin: true, licensePlate: true, make: true, model: true, currentOdometer: true }, orderBy: { licensePlate: "asc" } });
     }),
-    exportPdf: fleetOpsProcedure.input(z2.object({ vehicleId: z2.string().uuid().optional(), type: z2.enum(["REVENUE", "EXPENSE"]).optional(), category: z2.string().optional(), from: z2.coerce.date().optional(), to: z2.coerce.date().optional() }).optional()).query(async ({ ctx, input }) => {
+    exportPdf: fleetOpsProcedure.input(import_zod2.z.object({ vehicleId: import_zod2.z.string().uuid().optional(), type: import_zod2.z.enum(["REVENUE", "EXPENSE"]).optional(), category: import_zod2.z.string().optional(), from: import_zod2.z.coerce.date().optional(), to: import_zod2.z.coerce.date().optional() }).optional()).query(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "ACCOUNTANT"]);
       const where = { orgId: ctx.fleetopsUser.orgId, ...input?.vehicleId ? { vehicleId: input.vehicleId } : {}, ...input?.type ? { type: input.type } : {}, ...input?.category ? { category: input.category } : {}, ...input?.from ? { transactionDate: { gte: input.from } } : {}, ...input?.to ? { transactionDate: { lte: input.to } } : {} };
       const [recordRows, vehicles2] = await Promise.all([fleetDb.financialRecord.findMany({ where, orderBy: { transactionDate: "desc" } }), fleetDb.vehicle.findMany({ where: { orgId: ctx.fleetopsUser.orgId } })]);
@@ -2461,7 +2485,7 @@ var appRouter = router({
       await recordAudit(ctx, { action: "FINANCIAL_EXPORT_PDF", entityType: "FINANCIAL_RECORD", summary: `Exported financial PDF with ${rows.length} records`, metadata: { count: rows.length } });
       return { filename: `vahansync-financial-ledger-${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}.pdf`, content, rowCount: rows.length };
     }),
-    exportCsv: fleetOpsProcedure.input(z2.object({ vehicleId: z2.string().uuid().optional(), type: z2.enum(["REVENUE", "EXPENSE"]).optional(), category: z2.string().optional(), from: z2.coerce.date().optional(), to: z2.coerce.date().optional() }).optional()).query(async ({ ctx, input }) => {
+    exportCsv: fleetOpsProcedure.input(import_zod2.z.object({ vehicleId: import_zod2.z.string().uuid().optional(), type: import_zod2.z.enum(["REVENUE", "EXPENSE"]).optional(), category: import_zod2.z.string().optional(), from: import_zod2.z.coerce.date().optional(), to: import_zod2.z.coerce.date().optional() }).optional()).query(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "ACCOUNTANT"]);
       const where = { orgId: ctx.fleetopsUser.orgId, ...input?.vehicleId ? { vehicleId: input.vehicleId } : {}, ...input?.type ? { type: input.type } : {}, ...input?.category ? { category: input.category } : {}, ...input?.from ? { transactionDate: { gte: input.from } } : {}, ...input?.to ? { transactionDate: { lte: input.to } } : {} };
       const [recordRows, vehicles2] = await Promise.all([fleetDb.financialRecord.findMany({ where, orderBy: { transactionDate: "desc" } }), fleetDb.vehicle.findMany({ where: { orgId: ctx.fleetopsUser.orgId } })]);
@@ -2527,7 +2551,7 @@ var appRouter = router({
       });
       return { rows, mismatches: rows.filter((row) => row.status === "MISMATCH"), totals: { fuelLogged: rows.reduce((sum, row) => sum + row.fuelLogged, 0), ledgerFuel: rows.reduce((sum, row) => sum + row.ledgerFuel, 0), difference: rows.reduce((sum, row) => sum + row.difference, 0) } };
     }),
-    create: fleetOpsProcedure.input(z2.object({ vehicleId: z2.string().uuid(), type: z2.enum(["REVENUE", "EXPENSE"]), category: z2.string().min(2), amount: z2.number().nonnegative(), transactionDate: z2.coerce.date(), taxAmount: z2.number().nonnegative().default(0), gstin: z2.string().trim().max(30).optional(), taxCategory: z2.string().trim().max(80).optional(), invoiceNumber: z2.string().trim().max(120).optional(), vendor: z2.string().trim().max(160).optional(), paymentMethod: z2.string().trim().max(60).optional(), costCenterType: z2.string().trim().max(60).optional(), costCenterId: z2.string().uuid().optional(), tdsAmount: z2.number().nonnegative().default(0) })).mutation(async ({ ctx, input }) => {
+    create: fleetOpsProcedure.input(import_zod2.z.object({ vehicleId: import_zod2.z.string().uuid(), type: import_zod2.z.enum(["REVENUE", "EXPENSE"]), category: import_zod2.z.string().min(2), amount: import_zod2.z.number().nonnegative(), transactionDate: import_zod2.z.coerce.date(), taxAmount: import_zod2.z.number().nonnegative().default(0), gstin: import_zod2.z.string().trim().max(30).optional(), taxCategory: import_zod2.z.string().trim().max(80).optional(), invoiceNumber: import_zod2.z.string().trim().max(120).optional(), vendor: import_zod2.z.string().trim().max(160).optional(), paymentMethod: import_zod2.z.string().trim().max(60).optional(), costCenterType: import_zod2.z.string().trim().max(60).optional(), costCenterId: import_zod2.z.string().uuid().optional(), tdsAmount: import_zod2.z.number().nonnegative().default(0) })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "ACCOUNTANT"]);
       assertWritable(ctx.fleetopsUser.org);
       const approvalStatus = input.type === "EXPENSE" && (input.amount >= 1e5 || input.category.toUpperCase().includes("MANUAL")) ? "PENDING_APPROVAL" : "APPROVED";
@@ -2541,43 +2565,39 @@ var appRouter = router({
       const vehicleById = new Map(vehicles2.map((vehicle) => [vehicle.id, vehicle]));
       return records.map((record) => ({ ...record, vehicle: record.vehicleId ? vehicleById.get(record.vehicleId) ?? null : null }));
     }),
-    reconcileRecord: fleetOpsProcedure.input(z2.object({ id: z2.string().uuid(), reconciliationRef: z2.string().trim().min(2).max(160) })).mutation(async ({ ctx, input }) => {
+    reconcileRecord: fleetOpsProcedure.input(import_zod2.z.object({ id: import_zod2.z.string().uuid(), reconciliationRef: import_zod2.z.string().trim().min(2).max(160) })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "ACCOUNTANT"]);
       assertWritable(ctx.fleetopsUser.org);
       const existing = await fleetDb.financialRecord.findFirst({ where: { id: input.id, orgId: ctx.fleetopsUser.orgId } });
-      if (!existing) throw new TRPCError3({ code: "NOT_FOUND", message: "Financial record not found." });
+      if (!existing) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Financial record not found." });
       const updated = await fleetDb.financialRecord.update({ where: { id: existing.id }, data: { reconciledAt: /* @__PURE__ */ new Date(), reconciliationRef: input.reconciliationRef } });
       await recordAudit(ctx, { action: "FINANCIAL_RECORD_RECONCILED", entityType: "FINANCIAL_RECORD", entityId: existing.id, summary: `Reconciled financial record \u20B9${Number(existing.amount).toLocaleString("en-IN")}`, metadata: { reconciliationRef: input.reconciliationRef } });
       return updated;
     }),
-    approve: fleetOpsProcedure.input(z2.object({ id: z2.string().uuid(), reason: z2.string().min(3) })).mutation(async ({ ctx, input }) => {
+    approve: fleetOpsProcedure.input(import_zod2.z.object({ id: import_zod2.z.string().uuid(), reason: import_zod2.z.string().min(3) })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN"]);
       assertWritable(ctx.fleetopsUser.org);
       const existing = await fleetDb.financialRecord.findFirst({ where: { id: input.id, orgId: ctx.fleetopsUser.orgId } });
-      if (!existing) throw new TRPCError3({ code: "NOT_FOUND", message: "Financial record not found." });
-      if (existing.approvalStatus !== "PENDING_APPROVAL") throw new TRPCError3({ code: "BAD_REQUEST", message: "This financial record does not require approval." });
+      if (!existing) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Financial record not found." });
+      if (existing.approvalStatus !== "PENDING_APPROVAL") throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: "This financial record does not require approval." });
       const approved = await fleetDb.financialRecord.update({ where: { id: existing.id }, data: { approvalStatus: "APPROVED", approvedById: ctx.fleetopsUser.id, approvalReason: input.reason } });
       await recordAudit(ctx, { action: "FINANCIAL_RECORD_APPROVED", entityType: "FINANCIAL_RECORD", entityId: existing.id, summary: `Approved financial record \u20B9${Number(existing.amount).toLocaleString("en-IN")}`, metadata: { reason: input.reason } });
       return approved;
     }),
-    reverse: fleetOpsProcedure.input(z2.object({ id: z2.string().uuid(), reason: z2.string().min(3) })).mutation(async ({ ctx, input }) => {
+    reverse: fleetOpsProcedure.input(import_zod2.z.object({ id: import_zod2.z.string().uuid(), reason: import_zod2.z.string().min(3) })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "ACCOUNTANT"]);
       assertWritable(ctx.fleetopsUser.org);
       const existing = await fleetDb.financialRecord.findFirst({ where: { id: input.id, orgId: ctx.fleetopsUser.orgId } });
-      if (!existing) throw new TRPCError3({ code: "NOT_FOUND", message: "Financial record not found." });
+      if (!existing) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Financial record not found." });
       const priorReversal = await fleetDb.financialRecord.findFirst({ where: { orgId: ctx.fleetopsUser.orgId, reversalOfId: existing.id } });
-      if (priorReversal) throw new TRPCError3({ code: "CONFLICT", message: "This financial record has already been reversed." });
+      if (priorReversal) throw new import_server3.TRPCError({ code: "CONFLICT", message: "This financial record has already been reversed." });
       const reversal = await fleetDb.financialRecord.create({ data: { id: crypto.randomUUID(), orgId: ctx.fleetopsUser.orgId, vehicleId: existing.vehicleId, type: existing.type === "EXPENSE" ? "REVENUE" : "EXPENSE", category: `REVERSAL:${existing.category}`, amount: Number(existing.amount), transactionDate: /* @__PURE__ */ new Date(), approvalStatus: existing.approvalStatus === "APPROVED" ? "APPROVED" : "PENDING_APPROVAL", reversalOfId: existing.id, approvalReason: input.reason } });
       await recordAudit(ctx, { action: "FINANCIAL_RECORD_REVERSED", entityType: "FINANCIAL_RECORD", entityId: existing.id, summary: `Reversed financial record \u20B9${Number(existing.amount).toLocaleString("en-IN")}`, metadata: { reversalId: reversal.id, reason: input.reason } });
       return reversal;
     })
   }),
   billing: router({
-    plans: publicProcedure.query(() => {
-      const plansData = Object.values(BILLING_PLANS).map((plan) => ({ ...plan, platformFeeInr: plan.platformFeePaise / 100, overageVehicleFeeInr: plan.overageVehicleFeePaise / 100 }));
-      console.log("DEBUG: billing.plans returning:", plansData);
-      return plansData;
-    }),
+    plans: publicProcedure.query(() => Object.values(BILLING_PLANS).map((plan) => ({ ...plan, platformFeeInr: plan.platformFeePaise / 100, overageVehicleFeeInr: plan.overageVehicleFeePaise / 100 }))),
     status: fleetOpsProcedure.query(async ({ ctx }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN"]);
       const isTrial = ctx.fleetopsUser.org.subscriptionTier === "TRIAL_FREE";
@@ -2610,10 +2630,10 @@ var appRouter = router({
       await recordAudit(ctx, { action: "BILLING_INVOICE_SNAPSHOT_CREATED", entityType: "BILLING_INVOICE", entityId: invoice.id, summary: `Created ${plan.name} invoice snapshot`, metadata: { billableVehicles: bill.billableVehicles, subtotalPaise: bill.subtotalPaise, billingPeriodStart: periodStart.toISOString() } });
       return invoice;
     }),
-    createTestOrder: fleetOpsProcedure.input(z2.object({ invoiceId: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
+    createTestOrder: fleetOpsProcedure.input(import_zod2.z.object({ invoiceId: import_zod2.z.string().uuid() })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN"]);
       const invoice = await fleetDb.billingInvoice.findFirst({ where: { id: input.invoiceId, orgId: ctx.fleetopsUser.orgId } });
-      if (!invoice) throw new TRPCError3({ code: "NOT_FOUND", message: "Invoice not found in this organization" });
+      if (!invoice) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Invoice not found in this organization" });
       const { keyId } = assertRazorpayTestMode();
       const order = await createRazorpayTestOrder({ amountPaise: Number(invoice.totalPaise), receipt: invoice.id, notes: { orgId: ctx.fleetopsUser.orgId, invoiceId: invoice.id, mode: "TEST" } });
       await recordAudit(ctx, { action: "BILLING_TEST_ORDER_CREATED", entityType: "BILLING_INVOICE", entityId: invoice.id, summary: "Created Razorpay Test Mode order", metadata: { orderId: order.id, amountPaise: order.amount, mode: "TEST" } });
@@ -2652,7 +2672,7 @@ var appRouter = router({
     })
   }),
   notifications: router({
-    list: fleetOpsProcedure.input(z2.object({ severity: z2.enum(["ALL", "INFO", "HIGH", "CRITICAL"]).default("ALL"), sourceType: z2.string().trim().max(80).default("ALL"), status: z2.enum(["ALL", "UNREAD", "READ", "OPEN", "RESOLVED"]).default("ALL"), vehicleId: z2.string().uuid().optional() }).optional()).query(async ({ ctx, input }) => {
+    list: fleetOpsProcedure.input(import_zod2.z.object({ severity: import_zod2.z.enum(["ALL", "INFO", "HIGH", "CRITICAL"]).default("ALL"), sourceType: import_zod2.z.string().trim().max(80).default("ALL"), status: import_zod2.z.enum(["ALL", "UNREAD", "READ", "OPEN", "RESOLVED"]).default("ALL"), vehicleId: import_zod2.z.string().uuid().optional() }).optional()).query(async ({ ctx, input }) => {
       const filters = input ?? { severity: "ALL", sourceType: "ALL", status: "ALL" };
       const where = { orgId: ctx.fleetopsUser.orgId, recipientId: ctx.fleetopsUser.id, ...filters.severity !== "ALL" ? { severity: filters.severity } : {}, ...filters.sourceType !== "ALL" ? { sourceType: filters.sourceType } : {}, ...filters.status === "UNREAD" ? { isRead: false } : filters.status === "READ" ? { isRead: true } : filters.status === "OPEN" ? { resolvedAt: null } : filters.status === "RESOLVED" ? { resolvedAt: { not: null } } : {} };
       const notifications2 = await fleetDb.notification.findMany({ where, orderBy: { resolvedAt: "asc", createdAt: "desc" }, take: 100 });
@@ -2661,39 +2681,39 @@ var appRouter = router({
       const references = /* @__PURE__ */ new Set([filters.vehicleId, ...vehicles2.map((row) => row.id), ...orders.map((row) => row.id), ...issues.map((row) => row.id)]);
       return notifications2.filter((notification) => notification.referenceId && references.has(notification.referenceId));
     }),
-    sourceDetail: fleetOpsProcedure.input(z2.object({ id: z2.string().uuid() })).query(async ({ ctx, input }) => {
+    sourceDetail: fleetOpsProcedure.input(import_zod2.z.object({ id: import_zod2.z.string().uuid() })).query(async ({ ctx, input }) => {
       const notification = await fleetDb.notification.findFirst({ where: { id: input.id, orgId: ctx.fleetopsUser.orgId, recipientId: ctx.fleetopsUser.id } });
-      if (!notification) throw new TRPCError3({ code: "NOT_FOUND", message: "Notification is outside your organization scope." });
+      if (!notification) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Notification is outside your organization scope." });
       const sourceType = String(notification.sourceType ?? "SYSTEM");
       const source = notification.referenceId && sourceType === "WORK_ORDER" ? await fleetDb.workOrder.findFirst({ where: { id: notification.referenceId, orgId: ctx.fleetopsUser.orgId }, include: { vehicle: true, assignedMechanic: true } }) : notification.referenceId && sourceType === "VEHICLE_ISSUE" ? await fleetDb.vehicleIssue.findFirst({ where: { id: notification.referenceId, orgId: ctx.fleetopsUser.orgId }, include: { vehicle: true } }) : notification.referenceId && sourceType === "VEHICLE" ? await fleetDb.vehicle.findFirst({ where: { id: notification.referenceId, orgId: ctx.fleetopsUser.orgId } }) : notification.referenceId && sourceType === "DOCUMENT_EXPIRY" ? await fleetDb.document.findFirst({ where: { id: notification.referenceId, orgId: ctx.fleetopsUser.orgId }, include: { vehicle: true } }) : notification.referenceId && sourceType === "INVENTORY_LOW" ? await fleetDb.inventoryPart.findFirst({ where: { id: notification.referenceId, orgId: ctx.fleetopsUser.orgId } }) : null;
       return { notification, sourceType, source };
     }),
-    markRead: fleetOpsProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(({ ctx, input }) => fleetDb.notification.updateMany({ where: { id: input.id, orgId: ctx.fleetopsUser.orgId, recipientId: ctx.fleetopsUser.id }, data: { isRead: true, acknowledgedAt: /* @__PURE__ */ new Date() } })),
-    escalate: fleetOpsProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
+    markRead: fleetOpsProcedure.input(import_zod2.z.object({ id: import_zod2.z.string().uuid() })).mutation(({ ctx, input }) => fleetDb.notification.updateMany({ where: { id: input.id, orgId: ctx.fleetopsUser.orgId, recipientId: ctx.fleetopsUser.id }, data: { isRead: true, acknowledgedAt: /* @__PURE__ */ new Date() } })),
+    escalate: fleetOpsProcedure.input(import_zod2.z.object({ id: import_zod2.z.string().uuid() })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER"]);
       const current = await fleetDb.notification.findFirst({ where: { id: input.id, orgId: ctx.fleetopsUser.orgId } });
-      if (!current) throw new TRPCError3({ code: "NOT_FOUND", message: "Notification not found." });
-      if (current.resolvedAt) throw new TRPCError3({ code: "BAD_REQUEST", message: "Resolved notifications cannot be escalated." });
+      if (!current) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Notification not found." });
+      if (current.resolvedAt) throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: "Resolved notifications cannot be escalated." });
       const updated = await fleetDb.notification.update({ where: { id: current.id }, data: { escalationLevel: (current.escalationLevel ?? 0) + 1, isRead: false } });
       await recordAudit(ctx, { action: "NOTIFICATION_ESCALATED", entityType: "NOTIFICATION", entityId: current.id, summary: `Escalated ${current.title}`, metadata: { escalationLevel: updated.escalationLevel, sourceType: current.sourceType } });
       return updated;
     }),
-    resolve: fleetOpsProcedure.input(z2.object({ id: z2.string().uuid(), note: z2.string().trim().min(3).max(500) })).mutation(async ({ ctx, input }) => {
+    resolve: fleetOpsProcedure.input(import_zod2.z.object({ id: import_zod2.z.string().uuid(), note: import_zod2.z.string().trim().min(3).max(500) })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER"]);
       const current = await fleetDb.notification.findFirst({ where: { id: input.id, orgId: ctx.fleetopsUser.orgId } });
-      if (!current) throw new TRPCError3({ code: "NOT_FOUND", message: "Notification not found." });
+      if (!current) throw new import_server3.TRPCError({ code: "NOT_FOUND", message: "Notification not found." });
       if (current.resolvedAt) return current;
       if (current.sourceType === "VEHICLE_ISSUE" && current.referenceId) {
         const issue = await fleetDb.vehicleIssue.findFirst({ where: { id: current.referenceId, orgId: ctx.fleetopsUser.orgId } });
-        if (!issue || !["RESOLVED", "CLOSED"].includes(issue.status)) throw new TRPCError3({ code: "BAD_REQUEST", message: "Resolve the source vehicle issue before closing this notification." });
+        if (!issue || !["RESOLVED", "CLOSED"].includes(issue.status)) throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: "Resolve the source vehicle issue before closing this notification." });
       }
       if (current.sourceType === "WORK_ORDER" && current.referenceId) {
         const order = await fleetDb.workOrder.findFirst({ where: { id: current.referenceId, orgId: ctx.fleetopsUser.orgId } });
-        if (!order || order.status !== "COMPLETED") throw new TRPCError3({ code: "BAD_REQUEST", message: "Complete the source work order before closing this notification." });
+        if (!order || order.status !== "COMPLETED") throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: "Complete the source work order before closing this notification." });
       }
       if (current.sourceType === "VEHICLE" && current.referenceId) {
         const vehicle = await fleetDb.vehicle.findFirst({ where: { id: current.referenceId, orgId: ctx.fleetopsUser.orgId } });
-        if (!vehicle || vehicle.status !== "ACTIVE") throw new TRPCError3({ code: "BAD_REQUEST", message: "Clear the source vehicle before closing this notification." });
+        if (!vehicle || vehicle.status !== "ACTIVE") throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: "Clear the source vehicle before closing this notification." });
       }
       const updated = await fleetDb.notification.update({ where: { id: current.id }, data: { isRead: true, acknowledgedAt: current.acknowledgedAt ?? /* @__PURE__ */ new Date(), resolvedAt: /* @__PURE__ */ new Date() } });
       await recordAudit(ctx, { action: "NOTIFICATION_RESOLVED", entityType: "NOTIFICATION", entityId: current.id, summary: `Resolved ${current.title}`, metadata: { note: input.note, sourceType: current.sourceType, referenceId: current.referenceId } });
@@ -2715,17 +2735,17 @@ async function createContext(opts) {
 }
 
 // server/_core/static.ts
-import express from "express";
-import fs from "fs";
-import path from "path";
+var import_express = __toESM(require("express"), 1);
+var import_fs = __toESM(require("fs"), 1);
+var import_path = __toESM(require("path"), 1);
 function serveStatic(app) {
-  const distPath = process.env.NODE_ENV === "development" ? path.resolve(process.cwd(), "dist", "public") : path.resolve(process.cwd(), "api", "public");
-  if (!fs.existsSync(distPath)) {
+  const distPath = process.env.NODE_ENV === "development" ? import_path.default.resolve(process.cwd(), "dist", "public") : import_path.default.resolve(process.cwd(), "api", "public");
+  if (!import_fs.default.existsSync(distPath)) {
     console.error(`Could not find the build directory: ${distPath}, make sure to build the client first`);
   }
-  app.use(express.static(distPath));
+  app.use(import_express.default.static(distPath));
   app.use("*", (_req, res) => {
-    res.sendFile(path.resolve(distPath, "index.html"));
+    res.sendFile(import_path.default.resolve(distPath, "index.html"));
   });
 }
 
@@ -2749,7 +2769,7 @@ function createRateLimiter(limit = 240, windowMs = 6e4) {
 // server/_core/index.ts
 function isPortAvailable(port) {
   return new Promise((resolve) => {
-    const server = net.createServer();
+    const server = import_net.default.createServer();
     server.listen(port, () => {
       server.close(() => resolve(true));
     });
@@ -2765,9 +2785,9 @@ async function findAvailablePort(startPort = 3e3) {
   throw new Error(`No available port found starting from ${startPort}`);
 }
 async function startServer() {
-  const app = express3();
-  const server = createServer(app);
-  app.post("/api/razorpay/webhook", express3.raw({ type: "application/json", limit: "2mb" }), async (req, res) => {
+  const app = (0, import_express3.default)();
+  const server = (0, import_http.createServer)(app);
+  app.post("/api/razorpay/webhook", import_express3.default.raw({ type: "application/json", limit: "2mb" }), async (req, res) => {
     if (!isRazorpayWebhookEnabled()) {
       res.status(404).json({ error: "Webhook processing is disabled" });
       return;
@@ -2796,8 +2816,8 @@ async function startServer() {
     }
     res.status(200).json({ received: true, eventId, mode: "TEST" });
   });
-  app.use(express3.json({ limit: "50mb" }));
-  app.use(express3.urlencoded({ limit: "50mb", extended: true }));
+  app.use(import_express3.default.json({ limit: "50mb" }));
+  app.use(import_express3.default.urlencoded({ limit: "50mb", extended: true }));
   app.use((req, res, next) => {
     const requestId = req.header("x-request-id") || createRequestId();
     res.locals.requestId = requestId;
@@ -2825,7 +2845,7 @@ async function startServer() {
       });
       next();
     },
-    createExpressMiddleware({
+    (0, import_express4.createExpressMiddleware)({
       router: appRouter,
       createContext,
       onError: ({ path: path4, error, req }) => {
