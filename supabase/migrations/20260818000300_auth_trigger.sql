@@ -11,7 +11,7 @@ declare
 begin
   display_name := coalesce(new.raw_user_meta_data ->> 'fullName', split_part(new.email, '@', 1));
   insert into public.organizations ("id", "name", "subscriptionTier", "trialEndsAt", "maxVehicles", "maxUsers", "currency", "updatedAt")
-  values (gen_random_uuid(), coalesce(new.raw_user_meta_data ->> 'orgName', display_name || '''s Fleet'''), 'TRIAL_FREE', now() + interval '7 days', 3, 5, 'INR', now())
+  values (gen_random_uuid(), coalesce(new.raw_user_meta_data ->> 'orgName', display_name || '''s Fleet'''), 'TRIAL_FREE', now() + interval '14 days', 3, 999999, 'INR', now())
   returning id into new_org_id;
 
   insert into public.users ("id", "authUserId", "orgId", "email", "fullName", "role", "updatedAt")

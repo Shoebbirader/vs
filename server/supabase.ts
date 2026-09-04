@@ -113,7 +113,7 @@ export async function provisionFleetOpsUser(input: {
         name: input.orgName ?? `${input.fullName}'s Fleet`,
         trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
         maxVehicles: 3,
-        maxUsers: 5,
+        maxUsers: 999999,
       },
     });
 
