@@ -327,3 +327,188 @@ ALTER TABLE "documents" ADD CONSTRAINT "documents_vehicleId_fkey" FOREIGN KEY ("
 -- AddForeignKey
 ALTER TABLE "notifications" ADD CONSTRAINT "notifications_orgId_fkey" FOREIGN KEY ("orgId") REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
+-- CreateTable - MISSING: vehicle_issues
+CREATE TABLE "vehicle_issues" (
+    "id" UUID NOT NULL,
+    "orgId" UUID NOT NULL,
+    "vehicleId" UUID NOT NULL,
+    "driverId" UUID NOT NULL,
+    "title" TEXT NOT NULL,
+    "description" TEXT NOT NULL,
+    "priority" TEXT NOT NULL,
+    "status" TEXT NOT NULL,
+    "photoUrl" TEXT,
+    "photoKey" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "vehicle_issues_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable - MISSING: work_order_evidence
+CREATE TABLE "work_order_evidence" (
+    "id" UUID NOT NULL,
+    "orgId" UUID NOT NULL,
+    "workOrderId" UUID NOT NULL,
+    "uploadedById" UUID NOT NULL,
+    "fileUrl" TEXT NOT NULL,
+    "fileKey" TEXT,
+    "caption" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "work_order_evidence_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable - MISSING: audit_events
+CREATE TABLE "audit_events" (
+    "id" UUID NOT NULL,
+    "orgId" UUID NOT NULL,
+    "actorId" UUID,
+    "actorRole" TEXT,
+    "action" TEXT NOT NULL,
+    "entityType" TEXT NOT NULL,
+    "entityId" UUID,
+    "summary" TEXT NOT NULL,
+    "metadata" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "audit_events_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable - MISSING: inventory_movements
+CREATE TABLE "inventory_movements" (
+    "id" UUID NOT NULL,
+    "orgId" UUID NOT NULL,
+    "partId" UUID NOT NULL,
+    "workOrderId" UUID,
+    "actorId" UUID,
+    "movementType" TEXT NOT NULL,
+    "quantity" INTEGER NOT NULL,
+    "unitCost" DECIMAL(12,2) NOT NULL,
+    "reason" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "inventory_movements_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable - MISSING: vehicle_assignments
+CREATE TABLE "vehicle_assignments" (
+    "id" UUID NOT NULL,
+    "orgId" UUID NOT NULL,
+    "vehicleId" UUID NOT NULL,
+    "driverId" UUID NOT NULL,
+    "active" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "vehicle_assignments_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable - MISSING: billing_invoices
+CREATE TABLE "billing_invoices" (
+    "id" UUID NOT NULL,
+    "orgId" UUID NOT NULL,
+    "billingPeriodStart" TIMESTAMP(3) NOT NULL,
+    "billingPeriodEnd" TIMESTAMP(3) NOT NULL,
+    "plan" TEXT NOT NULL,
+    "billableVehicles" INTEGER NOT NULL,
+    "includedVehicles" INTEGER NOT NULL,
+    "overageVehicles" INTEGER NOT NULL,
+    "platformFeePaise" INTEGER NOT NULL,
+    "overagePaise" INTEGER NOT NULL,
+    "usageAddonsPaise" INTEGER NOT NULL DEFAULT 0,
+    "creditsPaise" INTEGER NOT NULL DEFAULT 0,
+    "subtotalPaise" INTEGER NOT NULL,
+    "taxPaise" INTEGER NOT NULL DEFAULT 0,
+    "totalPaise" INTEGER NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'DRAFT',
+    "externalInvoiceId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "billing_invoices_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable - MISSING: billing_payments
+CREATE TABLE "billing_payments" (
+    "id" UUID NOT NULL,
+    "orgId" UUID NOT NULL,
+    "invoiceId" UUID NOT NULL,
+    "provider" TEXT NOT NULL DEFAULT 'RAZORPAY',
+    "providerPaymentId" TEXT,
+    "status" TEXT NOT NULL,
+    "amountPaise" INTEGER NOT NULL,
+    "paidAt" TIMESTAMP(3),
+    "failureReason" TEXT,
+    "metadata" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "billing_payments_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable - MISSING: dvir_inspections
+CREATE TABLE "dvir_inspections" (
+    "id" UUID NOT NULL,
+    "orgId" UUID NOT NULL,
+    "vehicleId" UUID NOT NULL,
+    "driverId" UUID NOT NULL,
+    "inspectionType" TEXT NOT NULL,
+    "status" TEXT NOT NULL,
+    "notes" TEXT,
+    "photoUrl" TEXT,
+    "photoKey" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "dvir_inspections_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable - MISSING: fuel_logs
+CREATE TABLE "fuel_logs" (
+    "id" UUID NOT NULL,
+    "orgId" UUID NOT NULL,
+    "vehicleId" UUID NOT NULL,
+    "driverId" UUID NOT NULL,
+    "liters" DECIMAL(12,2) NOT NULL,
+    "amount" DECIMAL(12,2) NOT NULL,
+    "odometer" DECIMAL(12,1) NOT NULL,
+    "station" TEXT,
+    "receiptUrl" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "fuel_logs_pkey" PRIMARY KEY ("id")
+);
+
+-- Add Foreign Keys for new tables
+ALTER TABLE "vehicle_issues" ADD CONSTRAINT "vehicle_issues_orgId_fkey" FOREIGN KEY ("orgId") REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "vehicle_issues" ADD CONSTRAINT "vehicle_issues_vehicleId_fkey" FOREIGN KEY ("vehicleId") REFERENCES "vehicles"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "vehicle_issues" ADD CONSTRAINT "vehicle_issues_driverId_fkey" FOREIGN KEY ("driverId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE "work_order_evidence" ADD CONSTRAINT "work_order_evidence_orgId_fkey" FOREIGN KEY ("orgId") REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "work_order_evidence" ADD CONSTRAINT "work_order_evidence_workOrderId_fkey" FOREIGN KEY ("workOrderId") REFERENCES "work_orders"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "work_order_evidence" ADD CONSTRAINT "work_order_evidence_uploadedById_fkey" FOREIGN KEY ("uploadedById") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE "audit_events" ADD CONSTRAINT "audit_events_orgId_fkey" FOREIGN KEY ("orgId") REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "audit_events" ADD CONSTRAINT "audit_events_actorId_fkey" FOREIGN KEY ("actorId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+ALTER TABLE "inventory_movements" ADD CONSTRAINT "inventory_movements_orgId_fkey" FOREIGN KEY ("orgId") REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "inventory_movements" ADD CONSTRAINT "inventory_movements_partId_fkey" FOREIGN KEY ("partId") REFERENCES "inventory_parts"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "inventory_movements" ADD CONSTRAINT "inventory_movements_workOrderId_fkey" FOREIGN KEY ("workOrderId") REFERENCES "work_orders"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "inventory_movements" ADD CONSTRAINT "inventory_movements_actorId_fkey" FOREIGN KEY ("actorId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+ALTER TABLE "vehicle_assignments" ADD CONSTRAINT "vehicle_assignments_orgId_fkey" FOREIGN KEY ("orgId") REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "vehicle_assignments" ADD CONSTRAINT "vehicle_assignments_vehicleId_fkey" FOREIGN KEY ("vehicleId") REFERENCES "vehicles"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "vehicle_assignments" ADD CONSTRAINT "vehicle_assignments_driverId_fkey" FOREIGN KEY ("driverId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE "billing_invoices" ADD CONSTRAINT "billing_invoices_orgId_fkey" FOREIGN KEY ("orgId") REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE "billing_payments" ADD CONSTRAINT "billing_payments_orgId_fkey" FOREIGN KEY ("orgId") REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "billing_payments" ADD CONSTRAINT "billing_payments_invoiceId_fkey" FOREIGN KEY ("invoiceId") REFERENCES "billing_invoices"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE "dvir_inspections" ADD CONSTRAINT "dvir_inspections_orgId_fkey" FOREIGN KEY ("orgId") REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "dvir_inspections" ADD CONSTRAINT "dvir_inspections_vehicleId_fkey" FOREIGN KEY ("vehicleId") REFERENCES "vehicles"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "dvir_inspections" ADD CONSTRAINT "dvir_inspections_driverId_fkey" FOREIGN KEY ("driverId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE "fuel_logs" ADD CONSTRAINT "fuel_logs_orgId_fkey" FOREIGN KEY ("orgId") REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "fuel_logs" ADD CONSTRAINT "fuel_logs_vehicleId_fkey" FOREIGN KEY ("vehicleId") REFERENCES "vehicles"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "fuel_logs" ADD CONSTRAINT "fuel_logs_driverId_fkey" FOREIGN KEY ("driverId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
