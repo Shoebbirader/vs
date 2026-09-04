@@ -36,7 +36,7 @@ Deno.serve(async (request) => {
           const { data: workOrder, error: workOrderError } = await supabase.from("work_orders").insert({ orgId: organization.id, vehicleId: vehicle.id, title: `${component.name} service threshold reached`, description: `${component.name} crossed its service threshold.`, priority: consumed >= Number(component.expectedLifeKm) ? "CRITICAL" : "HIGH" }).select("id").single();
           if (workOrderError) throw workOrderError;
           if (admins?.length) {
-            const { error: notificationError } = await supabase.from("notifications").insert(admins.map((admin) => ({ orgId: organization.id, recipientId: admin.id, title: "Predictive maintenance alert", message: `${vehicle.licensePlate}: ${component.name} crossed its service threshold.`, type: "MAINTENANCE_THRESHOLD", referenceId: workOrder.id })));
+            const { error: notificationError } = await supabase.from("notifications").insert(admins.map((admin) => ({ orgId: organization.id, recipientId: admin.id, title: `Maintenance alert: ${component.name}`, message: `Vehicle: ${vehicle.licensePlate} · Component: ${component.name} crossed its service threshold · Current odometer: ${vehicle.currentOdometer} km · Last serviced at: ${component.lastServicedOdometer} km`, type: "MAINTENANCE_THRESHOLD", severity: consumed >= Number(component.expectedLifeKm) ? "CRITICAL" : "HIGH", referenceId: workOrder.id })));
             if (notificationError) throw notificationError;
           }
           createdWorkOrders += 1;
@@ -59,7 +59,7 @@ Deno.serve(async (request) => {
         const suggestedQty = Math.max(Number(part.minReorderLevel) * 2 - Number(part.quantityOnHand), 1);
         const { data: purchaseOrder, error: purchaseOrderError } = await supabase.from("purchase_orders").insert({ orgId: organization.id, vendorId: reorderVendorId, status: "DRAFT", totalCost: suggestedQty * Number(part.unitCost) }).select("id").single();
         if (purchaseOrderError) throw purchaseOrderError;
-        const { error: notificationError } = await supabase.from("notifications").insert(admins.flatMap((admin) => [{ orgId: organization.id, recipientId: admin.id, title: "Inventory below reorder level", message: `${part.name} (${part.sku}) has ${part.quantityOnHand} units remaining. Draft PO created for ${suggestedQty} units.`, type: "INVENTORY_LOW", referenceId: part.id }, { orgId: organization.id, recipientId: admin.id, title: "Draft purchase order created", message: `Draft PO ${purchaseOrder.id.slice(0, 8).toUpperCase()} was created for ${part.name}.`, type: "PURCHASE_ORDER_DRAFT", referenceId: purchaseOrder.id }]));
+        const { error: notificationError } = await supabase.from("notifications").insert(admins.flatMap((admin) => [{ orgId: organization.id, recipientId: admin.id, title: `Inventory critical: ${part.name}`, message: `SKU: ${part.sku} · Quantity on hand: ${part.quantityOnHand} units · Minimum reorder level: ${part.minReorderLevel} units · Suggested order: ${suggestedQty} units · Status: Draft PO created`, type: "INVENTORY_LOW", severity: "HIGH", referenceId: part.id }, { orgId: organization.id, recipientId: admin.id, title: "Draft purchase order created", message: `Draft PO created for ${part.name} (${part.sku}) · Quantity: ${suggestedQty} units · Estimated cost: ${suggestedQty * Number(part.unitCost)} · Status: Awaiting approval`, type: "PURCHASE_ORDER_DRAFT", severity: "INFO", referenceId: purchaseOrder.id }]));
         if (notificationError) throw notificationError;
         lowStockAlerts += 1;
       }
@@ -69,7 +69,7 @@ Deno.serve(async (request) => {
       for (const document of documents ?? []) {
         const { data: existingDocumentAlert } = await supabase.from("notifications").select("id").eq("orgId", organization.id).eq("referenceId", document.id).eq("type", "DOCUMENT_EXPIRY").gte("createdAt", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()).limit(1);
         if (existingDocumentAlert?.length || !admins?.length) continue;
-        const { error: documentNotificationError } = await supabase.from("notifications").insert(admins.map((admin) => ({ orgId: organization.id, recipientId: admin.id, title: "Compliance document expiring", message: `${document.title} expires on ${new Date(document.expiryDate).toLocaleDateString("en-IN")}.`, type: "DOCUMENT_EXPIRY", referenceId: document.id })));
+        const { error: documentNotificationError } = await supabase.from("notifications").insert(admins.map((admin) => ({ orgId: organization.id, recipientId: admin.id, title: `Compliance document expiring: ${document.title}`, message: `Document: ${document.title} · Expiry date: ${new Date(document.expiryDate).toLocaleDateString("en-IN")} · Days remaining: ${Math.ceil((new Date(document.expiryDate).getTime() - Date.now()) / (24 * 60 * 60 * 1000))} · Action: Renew or replace before expiry`, type: "DOCUMENT_EXPIRY", severity: new Date(document.expiryDate) < new Date() ? "CRITICAL" : "HIGH", referenceId: document.id })));
         if (documentNotificationError) throw documentNotificationError;
       }
     }
