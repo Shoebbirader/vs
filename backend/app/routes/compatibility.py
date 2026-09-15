@@ -190,6 +190,54 @@ async def _dispatch(
             "fullName": user.full_name,
             "email": user.email,
         }
+    if procedure == "auth.logout":
+        return {"success": True}
+    if procedure == "onboarding.complete":
+        if user.role != "SUPERADMIN":
+            raise HTTPException(status_code=403, detail="Superadmin access required")
+        filters = cast(Mapping[str, object], input_value or {})
+        org_name = str(filters.get("orgName", "")).strip()
+        full_name = str(filters.get("fullName", "")).strip()
+        if len(org_name) < 2 or len(full_name) < 2:
+            raise HTTPException(status_code=400, detail="Organization and full name are required")
+        mobile_number = str(filters.get("mobileNumber", "")).strip()
+        sms_enabled = bool(filters.get("smsAlertsEnabled", False))
+        whatsapp_enabled = bool(filters.get("whatsappAlertsEnabled", False))
+        if (sms_enabled or whatsapp_enabled) and not mobile_number:
+            raise HTTPException(
+                status_code=400,
+                detail="Save a mobile number before enabling SMS or WhatsApp alerts",
+            )
+        async with session.begin():
+            user_result = await session.execute(
+                text(
+                    'update "users" set "fullName" = :full_name, '
+                    '"mobileNumber" = nullif(:mobile_number, \'\'), '
+                    '"smsAlertsEnabled" = :sms_enabled, '
+                    '"whatsappAlertsEnabled" = :whatsapp_enabled, '
+                    '"updatedAt" = now() where "id" = :user_id and "orgId" = :org_id returning *'
+                ),
+                {
+                    "full_name": full_name,
+                    "mobile_number": mobile_number,
+                    "sms_enabled": sms_enabled if mobile_number else False,
+                    "whatsapp_enabled": whatsapp_enabled if mobile_number else False,
+                    "user_id": user.id,
+                    "org_id": user.org_id,
+                },
+            )
+            updated_user = user_result.mappings().first()
+            if updated_user is None:
+                raise HTTPException(status_code=404, detail="User not found in this organization")
+            org_result = await session.execute(
+                text(
+                    'update "organizations" set "name" = :org_name, "updatedAt" = now() '
+                    'where "id" = :org_id returning *'
+                ),
+                {"org_name": org_name, "org_id": user.org_id},
+            )
+            updated_org = org_result.mappings().one()
+        return {"user": dict(updated_user), "org": dict(updated_org)}
     if procedure == "dashboard.summary":
         return await dashboard_summary(user, session)
     if procedure == "vehicles.list":
