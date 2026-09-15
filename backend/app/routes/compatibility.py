@@ -1097,6 +1097,56 @@ async def _dispatch(
         return await list_members(user, session)
     if procedure == "team.assignableMembers":
         return await list_assignable_members(user, session)
+    if procedure == "team.operationalRoster":
+        if user.role != "FLEET_MANAGER":
+            raise HTTPException(status_code=403, detail="Fleet manager access required")
+        members_result = await session.execute(
+            text(
+                'select "id", "fullName", "email", "role" from "users" '
+                'where "orgId" = :org_id and "role" in (\'DRIVER\', \'MECHANIC\', \'TECHNICIAN\') '
+                'order by "fullName"'
+            ),
+            {"org_id": user.org_id},
+        )
+        vehicle_result = await session.execute(
+            text(
+                'select "id", "licensePlate", "make", "model" from "vehicles" '
+                'where "orgId" = :org_id'
+            ),
+            {"org_id": user.org_id},
+        )
+        assignment_result = await session.execute(
+            text(
+                'select "id", "driverId", "vehicleId", "active", "updatedAt" '
+                'from "vehicle_assignments" where "orgId" = :org_id and "active" = true '
+                'order by "updatedAt" desc'
+            ),
+            {"org_id": user.org_id},
+        )
+        members = [dict(row) for row in members_result.mappings()]
+        vehicles = [dict(row) for row in vehicle_result.mappings()]
+        member_by_id = {str(row["id"]): row for row in members}
+        vehicle_by_id = {str(row["id"]): row for row in vehicles}
+        assignments = []
+        for row in assignment_result.mappings():
+            assignment = dict(row)
+            assignment["driver"] = member_by_id.get(str(row["driverId"]))
+            assignment["vehicle"] = vehicle_by_id.get(str(row["vehicleId"]))
+            assignments.append(assignment)
+        assigned_driver_ids = {str(row["driverId"]) for row in assignments}
+        assigned_vehicle_ids = {str(row["vehicleId"]) for row in assignments}
+        return {
+            "members": members,
+            "assignments": assignments,
+            "activeAssignmentCount": len(assignments),
+            "unassignedDrivers": sum(
+                row["role"] == "DRIVER" and str(row["id"]) not in assigned_driver_ids
+                for row in members
+            ),
+            "unassignedVehicles": sum(
+                str(row["id"]) not in assigned_vehicle_ids for row in vehicles
+            ),
+        }
     if procedure == "team.invitations":
         return await list_invitations(user, session)
     if procedure == "team.invite":
