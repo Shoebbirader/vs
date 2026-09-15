@@ -7238,27 +7238,40 @@ export const appRouter = router({
         },
       });
       if (existing) return existing;
-      const invoice = await fleetDb.billingInvoice.create({
-        data: {
-          id: crypto.randomUUID(),
-          orgId: ctx.fleetopsUser.orgId,
-          billingPeriodStart: periodStart,
-          billingPeriodEnd: periodEnd,
-          plan: plan.id,
-          billableVehicles: bill.billableVehicles,
-          includedVehicles: plan.includedVehicles,
-          overageVehicles: bill.overageVehicles,
-          platformFeePaise: bill.platformFeePaise,
-          overagePaise: bill.overagePaise,
-          usageAddonsPaise: bill.usageAddonsPaise,
-          creditsPaise: bill.creditsPaise,
-          subtotalPaise: bill.subtotalPaise,
-          taxPaise: 0,
-          totalPaise: bill.subtotalPaise,
-          status: "DRAFT",
-          createdAt: now,
-        },
-      });
+      let invoice;
+      try {
+        invoice = await fleetDb.billingInvoice.create({
+          data: {
+            id: crypto.randomUUID(),
+            orgId: ctx.fleetopsUser.orgId,
+            billingPeriodStart: periodStart,
+            billingPeriodEnd: periodEnd,
+            plan: plan.id,
+            billableVehicles: bill.billableVehicles,
+            includedVehicles: plan.includedVehicles,
+            overageVehicles: bill.overageVehicles,
+            platformFeePaise: bill.platformFeePaise,
+            overagePaise: bill.overagePaise,
+            usageAddonsPaise: bill.usageAddonsPaise,
+            creditsPaise: bill.creditsPaise,
+            subtotalPaise: bill.subtotalPaise,
+            taxPaise: 0,
+            totalPaise: bill.subtotalPaise,
+            status: "DRAFT",
+            createdAt: now,
+          },
+        });
+      } catch (error) {
+        if ((error as { code?: string }).code !== "23505") throw error;
+        const concurrent = await fleetDb.billingInvoice.findFirst({
+          where: {
+            orgId: ctx.fleetopsUser.orgId,
+            billingPeriodStart: periodStart,
+          },
+        });
+        if (!concurrent) throw error;
+        return concurrent;
+      }
       await recordAudit(ctx, {
         action: "BILLING_INVOICE_SNAPSHOT_CREATED",
         entityType: "BILLING_INVOICE",
