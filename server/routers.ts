@@ -2397,27 +2397,40 @@ export const appRouter = router({
             code: "NOT_FOUND",
             message: "One or more work orders are outside this organization.",
           });
-        const results = [];
-        for (const order of orders as any[]) {
-          if (input.cancel && ["COMPLETED", "CANCELLED"].includes(order.status))
-            continue;
-          const updated = await fleetDb.workOrder.update({
-            where: { id: order.id },
-            data: {
-              ...(input.priority ? { priority: input.priority } : {}),
-              ...(input.assignedMechanicId !== undefined
-                ? { assignedMechanicId: input.assignedMechanicId }
-                : {}),
-              ...(input.scheduledFor !== undefined
-                ? { scheduledFor: input.scheduledFor }
-                : {}),
-              ...(input.archive !== undefined
-                ? { archivedAt: input.archive ? new Date() : null }
-                : {}),
-              ...(input.cancel ? { status: "CANCELLED" } : {}),
-            },
-          });
-          results.push(updated);
+        const { results, skipped } = await fleetDb.$transaction(
+          async (tx: any) => {
+            const results = [];
+            let skipped = 0;
+            for (const order of orders as any[]) {
+              if (
+                input.cancel &&
+                ["COMPLETED", "CANCELLED"].includes(order.status)
+              ) {
+                skipped += 1;
+                continue;
+              }
+              const updated = await tx.workOrder.update({
+                where: { id: order.id },
+                data: {
+                  ...(input.priority ? { priority: input.priority } : {}),
+                  ...(input.assignedMechanicId !== undefined
+                    ? { assignedMechanicId: input.assignedMechanicId }
+                    : {}),
+                  ...(input.scheduledFor !== undefined
+                    ? { scheduledFor: input.scheduledFor }
+                    : {}),
+                  ...(input.archive !== undefined
+                    ? { archivedAt: input.archive ? new Date() : null }
+                    : {}),
+                  ...(input.cancel ? { status: "CANCELLED" } : {}),
+                },
+              });
+              results.push(updated);
+            }
+            return { results, skipped };
+          }
+        );
+        for (const order of results as any[]) {
           await recordAudit(ctx, {
             action: "WORK_ORDER_BULK_UPDATED",
             entityType: "WORK_ORDER",
@@ -2434,7 +2447,7 @@ export const appRouter = router({
         }
         return {
           updated: results.length,
-          skipped: orders.length - results.length,
+          skipped,
           workOrders: results,
         };
       }),
