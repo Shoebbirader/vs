@@ -72,7 +72,16 @@ from .profile import (
     update_organization_settings,
     update_profile,
 )
-from .team import list_assignable_members, list_members
+from .team import (
+    InviteMember,
+    RevokeInvitation,
+    invite_member,
+    list_assignable_members,
+    list_invitations,
+    list_members,
+    resend_invitation,
+    revoke_invitation,
+)
 
 router = APIRouter(prefix="/api/trpc", tags=["frontend-compatibility"])
 
@@ -527,6 +536,35 @@ async def _dispatch(
         return await list_members(user, session)
     if procedure == "team.assignableMembers":
         return await list_assignable_members(user, session)
+    if procedure == "team.invitations":
+        return await list_invitations(user, session)
+    if procedure == "team.invite":
+        filters = cast(Mapping[str, object], input_value or {})
+        return await invite_member(
+            InviteMember(
+                email=str(filters.get("email", "")),
+                role=str(filters.get("role", "")),
+            ),
+            user,
+            session,
+        )
+    if procedure == "team.resendInvitation":
+        filters = cast(Mapping[str, object], input_value or {})
+        invitation_id = filters.get("id") or filters.get("invitationId")
+        if not invitation_id:
+            raise HTTPException(status_code=400, detail="invitationId is required")
+        return await resend_invitation(UUID(str(invitation_id)), user, session)
+    if procedure == "team.revokeInvitation":
+        filters = cast(Mapping[str, object], input_value or {})
+        invitation_id = filters.get("id") or filters.get("invitationId")
+        if not invitation_id:
+            raise HTTPException(status_code=400, detail="invitationId is required")
+        return await revoke_invitation(
+            UUID(str(invitation_id)),
+            RevokeInvitation(reason=str(filters.get("reason", ""))),
+            user,
+            session,
+        )
     if procedure == "billing.plans":
         return await billing_plans()
     if procedure == "billing.status":
