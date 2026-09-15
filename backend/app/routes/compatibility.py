@@ -74,6 +74,8 @@ from .profile import (
     update_organization_settings,
     update_profile,
 )
+from .issues import VehicleIssueCreate, create_vehicle_issue
+from .safety import FuelLogCreate, InspectionCreate, create_fuel_log, create_inspection
 from .team import (
     InviteMember,
     RevokeInvitation,
@@ -165,6 +167,49 @@ async def _dispatch(
         if not vehicle_id:
             raise HTTPException(status_code=400, detail="vehicleId is required")
         return await _vehicle_health(UUID(str(vehicle_id)), user, session)
+    if procedure == "driver.createFuelLog":
+        filters = cast(Mapping[str, object], input_value or {})
+        return await create_fuel_log(
+            FuelLogCreate(
+                vehicle_id=UUID(str(filters["vehicleId"])),
+                liters=float(filters.get("liters", 0)),
+                amount=float(filters.get("amount", 0)),
+                odometer=float(filters.get("odometer", 0)),
+                station=(
+                    str(filters["station"])
+                    if filters.get("station") is not None
+                    else None
+                ),
+            ),
+            user,
+            session,
+        )
+    if procedure == "driver.createInspection":
+        filters = cast(Mapping[str, object], input_value or {})
+        return await create_inspection(
+            InspectionCreate(
+                vehicle_id=UUID(str(filters["vehicleId"])),
+                inspection_type=str(filters.get("inspectionType", "")),
+                status=str(filters.get("status", "")),
+                notes=(
+                    str(filters["notes"]) if filters.get("notes") is not None else None
+                ),
+            ),
+            user,
+            session,
+        )
+    if procedure == "vehicleIssues.create":
+        filters = cast(Mapping[str, object], input_value or {})
+        return await create_vehicle_issue(
+            VehicleIssueCreate(
+                vehicle_id=UUID(str(filters["vehicleId"])),
+                title=str(filters.get("title", "")),
+                description=str(filters.get("description", "")),
+                priority=str(filters.get("priority", "")),
+            ),
+            user,
+            session,
+        )
     if procedure == "workOrders.list":
         filters = cast(Mapping[str, object], input_value or {})
         vehicle_id = filters.get("vehicleId")
