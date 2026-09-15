@@ -1,0 +1,7 @@
+# Supabase backend operations
+
+The FleetOps database is **Supabase PostgreSQL**. The application runtime uses Drizzle over the PostgreSQL connection, and schema changes are authored as PostgreSQL SQL migrations in `supabase/migrations` and applied or deployed through the Supabase CLI. Do not use TiDB/MySQL management SQL, Prisma migrations, or a second database path. Tenant isolation is enforced by PostgreSQL RLS using `public.current_fleetops_org_id()`, which maps `auth.uid()` to the FleetOps user record.
+
+The `evaluate-maintenance` Edge Function performs the recurring predictive-maintenance and low-inventory scan. It is intentionally free of in-process timers and requires `Authorization: Bearer <SUPABASE_SERVICE_ROLE_KEY>` on every invocation. Deploy it after authenticating the Supabase CLI with `supabase functions deploy evaluate-maintenance --project-ref <project-ref>`, then configure the function’s `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` secrets. Schedule a POST request from Supabase Cron or an external scheduler to `https://<project-ref>.supabase.co/functions/v1/evaluate-maintenance` with that Authorization header. Never place the service-role key in browser code.
+
+The Node server, using the Drizzle/PostgreSQL runtime, exposes the same deterministic evaluation through the protected `automation.evaluate` tRPC procedure for a Superadmin-operated manual run. Odometer writes also evaluate the updated vehicle immediately, so critical maintenance signals do not wait for the scheduled scan.

@@ -1,0 +1,15 @@
+# FleetGuard comparison findings
+
+Repository: https://github.com/Shoebbirader4/fleetguard (connected repository, inspected at commit b3a4758: Add backend action dialogs to key workflows).
+
+FleetGuard repository structure includes separate `web`, `mobile`, `supabase`, `ml-service`, and `shared` areas. The web app contains many page-level surfaces, including Dashboard, Analytics, Audit Logs, Data Import, Documents, GPS Tracking, Inventory, Maintenance Calendar, Purchase Orders, Recurring Maintenance, Settings, Subscription, Team, Vehicles, Vendors, and Work Orders. It also contains dedicated dashboard widgets, role selectors, work-order assignment UI, stock receiving modal, online-status hook, retry/offline guides, and integration/e2e tests.
+
+FleetGuard mobile documentation describes a WatermelonDB-based offline-first mobile app with bidirectional push/pull sync, connectivity-triggered sync, foreground/background periodic sync, last-write-wins conflict resolution, pending-change queue, sync status tracking, and retry/error handling. The repository includes manager and mechanic mobile guides and an offline sync guide.
+
+FleetGuard also contains a Python ML service with fleet-health and predictive-maintenance modules, tests, and feature engineering. The implementation plan explicitly lists unfinished or planned work such as GPS real-time data ingestion/map route/geofence completion, predictive maintenance integration, fleet-health calculation, model confidence/versioning, and dashboard completion. This means FleetGuard has broader documented surface area but not all listed capabilities should be treated as fully implemented without runtime verification.
+
+FleetGuard has extensive documentation around audit logging, backup/recovery, encryption, caching, GDPR/privacy, notification systems, deployment, and auth. The web source includes many unit/component tests plus integration/e2e tests. It also contains explicit placeholder/TODO/unchecked roadmap references in implementation-plan and guide files; these are evidence of unfinished scope, not necessarily runtime defects.
+
+FleetOps current baseline from project context: React 19 + Tailwind 4 + Express/tRPC + Drizzle ORM + Supabase Auth/PostgreSQL/Storage/Realtime, seven role-isolated workspaces, organization-bound invitation onboarding, tenant-scoped RBAC/RLS, audit logs, issue triage, inventory movement ledger, secure signed document/evidence access, work-order Kanban, vehicle health detail, inventory receive/issue, CSV exports, secure PDF exports, offline-ready local Driver/Mechanic drafts, 62 Vitest tests, successful typecheck/build, and targeted role lifecycle harnesses. Latest stable published checkpoint: c7f39295 at https://fleetops-elktaacw.manus.space/.
+
+Important comparison caveat: FleetGuard appears broader in repository surface area and has mobile/ML/offline infrastructure, but its own implementation plan contains many unchecked items; FleetOps is narrower but has a more tightly verified end-to-end operational loop and explicit tenant/RBAC controls in the current published product.

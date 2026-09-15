@@ -1,0 +1,4 @@
+ALTER TYPE public."SubscriptionTier" ADD VALUE IF NOT EXISTS 'STARTER';
+ALTER TYPE public."SubscriptionTier" ADD VALUE IF NOT EXISTS 'GROWTH';
+ALTER TYPE public."SubscriptionTier" ADD VALUE IF NOT EXISTS 'SCALE';
+ALTER TYPE public."SubscriptionTier" ADD VALUE IF NOT EXISTS 'ENTERPRISE';

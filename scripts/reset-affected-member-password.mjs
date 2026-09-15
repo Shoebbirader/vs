@@ -1,0 +1,11 @@
+import { createClient } from "@supabase/supabase-js";
+import { randomBytes } from "node:crypto";
+const email = "shoebahmedbirader@gmail.com";
+const admin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { autoRefreshToken: false, persistSession: false } });
+const users = (await admin.auth.admin.listUsers({ perPage: 1000 })).data.users;
+const user = users.find((item) => item.email?.toLowerCase() === email);
+if (!user) throw new Error("Affected Auth user was not found");
+const password = `FleetOpsReset!${randomBytes(8).toString("hex")}A`;
+const { error } = await admin.auth.admin.updateUserById(user.id, { password, email_confirm: true, user_metadata: { ...user.user_metadata, needsOnboarding: false, role: "FLEET_MANAGER" } });
+if (error) throw error;
+console.log(JSON.stringify({ email, role: "FLEET_MANAGER", password, authUserId: user.id }));
