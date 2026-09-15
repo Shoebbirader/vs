@@ -91,6 +91,7 @@ from .profile import (
     update_profile,
 )
 from .issues import VehicleIssueCreate, create_vehicle_issue
+from .procurement import PurchaseOrderCreate, create_purchase_order
 from .safety import FuelLogCreate, InspectionCreate, create_fuel_log, create_inspection
 from .team import (
     InviteMember,
@@ -102,6 +103,7 @@ from .team import (
     resend_invitation,
     revoke_invitation,
 )
+from .vendors import VendorCreate, create_vendor
 
 router = APIRouter(prefix="/api/trpc", tags=["frontend-compatibility"])
 
@@ -733,6 +735,37 @@ async def _dispatch(
         return await revoke_invitation(
             UUID(str(invitation_id)),
             RevokeInvitation(reason=str(filters.get("reason", ""))),
+            user,
+            session,
+        )
+    if procedure == "vendors.create":
+        filters = cast(Mapping[str, object], input_value or {})
+        return await create_vendor(
+            VendorCreate(
+                name=str(filters.get("name", "")),
+                contact_person=(
+                    str(filters["contactPerson"])
+                    if filters.get("contactPerson") is not None
+                    else None
+                ),
+                phone=str(filters.get("phone", "")),
+                email=str(filters["email"]) if filters.get("email") else None,
+            ),
+            user,
+            session,
+        )
+    if procedure == "purchaseOrders.create":
+        filters = cast(Mapping[str, object], input_value or {})
+        return await create_purchase_order(
+            PurchaseOrderCreate(
+                vendor_id=UUID(str(filters["vendorId"])),
+                total_cost=float(filters.get("totalCost", 0)),
+                supplier_invoice_number=(
+                    str(filters["supplierInvoiceNumber"])
+                    if filters.get("supplierInvoiceNumber") is not None
+                    else None
+                ),
+            ),
             user,
             session,
         )
