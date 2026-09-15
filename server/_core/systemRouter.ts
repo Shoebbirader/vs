@@ -4,8 +4,7 @@ import { notifyOwner } from "./notification";
 import { adminProcedure, publicProcedure, router } from "./trpc";
 import { sql } from "drizzle-orm";
 import { db } from "../db";
-
-const RELEASE = "fleetops-observability-20260820";
+import { RELEASE } from "../health";
 
 export const systemRouter = router({
   health: publicProcedure
