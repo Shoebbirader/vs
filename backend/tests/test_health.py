@@ -60,6 +60,8 @@ def test_v2_docs_are_available_outside_production() -> None:
     assert "/api/v2/reports/maintenance-performance" in response.json()["paths"]
     assert "/api/v2/financials/{record_id}/approve" in response.json()["paths"]
     assert "/api/v2/financials/{record_id}/reverse" in response.json()["paths"]
+    assert "/api/v2/financials/export-csv" in response.json()["paths"]
+    assert "/api/v2/financials/export-pdf" in response.json()["paths"]
     assert "/api/v2/inventory/parts" in response.json()["paths"]
     assert "/api/v2/documents" in response.json()["paths"]
     assert "/api/v2/vendors" in response.json()["paths"]

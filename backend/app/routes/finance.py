@@ -1,3 +1,6 @@
+import base64
+import csv
+import io
 from datetime import datetime, timezone
 from uuid import UUID
 
@@ -70,12 +73,90 @@ def _record(row: dict[str, object]) -> dict[str, object]:
     }
 
 
+def _csv_document(rows: list[dict[str, object]], headers: list[str]) -> str:
+    output = io.StringIO()
+    writer = csv.DictWriter(output, fieldnames=headers, lineterminator="\n")
+    writer.writeheader()
+    writer.writerows(rows)
+    return output.getvalue().rstrip("\n")
+
+
+def _simple_pdf(title: str, lines: list[str]) -> str:
+    def pdf_text(value: object) -> str:
+        return (
+            str(value or "")
+            .replace("\\", "\\\\")
+            .replace("(", "\\(")
+            .replace(")", "\\)")
+            .replace("\n", " ")
+        )
+
+    content = "\n".join(
+        ["BT", "/F1 16 Tf", "50 760 Td", f"({pdf_text(title)}) Tj", "/F1 10 Tf"]
+        + [part for line in lines for part in ("0 -18 Td", f"({pdf_text(line)}) Tj")]
+        + ["ET"]
+    )
+    objects = [
+        "<< /Type /Catalog /Pages 2 0 R >>",
+        "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+        "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+        f"<< /Length {len(content)} >>\nstream\n{content}\nendstream",
+    ]
+    pdf = "%PDF-1.4\n"
+    offsets = [0]
+    for index, obj in enumerate(objects, start=1):
+        offsets.append(len(pdf))
+        pdf += f"{index} 0 obj\n{obj}\nendobj\n"
+    xref = len(pdf)
+    pdf += (
+        f"xref\n0 {len(objects) + 1}\n0000000000 65535 f \n"
+        + "\n".join(f"{offset:010d} 00000 n " for offset in offsets[1:])
+        + f"\ntrailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\n"
+        f"startxref\n{xref}\n%%EOF"
+    )
+    return base64.b64encode(pdf.encode()).decode()
+
+
 _RECORD_COLUMNS = (
     '"id", "orgId", "vehicleId", "type", "category", "amount", "transactionDate", '
     '"taxAmount", "gstin", "taxCategory", "invoiceNumber", "vendor", "paymentMethod", '
     '"costCenterType", "costCenterId", "tdsAmount", "reconciledAt", "reconciliationRef", '
     '"approvalStatus", "approvedById", "approvalReason", "reversalOfId", "createdAt"'
 )
+
+
+async def _export_rows(
+    session: AsyncSession,
+    org_id: str,
+    vehicle_id: UUID | None,
+    record_type: str | None,
+    category: str | None,
+    from_date: datetime | None,
+    to_date: datetime | None,
+) -> list[dict[str, object]]:
+    clauses = ['"orgId" = :org_id']
+    params: dict[str, object] = {"org_id": org_id}
+    filters = (
+        ("vehicle_id", '"vehicleId" = :vehicle_id', vehicle_id),
+        ("record_type", '"type" = :record_type', record_type),
+        ("category", '"category" = :category', category),
+        ("from_date", '"transactionDate" >= :from_date', from_date),
+        ("to_date", '"transactionDate" <= :to_date', to_date),
+    )
+    for key, clause, value in filters:
+        if value is not None:
+            clauses.append(clause)
+            params[key] = str(value) if isinstance(value, UUID) else value
+    result = await session.execute(
+        text(
+            f'select {_RECORD_COLUMNS} from "financial_records" where '
+            + " and ".join(clauses)
+            + ' order by "transactionDate" desc'
+        ),
+        params,
+    )
+    return [_record(row) for row in result.mappings()]
 
 
 @router.get("/financials/vehicles", response_model=list[dict[str, object]])
@@ -126,6 +207,83 @@ async def list_financials(
         params,
     )
     return [_record(row) for row in result.mappings()]
+
+
+@router.get("/financials/export-csv", response_model=dict[str, object])
+async def export_financials_csv(
+    vehicle_id: UUID | None = None,
+    record_type: str | None = Query(default=None, alias="type"),
+    category: str | None = None,
+    from_date: datetime | None = Query(default=None, alias="from"),
+    to_date: datetime | None = Query(default=None, alias="to"),
+    current_user: TenantUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> dict[str, object]:
+    _finance_role(current_user)
+    records = await _export_rows(
+        session,
+        current_user.org_id,
+        vehicle_id,
+        record_type,
+        category,
+        from_date,
+        to_date,
+    )
+    csv_content = _csv_document(
+        [
+            {
+                "transactionDate": record["transaction_date"].isoformat()[:10],
+                "vehicle": str(record["vehicle_id"]),
+                "type": record["type"],
+                "category": record["category"],
+                "amountInr": f"{record['amount']:.2f}",
+            }
+            for record in records
+        ],
+        ["transactionDate", "vehicle", "type", "category", "amountInr"],
+    )
+    return {
+        "filename": f"vahansync-financial-ledger-{datetime.now(timezone.utc).date()}.csv",
+        "content": csv_content,
+        "row_count": len(records),
+    }
+
+
+@router.get("/financials/export-pdf", response_model=dict[str, object])
+async def export_financials_pdf(
+    vehicle_id: UUID | None = None,
+    record_type: str | None = Query(default=None, alias="type"),
+    category: str | None = None,
+    from_date: datetime | None = Query(default=None, alias="from"),
+    to_date: datetime | None = Query(default=None, alias="to"),
+    current_user: TenantUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> dict[str, object]:
+    _finance_role(current_user)
+    records = await _export_rows(
+        session,
+        current_user.org_id,
+        vehicle_id,
+        record_type,
+        category,
+        from_date,
+        to_date,
+    )
+    lines = [
+        f"Organization: {current_user.org_id}",
+        f"Generated: {datetime.now(timezone.utc).date()}",
+        f"Records: {len(records)}",
+    ]
+    lines.extend(
+        f"{record['transaction_date'].date()} | {record['vehicle_id']} | "
+        f"{record['type']} | {record['category']} | INR {record['amount']:.2f}"
+        for record in records
+    )
+    return {
+        "filename": f"vahansync-financial-ledger-{datetime.now(timezone.utc).date()}.pdf",
+        "content": _simple_pdf("VahanSync INR Financial Ledger", lines),
+        "row_count": len(records),
+    }
 
 
 @router.post("/financials", response_model=dict[str, object], status_code=201)
