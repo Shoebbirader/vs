@@ -1,3 +1,4 @@
+import base64
 import csv
 import io
 import json
@@ -9,10 +10,12 @@ from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.encoders import jsonable_encoder
+import httpx
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_db_session
+from ..config import get_settings
 from ..tenant import TenantUser, get_current_user
 from .fleet import VehicleCreate, create_vehicle, dashboard_summary, list_vehicles
 from .inventory import list_parts
@@ -2448,6 +2451,259 @@ async def _dispatch(
                 },
             )
         return {"workOrderId": str(parsed_work_order_id), "items": normalized_items}
+    if procedure == "workOrders.complete":
+        if user.role not in {"MECHANIC", "TECHNICIAN"}:
+            raise HTTPException(status_code=403, detail="Mechanic access required")
+        filters = cast(Mapping[str, object], input_value or {})
+        work_order_id = filters.get("workOrderId") or filters.get("id")
+        if not work_order_id:
+            raise HTTPException(status_code=400, detail="workOrderId is required")
+        try:
+            parsed_work_order_id = UUID(str(work_order_id))
+        except ValueError:
+            raise HTTPException(status_code=400, detail="workOrderId must be a UUID") from None
+        labor_hours = float(filters.get("laborHours", 0))
+        repair_notes = str(filters.get("repairNotes", "Completed from organization oversight.")).strip()
+        parts = filters.get("parts", [])
+        evidence = filters.get("evidence", [])
+        if labor_hours < 0 or labor_hours > 1000 or not 3 <= len(repair_notes) <= 5000:
+            raise HTTPException(status_code=400, detail="Invalid laborHours or repairNotes")
+        if not isinstance(parts, list) or not isinstance(evidence, list) or len(evidence) > 8:
+            raise HTTPException(status_code=400, detail="Invalid parts or evidence")
+        normalized_parts: list[dict[str, object]] = []
+        for item in parts:
+            if not isinstance(item, Mapping):
+                raise HTTPException(status_code=400, detail="Invalid part usage")
+            try:
+                part_id = UUID(str(item["partId"]))
+                quantity = int(item["qtyUsed"])
+            except (KeyError, TypeError, ValueError):
+                raise HTTPException(status_code=400, detail="Invalid part usage") from None
+            if quantity <= 0:
+                raise HTTPException(status_code=400, detail="qtyUsed must be positive")
+            normalized_parts.append({"partId": str(part_id), "qtyUsed": quantity})
+        expected_updated_at = _date_input(filters.get("expectedUpdatedAt"))
+        async with session.begin():
+            order_result = await session.execute(
+                text(
+                    'select * from "work_orders" where "id" = :work_order_id '
+                    'and "orgId" = :org_id and "assignedMechanicId" = :mechanic_id '
+                    'for update'
+                ),
+                {
+                    "work_order_id": str(parsed_work_order_id),
+                    "org_id": user.org_id,
+                    "mechanic_id": user.id,
+                },
+            )
+            order = order_result.mappings().first()
+            if order is None:
+                raise HTTPException(status_code=404, detail="Work order not found")
+            if expected_updated_at and order["updatedAt"] != expected_updated_at:
+                raise HTTPException(
+                    status_code=409,
+                    detail="This work order changed elsewhere. Refresh before submitting completion.",
+                )
+            if order["status"] not in {"IN_PROGRESS", "REWORK"}:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Start work and move the order into execution before submitting completion.",
+                )
+            checklist_result = await session.execute(
+                text(
+                    'select "metadata" from "audit_events" where "orgId" = :org_id '
+                    'and "entityType" = \'WORK_ORDER\' and "entityId" = :work_order_id '
+                    'and "action" = \'WORK_ORDER_CHECKLIST_UPDATED\' '
+                    'order by "createdAt" desc limit 1'
+                ),
+                {"org_id": user.org_id, "work_order_id": str(parsed_work_order_id)},
+            )
+            checklist_row = checklist_result.mappings().first()
+            try:
+                checklist_items = json.loads(checklist_row["metadata"] or "{}").get("items", [])
+            except (TypeError, json.JSONDecodeError):
+                checklist_items = []
+            if not checklist_items or any(not item.get("completed") for item in checklist_items):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Complete and save every execution checklist item before submitting completion.",
+                )
+            parts_cost = 0.0
+            for item in normalized_parts:
+                part_result = await session.execute(
+                    text(
+                        'select * from "inventory_parts" where "id" = :part_id '
+                        'and "orgId" = :org_id for update'
+                    ),
+                    {"part_id": item["partId"], "org_id": user.org_id},
+                )
+                part = part_result.mappings().first()
+                if part is None or float(part["quantityOnHand"] or 0) < int(item["qtyUsed"]):
+                    raise HTTPException(status_code=400, detail="Insufficient inventory for one or more parts")
+                parts_cost += float(part["unitCost"] or 0) * int(item["qtyUsed"])
+                await session.execute(
+                    text(
+                        'update "inventory_parts" set "quantityOnHand" = "quantityOnHand" - :quantity, '
+                        '"updatedAt" = now() where "id" = :part_id and "orgId" = :org_id'
+                    ),
+                    {
+                        "quantity": item["qtyUsed"],
+                        "part_id": item["partId"],
+                        "org_id": user.org_id,
+                    },
+                )
+                await session.execute(
+                    text(
+                        'insert into "work_order_parts" '
+                        '("id", "workOrderId", "partId", "qtyUsed", "unitPrice") '
+                        'values (:id, :work_order_id, :part_id, :quantity, :unit_price)'
+                    ),
+                    {
+                        "id": str(uuid4()),
+                        "work_order_id": str(parsed_work_order_id),
+                        "part_id": item["partId"],
+                        "quantity": item["qtyUsed"],
+                        "unit_price": part["unitCost"],
+                    },
+                )
+                await session.execute(
+                    text(
+                        'insert into "inventory_movements" '
+                        '("orgId", "partId", "workOrderId", "actorId", "movementType", '
+                        '"quantity", "unitCost", "reason") values '
+                        '(:org_id, :part_id, :work_order_id, :actor_id, \'ISSUE\', '
+                        ':quantity, :unit_cost, :reason)'
+                    ),
+                    {
+                        "org_id": user.org_id,
+                        "part_id": item["partId"],
+                        "work_order_id": str(parsed_work_order_id),
+                        "actor_id": user.id,
+                        "quantity": -int(item["qtyUsed"]),
+                        "unit_cost": part["unitCost"],
+                        "reason": f"Consumed for work order {parsed_work_order_id}",
+                    },
+                )
+            uploaded_evidence = []
+            settings = get_settings()
+            if evidence and (not settings.supabase_url or not settings.supabase_service_role_key):
+                raise HTTPException(status_code=503, detail="Supabase Storage is not configured")
+            async with httpx.AsyncClient(timeout=30) as client:
+                for index, item in enumerate(evidence):
+                    if not isinstance(item, Mapping):
+                        raise HTTPException(status_code=400, detail="Invalid evidence")
+                    content_type = str(item.get("contentType", ""))
+                    file_name = str(item.get("fileName", "")).strip()
+                    file_data = str(item.get("fileData", ""))
+                    if not content_type.startswith("image/") or not 1 <= len(file_name) <= 200:
+                        raise HTTPException(status_code=400, detail="Invalid evidence")
+                    try:
+                        raw = file_data.split(",", 1)[-1]
+                        content = base64.b64decode(raw, validate=True)
+                    except (ValueError, base64.binascii.Error):
+                        raise HTTPException(status_code=400, detail="Invalid evidence data") from None
+                    if len(content) > 6_000_000:
+                        raise HTTPException(status_code=400, detail="Evidence file is too large")
+                    key = f"org/{user.org_id}/work-orders/{parsed_work_order_id}/{uuid4()}-{file_name}"
+                    headers = {
+                        "apikey": settings.supabase_service_role_key,
+                        "Authorization": f"Bearer {settings.supabase_service_role_key}",
+                        "Content-Type": content_type,
+                        "x-upsert": "false",
+                    }
+                    response = await client.post(
+                        f"{settings.supabase_url.rstrip('/')}/storage/v1/object/{settings.supabase_storage_bucket}/{key}",
+                        headers=headers,
+                        content=content,
+                    )
+                    if response.status_code >= 400:
+                        raise HTTPException(status_code=502, detail="Supabase Storage upload failed")
+                    uploaded_evidence.append((key, item.get("caption")))
+            updated_result = await session.execute(
+                text(
+                    'update "work_orders" set "status" = \'READY_FOR_REVIEW\', '
+                    '"startedAt" = coalesce("startedAt", now()), "completedAt" = null, '
+                    '"laborHours" = :labor_hours, "repairNotes" = :repair_notes, "updatedAt" = now() '
+                    'where "id" = :work_order_id and "orgId" = :org_id returning *'
+                ),
+                {
+                    "labor_hours": labor_hours,
+                    "repair_notes": repair_notes,
+                    "work_order_id": str(parsed_work_order_id),
+                    "org_id": user.org_id,
+                },
+            )
+            completed = updated_result.mappings().one()
+            for file_key, caption in uploaded_evidence:
+                await session.execute(
+                    text(
+                        'insert into "work_order_evidence" '
+                        '("id", "orgId", "workOrderId", "uploadedById", "fileUrl", '
+                        '"fileKey", "caption", "createdAt") values '
+                        '(:id, :org_id, :work_order_id, :uploaded_by_id, :file_url, '
+                        ':file_key, :caption, now())'
+                    ),
+                    {
+                        "id": str(uuid4()),
+                        "org_id": user.org_id,
+                        "work_order_id": str(parsed_work_order_id),
+                        "uploaded_by_id": user.id,
+                        "file_url": file_key,
+                        "file_key": file_key,
+                        "caption": caption,
+                    },
+                )
+            approvers = await session.execute(
+                text(
+                    'select "id" from "users" where "orgId" = :org_id '
+                    'and "role" in (\'SUPERADMIN\', \'FLEET_MANAGER\')'
+                ),
+                {"org_id": user.org_id},
+            )
+            for approver in approvers.mappings():
+                await session.execute(
+                    text(
+                        'insert into "notifications" '
+                        '("id", "orgId", "recipientId", "title", "message", "type", '
+                        '"severity", "sourceType", "dedupeKey", "referenceId", "isRead") '
+                        'values (:id, :org_id, :recipient_id, \'Work order ready for review\', '
+                        ':message, \'WORK_ORDER_REVIEW\', \'HIGH\', \'WORK_ORDER\', '
+                        ':dedupe_key, :reference_id, false)'
+                    ),
+                    {
+                        "id": str(uuid4()),
+                        "org_id": user.org_id,
+                        "recipient_id": approver["id"],
+                        "message": f"Work order {parsed_work_order_id} is ready for approval. Parts cost: ₹{parts_cost:,.0f}.",
+                        "dedupe_key": f"WORK_ORDER_REVIEW:{parsed_work_order_id}:{approver['id']}",
+                        "reference_id": str(parsed_work_order_id),
+                    },
+                )
+            await session.execute(
+                text(
+                    'insert into "audit_events" '
+                    '("id", "orgId", "actorId", "actorRole", "action", "entityType", '
+                    '"entityId", "summary", "metadata", "createdAt") values '
+                    '(:id, :org_id, :actor_id, :actor_role, \'WORK_ORDER_READY_FOR_REVIEW\', '
+                    '\'WORK_ORDER\', :entity_id, :summary, :metadata, now())'
+                ),
+                {
+                    "id": str(uuid4()),
+                    "org_id": user.org_id,
+                    "actor_id": user.id,
+                    "actor_role": user.role,
+                    "entity_id": str(parsed_work_order_id),
+                    "summary": f'Work order ready for review: {completed["title"]}',
+                    "metadata": json.dumps(
+                        {
+                            "partsCost": parts_cost,
+                            "laborHours": labor_hours,
+                            "evidenceCount": len(uploaded_evidence),
+                        }
+                    ),
+                },
+            )
+        return {"completed": dict(completed), "partsCost": parts_cost}
     if procedure == "workOrders.bulkUpdate":
         filters = cast(Mapping[str, object], input_value or {})
         return await bulk_update_work_orders(
