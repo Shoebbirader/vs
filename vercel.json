@@ -4,9 +4,12 @@
   "outputDirectory": "dist/public",
   "installCommand": "pnpm install --frozen-lockfile",
   "rewrites": [
-    { "source": "/api/trpc/:path*", "destination": "/api/index" },
-    { "source": "/api/healthz", "destination": "/api/index" },
-    { "source": "/api/readyz", "destination": "/api/index" },
+    { "source": "/api/trpc/:path*", "destination": "/api/python" },
+    { "source": "/api/v2/:path*", "destination": "/api/python" },
+    { "source": "/healthz", "destination": "/api/python" },
+    { "source": "/readyz", "destination": "/api/python" },
+    { "source": "/api/healthz", "destination": "/api/python" },
+    { "source": "/api/readyz", "destination": "/api/python" },
     { "source": "/((?!api(?:/|$)).*)", "destination": "/index.html" }
   ]
 }
