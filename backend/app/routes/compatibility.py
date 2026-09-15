@@ -2222,6 +2222,112 @@ async def _dispatch(
             user,
             session,
         )
+    if procedure in {"workOrders.assign", "workOrders.update"}:
+        if user.role not in {"SUPERADMIN", "FLEET_MANAGER"}:
+            raise HTTPException(status_code=403, detail="Fleet management access required")
+        filters = cast(Mapping[str, object], input_value or {})
+        work_order_id = filters.get("workOrderId") or filters.get("id")
+        if not work_order_id:
+            raise HTTPException(status_code=400, detail="workOrderId is required")
+        try:
+            parsed_work_order_id = UUID(str(work_order_id))
+        except ValueError:
+            raise HTTPException(status_code=400, detail="workOrderId must be a UUID") from None
+        async with session.begin():
+            current_result = await session.execute(
+                text(
+                    'select * from "work_orders" where "id" = :work_order_id '
+                    'and "orgId" = :org_id for update'
+                ),
+                {"work_order_id": str(parsed_work_order_id), "org_id": user.org_id},
+            )
+            current = current_result.mappings().first()
+            if current is None:
+                raise HTTPException(status_code=404, detail="Work order not found in this organization")
+            updates: dict[str, object] = {}
+            if procedure == "workOrders.assign":
+                if "assignedMechanicId" not in filters:
+                    raise HTTPException(status_code=400, detail="assignedMechanicId is required")
+                updates["assignedMechanicId"] = (
+                    str(UUID(str(filters["assignedMechanicId"])))
+                    if filters["assignedMechanicId"]
+                    else None
+                )
+            else:
+                allowed = {
+                    "title": "title",
+                    "description": "description",
+                    "priority": "priority",
+                    "assignedMechanicId": "assignedMechanicId",
+                }
+                for input_name, column in allowed.items():
+                    if input_name in filters:
+                        value = filters[input_name]
+                        if input_name == "assignedMechanicId" and value:
+                            value = str(UUID(str(value)))
+                        updates[column] = value
+                if not updates:
+                    raise HTTPException(status_code=400, detail="Provide at least one work-order field to update")
+            if updates.get("assignedMechanicId"):
+                assignee = await session.execute(
+                    text(
+                        'select "id" from "users" where "id" = :user_id '
+                        'and "orgId" = :org_id and "role" in (\'MECHANIC\', \'TECHNICIAN\')'
+                    ),
+                    {"user_id": updates["assignedMechanicId"], "org_id": user.org_id},
+                )
+                if assignee.first() is None:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Owner must be a mechanic or technician in this organization",
+                    )
+            assignments = ", ".join(
+                f'"{column}" = :update_{column}' for column in updates
+            )
+            params = {
+                f"update_{column}": value for column, value in updates.items()
+            }
+            params.update(
+                {
+                    "work_order_id": str(parsed_work_order_id),
+                    "org_id": user.org_id,
+                }
+            )
+            updated_result = await session.execute(
+                text(
+                    f'update "work_orders" set {assignments}, "updatedAt" = now() '
+                    'where "id" = :work_order_id and "orgId" = :org_id returning *'
+                ),
+                params,
+            )
+            updated = updated_result.mappings().one()
+            action = "WORK_ORDER_ASSIGNED" if procedure == "workOrders.assign" else "WORK_ORDER_UPDATED"
+            await session.execute(
+                text(
+                    'insert into "audit_events" '
+                    '("id", "orgId", "actorId", "actorRole", "action", "entityType", '
+                    '"entityId", "summary", "metadata", "createdAt") values '
+                    '(:id, :org_id, :actor_id, :actor_role, :action, \'WORK_ORDER\', '
+                    ':entity_id, :summary, :metadata, now())'
+                ),
+                {
+                    "id": str(uuid4()),
+                    "org_id": user.org_id,
+                    "actor_id": user.id,
+                    "actor_role": user.role,
+                    "action": action,
+                    "entity_id": str(parsed_work_order_id),
+                    "summary": f'Updated work order: {updated["title"]}',
+                    "metadata": json.dumps(
+                        {
+                            "previousAssignedMechanicId": current["assignedMechanicId"],
+                            **updates,
+                        },
+                        default=str,
+                    ),
+                },
+            )
+        return dict(updated)
     if procedure == "workOrders.bulkUpdate":
         filters = cast(Mapping[str, object], input_value or {})
         return await bulk_update_work_orders(
