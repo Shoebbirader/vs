@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from typing import cast
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,13 +16,21 @@ from .fleet import dashboard_summary, list_vehicles
 from .inventory import list_parts
 from .maintenance import list_work_orders
 from .notifications import list_notifications
+from .notifications import mark_notification_read
 from .components import list_components
 from .documents import list_document_versions, list_documents
 from .audit import list_audit_events
 from .billing import billing_invoices, billing_plans, billing_payments, billing_status
 from .finance import financial_metrics, maintenance_performance
 from .planning import maintenance_planning
-from .profile import get_organization_settings, get_profile
+from .profile import (
+    OrganizationSettingsUpdate,
+    ProfileUpdate,
+    get_organization_settings,
+    get_profile,
+    update_organization_settings,
+    update_profile,
+)
 from .team import list_assignable_members, list_members
 
 router = APIRouter(prefix="/api/trpc", tags=["frontend-compatibility"])
@@ -118,12 +126,51 @@ async def _dispatch(
         if not notification_id:
             raise HTTPException(status_code=400, detail="id is required")
         return await _notification_source_detail(UUID(str(notification_id)), user, session)
+    if procedure == "notifications.markRead":
+        filters = cast(Mapping[str, object], input_value or {})
+        notification_id = filters.get("id")
+        if not notification_id:
+            raise HTTPException(status_code=400, detail="id is required")
+        return await mark_notification_read(UUID(str(notification_id)), user, session)
     if procedure == "activity.recent":
         return await _recent_activity(user, session)
     if procedure == "profile.get":
         return await get_profile(current_user, session)
+    if procedure == "profile.update":
+        filters = cast(Mapping[str, object], input_value or {})
+        return await update_profile(
+            ProfileUpdate(
+                full_name=str(filters.get("fullName", "")),
+                mobile_number=str(filters.get("mobileNumber", "")),
+                sms_alerts_enabled=bool(filters.get("smsAlertsEnabled", False)),
+                whatsapp_alerts_enabled=bool(filters.get("whatsappAlertsEnabled", False)),
+            ),
+            current_user,
+            session,
+        )
     if procedure == "organizationSettings.get":
         return await get_organization_settings(current_user, session)
+    if procedure == "organizationSettings.update":
+        filters = cast(Mapping[str, object], input_value or {})
+        return await update_organization_settings(
+            OrganizationSettingsUpdate(
+                timezone=str(filters.get("timezone", "")),
+                odometer_max_daily_km=int(filters.get("odometerMaxDailyKm", 0)),
+                labor_rate_per_hour=float(filters.get("laborRatePerHour", 0)),
+                safety_contact_name=(
+                    str(filters["safetyContactName"])
+                    if filters.get("safetyContactName") is not None
+                    else None
+                ),
+                safety_contact_phone=(
+                    str(filters["safetyContactPhone"])
+                    if filters.get("safetyContactPhone") is not None
+                    else None
+                ),
+            ),
+            current_user,
+            session,
+        )
     if procedure == "documents.list":
         filters = cast(Mapping[str, object], input_value or {})
         return await list_documents(
@@ -491,13 +538,17 @@ async def _notification_source_detail(
     return {"notification": dict(notification), "sourceType": source_type, "source": source}
 
 
-@router.api_route("/{procedure:path}", methods=["GET"])
+@router.api_route("/{procedure:path}", methods=["GET", "POST"], include_in_schema=False)
 async def frontend_compatibility(
     procedure: str,
+    request: Request,
     input: str | None = Query(default=None),
     current_user: TenantUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_db_session),
 ) -> object:
+    if request.method == "POST":
+        payload = await request.json()
+        input = json.dumps(payload)
     procedures = procedure.split(",")
     responses = []
     for index, name in enumerate(procedures):
