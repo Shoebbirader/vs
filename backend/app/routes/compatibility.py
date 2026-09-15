@@ -5,7 +5,7 @@ import re
 from collections.abc import Mapping
 from datetime import datetime, timedelta, timezone
 from typing import cast
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.encoders import jsonable_encoder
@@ -259,6 +259,67 @@ async def _dispatch(
         )
     if procedure == "vehicleIssues.list":
         return await list_vehicle_issues(user, session)
+    if procedure == "vehicleIssues.updateStatus":
+        if user.role not in {"SUPERADMIN", "FLEET_MANAGER"}:
+            raise HTTPException(status_code=403, detail="Fleet management access required")
+        filters = cast(Mapping[str, object], input_value or {})
+        issue_id = filters.get("issueId")
+        next_status = filters.get("status")
+        if not issue_id or not next_status:
+            raise HTTPException(status_code=400, detail="issueId and status are required")
+        if str(next_status) not in {
+            "OPEN",
+            "ACKNOWLEDGED",
+            "IN_PROGRESS",
+            "RESOLVED",
+            "CLOSED",
+        }:
+            raise HTTPException(status_code=400, detail="Invalid vehicle issue status")
+        async with session.begin():
+            result = await session.execute(
+                text(
+                    'select * from "vehicle_issues" where "id" = :issue_id '
+                    'and "orgId" = :org_id for update'
+                ),
+                {"issue_id": str(issue_id), "org_id": user.org_id},
+            )
+            issue = result.mappings().first()
+            if issue is None:
+                raise HTTPException(status_code=404, detail="Vehicle issue not found")
+            updated_result = await session.execute(
+                text(
+                    'update "vehicle_issues" set "status" = :status, "updatedAt" = now() '
+                    'where "id" = :issue_id returning *'
+                ),
+                {"status": str(next_status), "issue_id": str(issue_id)},
+            )
+            updated = updated_result.mappings().first()
+            await session.execute(
+                text(
+                    'insert into "audit_events" '
+                    '("id", "orgId", "actorId", "actorRole", "action", "entityType", '
+                    '"entityId", "summary", "metadata", "createdAt") values '
+                    '(:id, :org_id, :actor_id, :actor_role, :action, :entity_type, '
+                    ':entity_id, :summary, :metadata, now())'
+                ),
+                {
+                    "id": str(uuid4()),
+                    "org_id": user.org_id,
+                    "actor_id": user.id,
+                    "actor_role": user.role,
+                    "action": "VEHICLE_ISSUE_STATUS_CHANGED",
+                    "entity_type": "VEHICLE_ISSUE",
+                    "entity_id": str(issue_id),
+                    "summary": f'Vehicle issue moved from {issue["status"]} to {next_status}',
+                    "metadata": json.dumps(
+                        {
+                            "previousStatus": issue["status"],
+                            "nextStatus": str(next_status),
+                        }
+                    ),
+                },
+            )
+        return dict(updated) if updated else None
     if procedure == "driver.assignment":
         return await current_assignment(user, session)
     if procedure == "driver.fuelLogs":
