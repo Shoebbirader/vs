@@ -1,12 +1,13 @@
 import json
 import re
 from collections.abc import Mapping
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.encoders import jsonable_encoder
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_db_session
@@ -17,8 +18,11 @@ from .maintenance import list_work_orders
 from .notifications import list_notifications
 from .components import list_components
 from .documents import list_document_versions, list_documents
+from .audit import list_audit_events
+from .finance import financial_metrics
 from .planning import maintenance_planning
 from .profile import get_organization_settings, get_profile
+from .team import list_members
 
 router = APIRouter(prefix="/api/trpc", tags=["frontend-compatibility"])
 
@@ -134,7 +138,123 @@ async def _dispatch(
             current_user=current_user,
             session=session,
         )
+    if procedure == "financials.metrics":
+        return await financial_metrics(current_user, session)
+    if procedure == "team.members":
+        return await list_members(current_user, session)
+    if procedure == "audit.list":
+        filters = cast(Mapping[str, object], input_value or {})
+        return await list_audit_events(
+            actor_id=UUID(str(filters["actorId"])) if filters.get("actorId") else None,
+            actor_role=str(filters["actorRole"]) if filters.get("actorRole") else None,
+            entity_type=str(filters["entityType"]) if filters.get("entityType") else None,
+            action=str(filters["action"]) if filters.get("action") else None,
+            date_from=_date_input(filters.get("dateFrom")),
+            date_to=_date_input(filters.get("dateTo")),
+            limit=int(filters.get("limit", 100)),
+            current_user=current_user,
+            session=session,
+        )
+    if procedure == "compliance.summary":
+        return await _compliance_summary(
+            filters=cast(Mapping[str, object], input_value or {}),
+            user=current_user,
+            session=session,
+        )
     raise HTTPException(status_code=404, detail=f"Python compatibility route not migrated: {procedure}")
+
+
+async def _compliance_summary(
+    filters: Mapping[str, object],
+    user: TenantUser,
+    session: AsyncSession,
+) -> object:
+    if user.role not in {"SUPERADMIN", "FLEET_MANAGER"}:
+        raise HTTPException(status_code=403, detail="Fleet manager access required")
+    window_days = int(filters.get("expiryWindowDays", 30))
+    if not 1 <= window_days <= 365:
+        raise HTTPException(status_code=400, detail="expiryWindowDays must be between 1 and 365")
+    now = datetime.now(timezone.utc)
+    window_end = now + timedelta(days=window_days)
+    vehicles_result = await session.execute(
+        text(
+            'select "id", "licensePlate" from "vehicles" where "orgId" = :org_id '
+            'order by "licensePlate"'
+        ),
+        {"org_id": user.org_id},
+    )
+    documents_result = await session.execute(
+        text(
+            'select "vehicleId", "expiryDate" from "documents" where "orgId" = :org_id '
+            'and "archivedAt" is null'
+        ),
+        {"org_id": user.org_id},
+    )
+    documents_by_vehicle: dict[str, list[datetime]] = {}
+    for row in documents_result.mappings():
+        vehicle_id = row["vehicleId"]
+        if vehicle_id is not None:
+            documents_by_vehicle.setdefault(str(vehicle_id), []).append(row["expiryDate"])
+    assignments_result = await session.execute(
+        text(
+            'select "driverId", "vehicleId" from "vehicle_assignments" '
+            'where "orgId" = :org_id and "active" = true and "driverId" is not null'
+        ),
+        {"org_id": user.org_id},
+    )
+    users_result = await session.execute(
+        text(
+            'select "id", "fullName", "email" from "users" where "orgId" = :org_id'
+        ),
+        {"org_id": user.org_id},
+    )
+    user_names = {
+        str(row["id"]): row["fullName"] or row["email"] or "Assigned driver"
+        for row in users_result.mappings()
+    }
+
+    def classify(expiry_dates: list[datetime]) -> str:
+        if not expiry_dates:
+            return "MISSING"
+        if any(expiry < now for expiry in expiry_dates):
+            return "EXPIRED"
+        if any(expiry <= window_end for expiry in expiry_dates):
+            return "EXPIRING"
+        return "VALID"
+
+    vehicles = []
+    for row in vehicles_result.mappings():
+        status = classify(documents_by_vehicle.get(str(row["id"]), []))
+        vehicles.append(
+            {
+                "vehicleId": row["id"],
+                "licensePlate": row["licensePlate"],
+                "status": status,
+                "documentCount": len(documents_by_vehicle.get(str(row["id"]), [])),
+            }
+        )
+    counts = {status: sum(item["status"] == status for item in vehicles) for status in ("VALID", "EXPIRING", "EXPIRED", "MISSING")}
+    vehicle_labels = {str(item["vehicleId"]): item["licensePlate"] for item in vehicles}
+    drivers = [
+        {
+            "driverId": row["driverId"],
+            "driverName": user_names.get(str(row["driverId"]), "Assigned driver"),
+            "vehicleId": row["vehicleId"],
+            "licensePlate": vehicle_labels.get(str(row["vehicleId"]), "Unassigned vehicle"),
+            "status": classify(documents_by_vehicle.get(str(row["vehicleId"]), [])),
+        }
+        for row in assignments_result.mappings()
+    ]
+    return {
+        "expiryWindowDays": window_days,
+        "counts": counts,
+        "vehicles": vehicles,
+        "drivers": drivers,
+        "driverCounts": {
+            status: sum(item["status"] == status for item in drivers)
+            for status in ("VALID", "EXPIRING", "EXPIRED", "MISSING")
+        },
+    }
 
 
 @router.api_route("/{procedure:path}", methods=["GET"])
