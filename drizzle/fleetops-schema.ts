@@ -660,6 +660,11 @@ export const idempotencyRecords = pgTable(
     userId: uuid("userId").notNull(),
     idempotencyKey: text("idempotencyKey").notNull(),
     procedure: text("procedure").notNull(),
+    requestHash: text("requestHash").notNull(),
+    status: text("status").notNull().default("PROCESSING"),
+    resultJson: text("resultJson"),
+    completedAt: timestamp("completedAt", { withTimezone: true }),
+    expiresAt: timestamp("expiresAt", { withTimezone: true }).notNull(),
     createdAt: timestamp("createdAt", { withTimezone: true })
       .defaultNow()
       .notNull(),

@@ -47,7 +47,10 @@ describe("odometer persistence and register visibility contracts", () => {
 
   it("returns the persisted vehicle and odometer log from the update mutation", () => {
     expect(routerSource).toContain(
-      "const { updatedVehicle, odometerLog } = await fleetDb.$transaction("
+      "const result = await fleetDb.$transaction("
+    );
+    expect(routerSource).toContain(
+      'const { vehicle: updatedVehicle, odometerLog } = result;'
     );
     expect(routerSource).toContain(
       "return { vehicle: updatedVehicle, odometerLog };"

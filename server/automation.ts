@@ -101,6 +101,11 @@ export async function evaluateEscalations(orgId: string) {
 }
 
 async function evaluateAllOrganizationsUnsafe() {
+  if (fleetDb.idempotencyRecord?.deleteMany) {
+    await fleetDb.idempotencyRecord.deleteMany({
+      where: { expiresAt: { lt: new Date() } },
+    });
+  }
   const organizations = await fleetDb.organization.findMany({ select: { id: true } });
   let maintenanceOrders = 0;
   let lowStockParts = 0;
