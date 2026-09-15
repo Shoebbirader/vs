@@ -1921,6 +1921,88 @@ async def _dispatch(
         )
     if procedure == "vendors.list":
         return await list_vendors(user, session)
+    if procedure == "vendors.pricingHistory":
+        if user.role not in {"SUPERADMIN", "INVENTORY_MANAGER"}:
+            raise HTTPException(status_code=403, detail="Inventory manager access required")
+        filters = cast(Mapping[str, object], input_value or {})
+        vendor_id = filters.get("vendorId")
+        if not vendor_id:
+            raise HTTPException(status_code=400, detail="vendorId is required")
+        part_id = filters.get("partId")
+        vendor_result = await session.execute(
+            text(
+                'select * from "vendors" where "id" = :vendor_id '
+                'and "orgId" = :org_id'
+            ),
+            {"vendor_id": str(vendor_id), "org_id": user.org_id},
+        )
+        vendor = vendor_result.mappings().first()
+        if vendor is None:
+            raise HTTPException(status_code=404, detail="Vendor not found")
+        order_result = await session.execute(
+            text(
+                'select * from "purchase_orders" where "orgId" = :org_id '
+                'and "vendorId" = :vendor_id order by "createdAt" desc'
+            ),
+            {"org_id": user.org_id, "vendor_id": str(vendor_id)},
+        )
+        orders = [dict(row) for row in order_result.mappings()]
+        order_ids = [str(row["id"]) for row in orders]
+        receipts: list[dict[str, object]] = []
+        if order_ids:
+            receipt_result = await session.execute(
+                text(
+                    'select r.*, p."sku", p."name" as "partName" '
+                    'from "purchase_order_receipts" r '
+                    'left join "inventory_parts" p on p."id" = r."partId" '
+                    'where r."orgId" = :org_id and r."purchaseOrderId" in ('
+                    + ", ".join(f":order_{index}" for index in range(len(order_ids)))
+                    + ") "
+                    + ('and r."partId" = :part_id ' if part_id else "")
+                    + 'order by r."receivedAt" desc'
+                ),
+                {
+                    "org_id": user.org_id,
+                    **{f"order_{index}": value for index, value in enumerate(order_ids)},
+                    **({"part_id": str(part_id)} if part_id else {}),
+                },
+            )
+            for row in receipt_result.mappings():
+                receipt = dict(row)
+                receipt["vendorId"] = vendor["id"]
+                receipt["vendorName"] = vendor["name"]
+                receipt["part"] = (
+                    {
+                        "id": receipt["partId"],
+                        "sku": receipt["sku"],
+                        "name": receipt["partName"],
+                    }
+                    if receipt.get("partId")
+                    else None
+                )
+                receipts.append(receipt)
+        supplied_parts = []
+        seen_parts: set[str] = set()
+        for row in receipts:
+            if row.get("part") and str(row["partId"]) not in seen_parts:
+                supplied_parts.append(row["part"])
+                seen_parts.add(str(row["partId"]))
+        unit_costs = [float(row["unitCost"]) for row in receipts if row.get("unitCost") is not None]
+        return {
+            "vendor": dict(vendor),
+            "rows": receipts,
+            "suppliedParts": supplied_parts,
+            "purchaseHistory": [
+                {
+                    "id": row["id"],
+                    "status": row["status"],
+                    "totalCost": row["totalCost"],
+                    "createdAt": row["createdAt"],
+                }
+                for row in orders
+            ],
+            "averageUnitCost": sum(unit_costs) / len(unit_costs) if unit_costs else None,
+        }
     if procedure == "purchaseOrders.create":
         filters = cast(Mapping[str, object], input_value or {})
         return await create_purchase_order(
