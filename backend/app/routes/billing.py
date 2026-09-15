@@ -1,8 +1,12 @@
-from datetime import datetime, timedelta, timezone
 import base64
+import hashlib
+import hmac
+import json
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -362,3 +366,65 @@ async def activate_starter(
                 raise HTTPException(status_code=404, detail="Organization not found")
             return {"activated": False, "already_active": True, "tier": current["subscriptionTier"], "max_vehicles": current["maxVehicles"]}
     return {"activated": True, "already_active": False, "tier": "STARTER", "max_vehicles": PLANS["STARTER"]["included_vehicles"]}
+
+
+@router.post("/razorpay/webhook", include_in_schema=False)
+async def razorpay_webhook(
+    request: Request,
+    session: AsyncSession = Depends(get_db_session),
+) -> JSONResponse:
+    settings = get_settings()
+    if not settings.razorpay_test_webhook_enabled or not settings.razorpay_test_webhook_secret:
+        return JSONResponse({"error": "Webhook processing is disabled"}, status_code=404)
+    raw_body = await request.body()
+    signature = request.headers.get("x-razorpay-signature")
+    expected = hmac.new(
+        settings.razorpay_test_webhook_secret.encode(),
+        raw_body,
+        hashlib.sha256,
+    ).hexdigest()
+    if not signature or not hmac.compare_digest(expected, signature):
+        return JSONResponse({"error": "Invalid webhook signature"}, status_code=400)
+    event_id = request.headers.get("x-razorpay-event-id")
+    if not event_id or len(event_id) > 200:
+        return JSONResponse({"error": "Missing or invalid webhook event id"}, status_code=400)
+    try:
+        payload = json.loads(raw_body)
+    except json.JSONDecodeError:
+        return JSONResponse({"error": "Invalid webhook JSON"}, status_code=400)
+    event_type = str(payload.get("event", "unknown"))
+    async with session.begin():
+        recorded = await session.execute(
+            text(
+                'insert into "razorpay_webhook_events" ("event_id", "event_type") '
+                'values (:event_id, :event_type) on conflict ("event_id") do nothing returning "id"'
+            ),
+            {"event_id": event_id, "event_type": event_type},
+        )
+        if recorded.first() is None:
+            return JSONResponse({"received": True, "event_id": event_id, "duplicate": True})
+        subscription = payload.get("payload", {}).get("subscription", {}).get("entity", {})
+        org_id = subscription.get("notes", {}).get("orgId")
+        if org_id and event_type in {
+            "subscription.activated",
+            "subscription.charged",
+            "subscription.pending",
+            "subscription.halted",
+        }:
+            status = (
+                "SUSPENDED"
+                if event_type == "subscription.halted"
+                else "PAYMENT_GRACE"
+                if event_type == "subscription.pending"
+                else "ACTIVE"
+            )
+            await session.execute(
+                text(
+                    'update "organizations" set "billingStatus" = :status, '
+                    '"paymentFailedAt" = case when :status = \'PAYMENT_GRACE\' then now() else null end, '
+                    '"suspendedAt" = case when :status = \'SUSPENDED\' then now() else null end '
+                    'where "id" = :org_id'
+                ),
+                {"status": status, "org_id": org_id},
+            )
+    return JSONResponse({"received": True, "event_id": event_id, "mode": "TEST"})
