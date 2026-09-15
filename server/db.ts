@@ -54,6 +54,7 @@ const tables: Record<string, string> = {
   purchaseOrderReceipt: "purchase_order_receipts",
   financialRecord: "financial_records",
   document: "documents",
+  storageCleanupJob: "storage_cleanup_jobs",
   documentVersion: "document_versions",
   notification: "notifications",
   notificationDelivery: "notification_deliveries",
@@ -83,6 +84,7 @@ const drizzleTables: Record<string, unknown> = {
   purchaseOrderReceipt: fleetopsSchema.purchaseOrderReceipts,
   financialRecord: fleetopsSchema.financialRecords,
   document: fleetopsSchema.documents,
+  storageCleanupJob: fleetopsSchema.storageCleanupJobs,
   documentVersion: fleetopsSchema.documentVersions,
   notification: fleetopsSchema.notifications,
   notificationDelivery: fleetopsSchema.notificationDeliveries,
@@ -139,14 +141,10 @@ function condition(field: string, value: unknown): SQL {
       const escaped = String(o.contains).replace(/[%_\\]/g, "\\$&");
       return sql`${c} ILIKE ${`%${escaped}%`} ESCAPE ${"\\"}`;
     }
-    if (o.gt !== undefined)
-      return sql`${c} > ${normalize(o.gt)}`;
-    if (o.gte !== undefined)
-      return sql`${c} >= ${normalize(o.gte)}`;
-    if (o.lt !== undefined)
-      return sql`${c} < ${normalize(o.lt)}`;
-    if (o.lte !== undefined)
-      return sql`${c} <= ${normalize(o.lte)}`;
+    if (o.gt !== undefined) return sql`${c} > ${normalize(o.gt)}`;
+    if (o.gte !== undefined) return sql`${c} >= ${normalize(o.gte)}`;
+    if (o.lt !== undefined) return sql`${c} < ${normalize(o.lt)}`;
+    if (o.lte !== undefined) return sql`${c} <= ${normalize(o.lte)}`;
   }
   return sql`${c} = ${normalize(value)}`;
 }
@@ -162,7 +160,9 @@ function whereClause(where: AnyRecord = {}): SQL {
     else if (field !== "vehicle" && field !== "org")
       parts.push(condition(field, value));
   }
-  return parts.length ? sql` WHERE ${sql.join(parts, sql` AND `)}` : sql.empty();
+  return parts.length
+    ? sql` WHERE ${sql.join(parts, sql` AND `)}`
+    : sql.empty();
 }
 function dataColumns(data: AnyRecord) {
   return Object.keys(data).filter(
@@ -178,7 +178,8 @@ function dataColumns(data: AnyRecord) {
   );
 }
 function requireColumns(operation: string, columns: string[]) {
-  if (columns.length === 0) throw new Error(`${operation} requires at least one column`);
+  if (columns.length === 0)
+    throw new Error(`${operation} requires at least one column`);
 }
 function requireWhereId(operation: string, where: AnyRecord = {}) {
   if (where.id === undefined || where.id === null)
@@ -204,10 +205,7 @@ function model(modelName: string, executor: SqlExecutor = db) {
   return {
     async findMany(options: QueryOptions = {}) {
       const select = options.select
-        ? sql.join(
-            Object.keys(options.select).map(identifier),
-            sql`, `
-          )
+        ? sql.join(Object.keys(options.select).map(identifier), sql`, `)
         : sql.raw("*");
       const order = options.orderBy
         ? Object.entries(options.orderBy)
@@ -280,8 +278,7 @@ function model(modelName: string, executor: SqlExecutor = db) {
               : sql`${identifier(k)} = ${normalize(v)}`;
         })
         .reduce(
-          (items, item) =>
-            items.length ? [...items, sql`, `, item] : [item],
+          (items, item) => (items.length ? [...items, sql`, `, item] : [item]),
           [] as SQL[]
         );
       const auditSuffix = auditedTables.has(table)
@@ -311,8 +308,7 @@ function model(modelName: string, executor: SqlExecutor = db) {
               : sql`${identifier(k)} = ${normalize(v)}`;
         })
         .reduce(
-          (items, item) =>
-            items.length ? [...items, sql`, `, item] : [item],
+          (items, item) => (items.length ? [...items, sql`, `, item] : [item]),
           [] as SQL[]
         );
       const result = await executor.execute(
@@ -362,9 +358,7 @@ function createFleetDb(executor: SqlExecutor = db) {
 }
 
 export const fleetDb = createFleetDb();
-export async function transaction<T>(
-  fn: (tx: any) => Promise<T>
-): Promise<T> {
+export async function transaction<T>(fn: (tx: any) => Promise<T>): Promise<T> {
   return db.transaction(async tx => fn(createFleetDb(tx)));
 }
 

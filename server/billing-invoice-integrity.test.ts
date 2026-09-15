@@ -10,8 +10,8 @@ const migrationSource = readFileSync(
 
 describe("billing invoice period integrity", () => {
   it("enforces one invoice snapshot per organization and billing period", () => {
-    expect(schemaSource).toContain(
-      'uniqueIndex("uq_billing_invoices_org_period").on(table.orgId, table.billingPeriodStart)'
+    expect(schemaSource).toMatch(
+      /uniqueIndex\("uq_billing_invoices_org_period"\)[\s\S]*table\.orgId,[\s\S]*table\.billingPeriodStart/
     );
     expect(migrationSource).toContain(
       "create unique index if not exists uq_billing_invoices_org_period"

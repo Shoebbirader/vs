@@ -8,25 +8,69 @@ import { logRequestSignal } from "./observability";
 export type DomainEvent =
   | { type: "WORK_ORDER_CREATED"; workOrder: any }
   | { type: "WORK_ORDER_COMPLETED"; workOrder: any; partsUsed: any[] }
-  | { type: "WORK_ORDER_STATUS_CHANGED"; workOrderId: string; previousStatus: string; newStatus: string }
+  | {
+      type: "WORK_ORDER_STATUS_CHANGED";
+      workOrderId: string;
+      previousStatus: string;
+      newStatus: string;
+    }
   | { type: "PARTS_USED"; workOrderId: string; parts: any[] }
   | { type: "VEHICLE_CREATED"; vehicle: any }
-  | { type: "VEHICLE_MAINTENANCE_DUE"; vehicleId: string; componentId: string; component: any }
-  | { type: "COMPONENT_SERVICE_BASELINE_RESET"; componentId: string; previousOdometer: number; currentOdometer: number }
-  | { type: "ODOMETER_UPDATED"; vehicleId: string; reading: number; source: string }
+  | {
+      type: "VEHICLE_MAINTENANCE_DUE";
+      vehicleId: string;
+      componentId: string;
+      component: any;
+    }
+  | {
+      type: "COMPONENT_SERVICE_BASELINE_RESET";
+      componentId: string;
+      previousOdometer: number;
+      currentOdometer: number;
+    }
+  | {
+      type: "ODOMETER_UPDATED";
+      vehicleId: string;
+      reading: number;
+      source: string;
+    }
   | { type: "INVENTORY_CREATED"; part: any }
-  | { type: "INVENTORY_LOW"; partId: string; part: any; quantityOnHand: number; minReorderLevel: number }
+  | {
+      type: "INVENTORY_LOW";
+      partId: string;
+      part: any;
+      quantityOnHand: number;
+      minReorderLevel: number;
+    }
   | { type: "PURCHASE_ORDER_CREATED"; purchaseOrder: any }
-  | { type: "PURCHASE_ORDER_RECEIVED"; purchaseOrderId: string; partId: string; quantity: number }
-  | { type: "DOCUMENT_EXPIRY_ALERT"; documentId: string; document: any; daysUntilExpiry: number }
+  | {
+      type: "PURCHASE_ORDER_RECEIVED";
+      purchaseOrderId: string;
+      partId: string;
+      quantity: number;
+    }
+  | {
+      type: "DOCUMENT_EXPIRY_ALERT";
+      documentId: string;
+      document: any;
+      daysUntilExpiry: number;
+    }
   | { type: "NOTIFICATION_CREATED"; notification: any; recipient: any }
-  | { type: "DRIVER_ISSUE_SUBMITTED"; vehicleId: string; driverId: string; issue: any }
+  | {
+      type: "DRIVER_ISSUE_SUBMITTED";
+      vehicleId: string;
+      driverId: string;
+      issue: any;
+    }
   | { type: "ISSUE_ACKNOWLEDGED"; issueId: string; acknowledgedBy: string };
 
 /**
  * Handler function type
  */
-type EventHandler = (event: DomainEvent, context: { orgId?: string }) => Promise<void>;
+type EventHandler = (
+  event: DomainEvent,
+  context: { orgId?: string }
+) => Promise<void>;
 
 /**
  * Event Publisher - In-memory event bus
@@ -34,7 +78,12 @@ type EventHandler = (event: DomainEvent, context: { orgId?: string }) => Promise
  */
 class EventPublisher {
   private handlers: Map<DomainEvent["type"], EventHandler[]> = new Map();
-  private eventLog: Array<{ event: DomainEvent; timestamp: Date; success: boolean; error?: string }> = [];
+  private eventLog: Array<{
+    event: DomainEvent;
+    timestamp: Date;
+    success: boolean;
+    error?: string;
+  }> = [];
 
   subscribe(eventType: DomainEvent["type"], handler: EventHandler) {
     if (!this.handlers.has(eventType)) {
@@ -50,17 +99,21 @@ class EventPublisher {
 
     try {
       const handlers = this.handlers.get(event.type) || [];
-      
+
       const results = await Promise.allSettled(
         handlers.map(handler => handler(event, context))
       );
       const failures = results.filter(
-        (result): result is PromiseRejectedResult => result.status === "rejected"
+        (result): result is PromiseRejectedResult =>
+          result.status === "rejected"
       );
       if (failures.length > 0) {
         error = `${failures.length} event handler(s) failed`;
         failures.forEach(result => {
-          console.error(`Error in event handler for ${event.type}:`, result.reason);
+          console.error(
+            `Error in event handler for ${event.type}:`,
+            result.reason
+          );
         });
       }
       success = failures.length === 0;
@@ -95,22 +148,31 @@ export const eventBus = new EventPublisher();
 /**
  * Handler: When work order completes, update component service baseline
  */
-async function onWorkOrderCompleted(event: DomainEvent, context: { orgId?: string }) {
+async function onWorkOrderCompleted(
+  event: DomainEvent,
+  context: { orgId?: string }
+) {
   if (event.type !== "WORK_ORDER_COMPLETED") return;
-  
+
   const { workOrder, partsUsed } = event;
-  
+
   // Find which components were serviced based on parts used
   const componentIds = await fleetDb.component.findMany({
-    where: { vehicleId: workOrder.vehicleId }
+    where: { vehicleId: workOrder.vehicleId },
   });
 
   for (const component of componentIds as any[]) {
     // If this component had parts replaced, reset service baseline
-    if (partsUsed.some((part: any) => part.partId === component.inventoryPartId)) {
+    if (
+      partsUsed.some((part: any) => part.partId === component.inventoryPartId)
+    ) {
       await fleetDb.component.update({
         where: { id: component.id },
-        data: { lastServicedOdometer: workOrder.vehicle?.currentOdometer || component.lastServicedOdometer }
+        data: {
+          lastServicedOdometer:
+            workOrder.vehicle?.currentOdometer ||
+            component.lastServicedOdometer,
+        },
       });
     }
   }
@@ -119,11 +181,14 @@ async function onWorkOrderCompleted(event: DomainEvent, context: { orgId?: strin
 /**
  * Handler: Track maintenance due events for analytics
  */
-async function onVehicleMaintenanceDue(event: DomainEvent, context: { orgId?: string }) {
+async function onVehicleMaintenanceDue(
+  event: DomainEvent,
+  context: { orgId?: string }
+) {
   if (event.type !== "VEHICLE_MAINTENANCE_DUE") return;
-  
+
   const { vehicleId, componentId, component } = event;
-  
+
   // Create maintenance alert record
   // This could be used for dashboards, reports, SLA tracking
   await fleetDb.auditEvent?.create?.({
@@ -139,12 +204,10 @@ async function onVehicleMaintenanceDue(event: DomainEvent, context: { orgId?: st
         vehicleId,
         componentType: component.componentType,
         expectedLifeKm: component.expectedLifeKm,
-        alertThresholdKm: component.alertThresholdKm
+        alertThresholdKm: component.alertThresholdKm,
       }),
-      createdAt: new Date()
-    }
-  }).catch(() => {
-    // Audit event creation optional
+      createdAt: new Date(),
+    },
   });
 }
 
@@ -153,9 +216,9 @@ async function onVehicleMaintenanceDue(event: DomainEvent, context: { orgId?: st
  */
 async function onPartsUsed(event: DomainEvent, context: { orgId?: string }) {
   if (event.type !== "PARTS_USED") return;
-  
+
   const { workOrderId, parts } = event;
-  
+
   // Record movement for each part
   for (const part of parts) {
     if (fleetDb.inventoryMovement?.create) {
@@ -170,10 +233,8 @@ async function onPartsUsed(event: DomainEvent, context: { orgId?: string }) {
           quantity: -part.qtyUsed, // Negative for consumption
           unitCost: part.unitPrice,
           reason: `Used in work order ${workOrderId}`,
-          createdAt: new Date()
-        }
-      }).catch(() => {
-        // Movement tracking optional
+          createdAt: new Date(),
+        },
       });
     }
   }
@@ -182,26 +243,32 @@ async function onPartsUsed(event: DomainEvent, context: { orgId?: string }) {
 /**
  * Handler: Check inventory levels after parts used
  */
-async function onInventoryMovement(event: DomainEvent, context: { orgId?: string }) {
+async function onInventoryMovement(
+  event: DomainEvent,
+  context: { orgId?: string }
+) {
   if (event.type !== "PARTS_USED") return;
-  
+
   const { parts } = event;
-  
+
   // Check each part for low stock
   for (const part of parts) {
     const inventory = await fleetDb.inventoryPart.findFirst({
-      where: { id: part.partId, orgId: context.orgId }
+      where: { id: part.partId, orgId: context.orgId },
     });
 
     if (inventory && inventory.quantityOnHand <= inventory.minReorderLevel) {
       // Publish low inventory event for notification system
-      await eventBus.publish({
-        type: "INVENTORY_LOW",
-        partId: part.partId,
-        part: inventory,
-        quantityOnHand: inventory.quantityOnHand,
-        minReorderLevel: inventory.minReorderLevel
-      }, context);
+      await eventBus.publish(
+        {
+          type: "INVENTORY_LOW",
+          partId: part.partId,
+          part: inventory,
+          quantityOnHand: inventory.quantityOnHand,
+          minReorderLevel: inventory.minReorderLevel,
+        },
+        context
+      );
     }
   }
 }
@@ -209,11 +276,14 @@ async function onInventoryMovement(event: DomainEvent, context: { orgId?: string
 /**
  * Handler: Track document expiry for compliance
  */
-async function onDocumentExpiryAlert(event: DomainEvent, context: { orgId?: string }) {
+async function onDocumentExpiryAlert(
+  event: DomainEvent,
+  context: { orgId?: string }
+) {
   if (event.type !== "DOCUMENT_EXPIRY_ALERT") return;
-  
+
   const { documentId, daysUntilExpiry } = event;
-  
+
   // Create compliance alert
   await fleetDb.auditEvent?.create?.({
     data: {
@@ -223,21 +293,22 @@ async function onDocumentExpiryAlert(event: DomainEvent, context: { orgId?: stri
       entityType: "DOCUMENT",
       entityId: documentId,
       summary: `Document expires in ${daysUntilExpiry} days`,
-      createdAt: new Date()
-    }
-  }).catch(() => {
-    // Audit optional
+      createdAt: new Date(),
+    },
   });
 }
 
 /**
  * Handler: Auto-create work order from driver issue
  */
-async function onDriverIssueSubmitted(event: DomainEvent, context: { orgId?: string }) {
+async function onDriverIssueSubmitted(
+  event: DomainEvent,
+  context: { orgId?: string }
+) {
   if (event.type !== "DRIVER_ISSUE_SUBMITTED") return;
-  
+
   const { vehicleId, driverId, issue } = event;
-  
+
   // Auto-create work order for issues marked as high priority
   if (issue.priority === "HIGH" || issue.priority === "CRITICAL") {
     const workOrder = await fleetDb.workOrder.create({
@@ -249,23 +320,25 @@ async function onDriverIssueSubmitted(event: DomainEvent, context: { orgId?: str
         description: `Driver reported: ${issue.description}`,
         priority: issue.priority,
         status: "OPEN",
-        createdAt: new Date()
-      }
+        createdAt: new Date(),
+      },
     });
 
     // Log the auto-creation
-    await fleetDb.auditEvent?.create?.({
-      data: {
-        id: crypto.randomUUID(),
-        orgId: context.orgId,
-        action: "AUTO_WORK_ORDER_CREATED",
-        entityType: "WORK_ORDER",
-        entityId: workOrder.id,
-        summary: `Auto-created from driver issue`,
-        metadata: JSON.stringify({ issueId: issue.id, driverId }),
-        createdAt: new Date()
-      }
-    }).catch(() => {});
+    await fleetDb.auditEvent
+      ?.create?.({
+        data: {
+          id: crypto.randomUUID(),
+          orgId: context.orgId,
+          action: "AUTO_WORK_ORDER_CREATED",
+          entityType: "WORK_ORDER",
+          entityId: workOrder.id,
+          summary: `Auto-created from driver issue`,
+          metadata: JSON.stringify({ issueId: issue.id, driverId }),
+          createdAt: new Date(),
+        },
+      })
+      .catch(() => {});
   }
 }
 
@@ -277,7 +350,10 @@ export function setupEventHandlers() {
   // Maintenance handlers
   eventBus.subscribe("WORK_ORDER_COMPLETED", onWorkOrderCompleted);
   eventBus.subscribe("VEHICLE_MAINTENANCE_DUE", onVehicleMaintenanceDue);
-  eventBus.subscribe("COMPONENT_SERVICE_BASELINE_RESET", onVehicleMaintenanceDue);
+  eventBus.subscribe(
+    "COMPONENT_SERVICE_BASELINE_RESET",
+    onVehicleMaintenanceDue
+  );
 
   // Inventory handlers
   eventBus.subscribe("PARTS_USED", onPartsUsed);

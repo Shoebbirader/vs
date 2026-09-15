@@ -10,7 +10,11 @@ import {
   provisionFleetOpsUser,
   supabaseAdmin,
 } from "./supabase";
-import { storageGetSignedUrl, storagePut } from "./storage";
+import {
+  queueStorageCleanup,
+  storageGetSignedUrl,
+  storagePut,
+} from "./storage";
 import { roleCanAct, type FleetRole } from "./role-policy";
 import {
   BILLING_PLANS,
@@ -4021,13 +4025,11 @@ export const appRouter = router({
           rowCount: parsed.rows.length,
           validCount: parsed.rows.filter(row => !row.errors.length).length,
           errors: parsed.errors,
-          rows: parsed.rows
-            .slice(0, 100)
-            .map(item => ({
-              rowNumber: item.rowNumber,
-              ...item.row,
-              errors: item.errors,
-            })),
+          rows: parsed.rows.slice(0, 100).map(item => ({
+            rowNumber: item.rowNumber,
+            ...item.row,
+            errors: item.errors,
+          })),
         };
       }),
     importCsv: fleetOpsProcedure
@@ -4067,16 +4069,16 @@ export const appRouter = router({
             for (const item of candidates) {
               rows.push(
                 await tx.inventoryPart.create({
-                data: {
-                  id: crypto.randomUUID(),
-                  orgId: ctx.fleetopsUser.orgId,
-                  sku: item.row.sku,
-                  name: item.row.name,
-                  binLocation: item.row.binLocation || undefined,
-                  quantityOnHand: Number(item.row.quantityOnHand),
-                  minReorderLevel: Number(item.row.minReorderLevel),
-                  unitCost: Number(item.row.unitCost ?? item.row.unitCostInr),
-                },
+                  data: {
+                    id: crypto.randomUUID(),
+                    orgId: ctx.fleetopsUser.orgId,
+                    sku: item.row.sku,
+                    name: item.row.name,
+                    binLocation: item.row.binLocation || undefined,
+                    quantityOnHand: Number(item.row.quantityOnHand),
+                    minReorderLevel: Number(item.row.minReorderLevel),
+                    unitCost: Number(item.row.unitCost ?? item.row.unitCostInr),
+                  },
                 })
               );
             }
@@ -5474,36 +5476,47 @@ export const appRouter = router({
             code: "NOT_FOUND",
             message: "Driver or vehicle not found in this organization.",
           });
-        const { assignment, closed } = await fleetDb.$transaction(
-          async (tx: any) => {
-            const conflicting = await tx.vehicleAssignment.findMany({
-              where: { orgId: ctx.fleetopsUser.orgId, active: true },
-            });
-            const closed = conflicting.filter(
-              (item: any) =>
-                item.driverId === input.driverId ||
-                item.vehicleId === input.vehicleId
-            );
-            for (const item of closed) {
-              await tx.vehicleAssignment.update({
-                where: { id: item.id },
-                data: { active: false },
+        let assignment;
+        let closed;
+        try {
+          ({ assignment, closed } = await fleetDb.$transaction(
+            async (tx: any) => {
+              const conflicting = await tx.vehicleAssignment.findMany({
+                where: { orgId: ctx.fleetopsUser.orgId, active: true },
               });
+              const closed = conflicting.filter(
+                (item: any) =>
+                  item.driverId === input.driverId ||
+                  item.vehicleId === input.vehicleId
+              );
+              for (const item of closed) {
+                await tx.vehicleAssignment.update({
+                  where: { id: item.id },
+                  data: { active: false },
+                });
+              }
+              const assignment = await tx.vehicleAssignment.create({
+                data: {
+                  id: crypto.randomUUID(),
+                  orgId: ctx.fleetopsUser.orgId,
+                  vehicleId: input.vehicleId,
+                  driverId: input.driverId,
+                  active: input.active,
+                  createdAt: new Date(),
+                  updatedAt: new Date(),
+                },
+              });
+              return { assignment, closed };
             }
-            const assignment = await tx.vehicleAssignment.create({
-              data: {
-                id: crypto.randomUUID(),
-                orgId: ctx.fleetopsUser.orgId,
-                vehicleId: input.vehicleId,
-                driverId: input.driverId,
-                active: input.active,
-                createdAt: new Date(),
-                updatedAt: new Date(),
-              },
-            });
-            return { assignment, closed };
-          }
-        );
+          ));
+        } catch (error) {
+          if ((error as { code?: string }).code !== "23505") throw error;
+          throw new TRPCError({
+            code: "CONFLICT",
+            message:
+              "This driver or vehicle was assigned elsewhere. Refresh before assigning again.",
+          });
+        }
         await recordAudit(ctx, {
           action: closed.length ? "VEHICLE_REASSIGNED" : "VEHICLE_ASSIGNED",
           entityType: "VEHICLE_ASSIGNMENT",
@@ -6118,13 +6131,11 @@ export const appRouter = router({
           rowCount: parsed.rows.length,
           validCount: parsed.rows.filter(row => !row.errors.length).length,
           errors: parsed.errors,
-          rows: parsed.rows
-            .slice(0, 100)
-            .map(item => ({
-              rowNumber: item.rowNumber,
-              ...item.row,
-              errors: item.errors,
-            })),
+          rows: parsed.rows.slice(0, 100).map(item => ({
+            rowNumber: item.rowNumber,
+            ...item.row,
+            errors: item.errors,
+          })),
         };
       }),
     importCsv: fleetOpsProcedure
@@ -6170,16 +6181,16 @@ export const appRouter = router({
           for (const item of candidates) {
             rows.push(
               await tx.document.create({
-              data: {
-                id: crypto.randomUUID(),
-                orgId: ctx.fleetopsUser.orgId,
-                title: item.row.title,
-                docType: item.row.docType,
-                expiryDate: new Date(item.row.expiryDate),
-                vehicleId: item.row.vehicleId,
-                fileUrl: item.row.fileUrl || undefined,
-                createdAt: new Date(),
-              },
+                data: {
+                  id: crypto.randomUUID(),
+                  orgId: ctx.fleetopsUser.orgId,
+                  title: item.row.title,
+                  docType: item.row.docType,
+                  expiryDate: new Date(item.row.expiryDate),
+                  vehicleId: item.row.vehicleId,
+                  fileUrl: item.row.fileUrl || undefined,
+                  createdAt: new Date(),
+                },
               })
             );
           }
@@ -6251,6 +6262,7 @@ export const appRouter = router({
         let fileKey = data.fileKey;
         let fileChecksum: string | undefined;
         let fileSizeBytes: number | undefined;
+        let uploadedFileKey: string | undefined;
         if (fileData) {
           const decoded = decodeDocumentUpload(fileData, fileContentType);
           const duplicate = await fleetDb.document.findFirst({
@@ -6272,6 +6284,7 @@ export const appRouter = router({
           );
           fileUrl = uploaded.url;
           fileKey = uploaded.key;
+          uploadedFileKey = uploaded.key;
           fileChecksum = decoded.checksum;
           fileSizeBytes = decoded.sizeBytes;
         }
@@ -6280,39 +6293,50 @@ export const appRouter = router({
             code: "BAD_REQUEST",
             message: "A document file is required.",
           });
-        const created = await fleetDb.$transaction(async (tx: any) => {
-          const document = await tx.document.create({
-            data: {
-              id: crypto.randomUUID(),
-              ...data,
-              fileUrl,
-              fileKey,
-              fileChecksum,
-              fileSizeBytes,
-              retentionUntil: retentionAfterExpiry(input.expiryDate),
-              orgId: ctx.fleetopsUser.orgId,
-              createdAt: new Date(),
-            },
+        let created;
+        try {
+          created = await fleetDb.$transaction(async (tx: any) => {
+            const document = await tx.document.create({
+              data: {
+                id: crypto.randomUUID(),
+                ...data,
+                fileUrl,
+                fileKey,
+                fileChecksum,
+                fileSizeBytes,
+                retentionUntil: retentionAfterExpiry(input.expiryDate),
+                orgId: ctx.fleetopsUser.orgId,
+                createdAt: new Date(),
+              },
+            });
+            await tx.documentVersion.create({
+              data: {
+                id: crypto.randomUUID(),
+                orgId: ctx.fleetopsUser.orgId,
+                documentId: document.id,
+                versionNumber: 1,
+                title: document.title,
+                docType: document.docType,
+                fileUrl: document.fileUrl,
+                fileKey: document.fileKey,
+                fileChecksum: document.fileChecksum,
+                fileSizeBytes: document.fileSizeBytes,
+                expiryDate: document.expiryDate,
+                createdById: ctx.fleetopsUser.id,
+                createdAt: new Date(),
+              },
+            });
+            return document;
           });
-          await tx.documentVersion.create({
-            data: {
-              id: crypto.randomUUID(),
-              orgId: ctx.fleetopsUser.orgId,
-              documentId: document.id,
-              versionNumber: 1,
-              title: document.title,
-              docType: document.docType,
-              fileUrl: document.fileUrl,
-              fileKey: document.fileKey,
-              fileChecksum: document.fileChecksum,
-              fileSizeBytes: document.fileSizeBytes,
-              expiryDate: document.expiryDate,
-              createdById: ctx.fleetopsUser.id,
-              createdAt: new Date(),
-            },
-          });
-          return document;
-        });
+        } catch (error) {
+          if (uploadedFileKey)
+            await queueStorageCleanup(
+              ctx.fleetopsUser.orgId,
+              uploadedFileKey,
+              "document_create_transaction_failed"
+            );
+          throw error;
+        }
         await recordAudit(ctx, {
           action: "DOCUMENT_CREATED",
           entityType: "DOCUMENT",
@@ -6350,6 +6374,7 @@ export const appRouter = router({
           });
         const { id, fileData, fileContentType, ...data } = input;
         let updateData: any = { ...data };
+        let uploadedFileKey: string | undefined;
         if (fileData) {
           const decoded = decodeDocumentUpload(fileData, fileContentType);
           const duplicate = await fleetDb.document.findFirst({
@@ -6376,39 +6401,51 @@ export const appRouter = router({
             fileChecksum: decoded.checksum,
             fileSizeBytes: decoded.sizeBytes,
           };
+          uploadedFileKey = uploaded.key;
         }
         if (input.expiryDate)
           updateData.retentionUntil = retentionAfterExpiry(input.expiryDate);
-        const updated = await fleetDb.$transaction(async (tx: any) => {
-          const document = await tx.document.update({
-            where: { id },
-            data: updateData,
+        let updated;
+        try {
+          updated = await fleetDb.$transaction(async (tx: any) => {
+            const document = await tx.document.update({
+              where: { id },
+              data: updateData,
+            });
+            const versions = await tx.documentVersion.findMany({
+              where: { orgId: ctx.fleetopsUser.orgId, documentId: existing.id },
+              orderBy: { versionNumber: "desc" },
+              take: 1,
+            });
+            const nextVersion = Number(versions[0]?.versionNumber ?? 0) + 1;
+            await tx.documentVersion.create({
+              data: {
+                id: crypto.randomUUID(),
+                orgId: ctx.fleetopsUser.orgId,
+                documentId: document.id,
+                versionNumber: nextVersion,
+                title: document.title,
+                docType: document.docType,
+                fileUrl: document.fileUrl,
+                fileKey: document.fileKey,
+                fileChecksum: document.fileChecksum,
+                fileSizeBytes: document.fileSizeBytes,
+                expiryDate: document.expiryDate,
+                createdById: ctx.fleetopsUser.id,
+                createdAt: new Date(),
+              },
+            });
+            return document;
           });
-          const versions = await tx.documentVersion.findMany({
-            where: { orgId: ctx.fleetopsUser.orgId, documentId: existing.id },
-            orderBy: { versionNumber: "desc" },
-            take: 1,
-          });
-          const nextVersion = Number(versions[0]?.versionNumber ?? 0) + 1;
-          await tx.documentVersion.create({
-            data: {
-              id: crypto.randomUUID(),
-              orgId: ctx.fleetopsUser.orgId,
-              documentId: document.id,
-              versionNumber: nextVersion,
-              title: document.title,
-              docType: document.docType,
-              fileUrl: document.fileUrl,
-              fileKey: document.fileKey,
-              fileChecksum: document.fileChecksum,
-              fileSizeBytes: document.fileSizeBytes,
-              expiryDate: document.expiryDate,
-              createdById: ctx.fleetopsUser.id,
-              createdAt: new Date(),
-            },
-          });
-          return document;
-        });
+        } catch (error) {
+          if (uploadedFileKey)
+            await queueStorageCleanup(
+              ctx.fleetopsUser.orgId,
+              uploadedFileKey,
+              "document_update_transaction_failed"
+            );
+          throw error;
+        }
         await recordAudit(ctx, {
           action: "DOCUMENT_UPDATED",
           entityType: "DOCUMENT",
@@ -7369,8 +7406,11 @@ export const appRouter = router({
       const now = new Date();
       const renewalAt = new Date(now);
       renewalAt.setUTCMonth(renewalAt.getUTCMonth() + 1);
-      const organization = await fleetDb.organization.update({
-        where: { id: ctx.fleetopsUser.orgId },
+      const changed = await fleetDb.organization.updateMany({
+        where: {
+          id: ctx.fleetopsUser.orgId,
+          subscriptionTier: "TRIAL_FREE",
+        },
         data: {
           subscriptionTier: plan.id,
           maxVehicles: plan.includedVehicles,
@@ -7382,6 +7422,30 @@ export const appRouter = router({
           suspendedAt: null,
         },
       });
+      if (!changed.count) {
+        const current = await fleetDb.organization.findFirst({
+          where: { id: ctx.fleetopsUser.orgId },
+        });
+        if (!current)
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Organization not found.",
+          });
+        return {
+          activated: false,
+          alreadyActive: true,
+          tier: current.subscriptionTier,
+          maxVehicles: current.maxVehicles,
+        };
+      }
+      const organization = await fleetDb.organization.findFirst({
+        where: { id: ctx.fleetopsUser.orgId },
+      });
+      if (!organization)
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Activated organization could not be reloaded.",
+        });
       await recordAudit(ctx, {
         action: "BILLING_TEST_PLAN_ACTIVATED",
         entityType: "ORGANIZATION",
@@ -7722,78 +7786,85 @@ export const appRouter = router({
       )
       .mutation(async ({ ctx, input }) => {
         requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER"]);
-        const current = await fleetDb.notification.findFirst({
-          where: { id: input.id, orgId: ctx.fleetopsUser.orgId },
-        });
-        if (!current)
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Notification not found.",
+        const result = await fleetDb.$transaction(async (tx: any) => {
+          const current = await tx.notification.findFirst({
+            where: { id: input.id, orgId: ctx.fleetopsUser.orgId },
           });
-        if (current.resolvedAt) return current;
-        if (current.sourceType === "VEHICLE_ISSUE" && current.referenceId) {
-          const issue = await fleetDb.vehicleIssue.findFirst({
-            where: { id: current.referenceId, orgId: ctx.fleetopsUser.orgId },
-          });
-          if (!issue || !["RESOLVED", "CLOSED"].includes(issue.status))
+          if (!current)
             throw new TRPCError({
-              code: "BAD_REQUEST",
-              message:
-                "Resolve the source vehicle issue before closing this notification.",
+              code: "NOT_FOUND",
+              message: "Notification not found.",
             });
-        }
-        if (current.sourceType === "WORK_ORDER" && current.referenceId) {
-          const order = await fleetDb.workOrder.findFirst({
-            where: { id: current.referenceId, orgId: ctx.fleetopsUser.orgId },
+          if (current.resolvedAt) return { current, updated: current };
+          if (current.sourceType === "VEHICLE_ISSUE" && current.referenceId) {
+            const issue = await tx.vehicleIssue.findFirst({
+              where: { id: current.referenceId, orgId: ctx.fleetopsUser.orgId },
+            });
+            if (!issue || !["RESOLVED", "CLOSED"].includes(issue.status))
+              throw new TRPCError({
+                code: "BAD_REQUEST",
+                message:
+                  "Resolve the source vehicle issue before closing this notification.",
+              });
+          }
+          if (current.sourceType === "WORK_ORDER" && current.referenceId) {
+            const order = await tx.workOrder.findFirst({
+              where: { id: current.referenceId, orgId: ctx.fleetopsUser.orgId },
+            });
+            if (!order || order.status !== "COMPLETED")
+              throw new TRPCError({
+                code: "BAD_REQUEST",
+                message:
+                  "Complete the source work order before closing this notification.",
+              });
+          }
+          if (current.sourceType === "VEHICLE" && current.referenceId) {
+            const vehicle = await tx.vehicle.findFirst({
+              where: { id: current.referenceId, orgId: ctx.fleetopsUser.orgId },
+            });
+            if (!vehicle || vehicle.status !== "ACTIVE")
+              throw new TRPCError({
+                code: "BAD_REQUEST",
+                message:
+                  "Clear the source vehicle before closing this notification.",
+              });
+          }
+          const changed = await tx.notification.updateMany({
+            where: {
+              id: current.id,
+              orgId: ctx.fleetopsUser.orgId,
+              resolvedAt: null,
+            },
+            data: {
+              isRead: true,
+              acknowledgedAt: current.acknowledgedAt ?? new Date(),
+              resolvedAt: new Date(),
+            },
           });
-          if (!order || order.status !== "COMPLETED")
-            throw new TRPCError({
-              code: "BAD_REQUEST",
-              message:
-                "Complete the source work order before closing this notification.",
+          if (!changed.count) {
+            const alreadyResolved = await tx.notification.findFirst({
+              where: { id: current.id, orgId: ctx.fleetopsUser.orgId },
             });
-        }
-        if (current.sourceType === "VEHICLE" && current.referenceId) {
-          const vehicle = await fleetDb.vehicle.findFirst({
-            where: { id: current.referenceId, orgId: ctx.fleetopsUser.orgId },
-          });
-          if (!vehicle || vehicle.status !== "ACTIVE")
+            if (alreadyResolved?.resolvedAt)
+              return { current, updated: alreadyResolved };
             throw new TRPCError({
-              code: "BAD_REQUEST",
-              message:
-                "Clear the source vehicle before closing this notification.",
+              code: "CONFLICT",
+              message: "This notification changed elsewhere.",
             });
-        }
-        const changed = await fleetDb.notification.updateMany({
-          where: {
-            id: current.id,
-            orgId: ctx.fleetopsUser.orgId,
-            resolvedAt: null,
-          },
-          data: {
-            isRead: true,
-            acknowledgedAt: current.acknowledgedAt ?? new Date(),
-            resolvedAt: new Date(),
-          },
-        });
-        if (!changed.count) {
-          const alreadyResolved = await fleetDb.notification.findFirst({
+          }
+          const updated = await tx.notification.findFirst({
             where: { id: current.id, orgId: ctx.fleetopsUser.orgId },
           });
-          if (alreadyResolved?.resolvedAt) return alreadyResolved;
-          throw new TRPCError({
-            code: "CONFLICT",
-            message: "This notification changed elsewhere.",
-          });
-        }
-        const updated = await fleetDb.notification.findFirst({
-          where: { id: current.id, orgId: ctx.fleetopsUser.orgId },
+          return { current, updated };
         });
+        const current = result.current;
+        const updated = result.updated;
         if (!updated)
           throw new TRPCError({
             code: "NOT_FOUND",
             message: "Notification not found.",
           });
+        if (current.resolvedAt) return updated;
         await recordAudit(ctx, {
           action: "NOTIFICATION_RESOLVED",
           entityType: "NOTIFICATION",
