@@ -1,10 +1,19 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 export function isRazorpayWebhookEnabled() {
-  return process.env.RAZORPAY_TEST_WEBHOOK_ENABLED === "true" && Boolean(process.env.RAZORPAY_TEST_WEBHOOK_SECRET);
+  const secret = process.env.RAZORPAY_LIVE_ENABLED === "true"
+    ? process.env.RAZORPAY_LIVE_WEBHOOK_SECRET
+    : process.env.RAZORPAY_TEST_WEBHOOK_SECRET;
+  const enabled = process.env.RAZORPAY_LIVE_ENABLED === "true"
+    ? process.env.RAZORPAY_LIVE_WEBHOOK_ENABLED
+    : process.env.RAZORPAY_TEST_WEBHOOK_ENABLED;
+  return enabled === "true" && Boolean(secret);
 }
 
 export function assertRazorpayTestMode() {
+  if (process.env.NODE_ENV === "production" && process.env.RAZORPAY_LIVE_ENABLED !== "true") {
+    throw new Error("Razorpay Test Mode is disabled in production; configure live Razorpay credentials");
+  }
   const keyId = process.env.RAZORPAY_TEST_KEY_ID ?? "";
   const keySecret = process.env.RAZORPAY_TEST_KEY_SECRET ?? "";
   if (!keyId.startsWith("rzp_test_") || !keySecret) throw new Error("Razorpay Test Mode credentials are not configured");
@@ -24,7 +33,9 @@ export async function createRazorpayTestOrder(input: { amountPaise: number; rece
 }
 
 export function verifyRazorpayWebhook(rawBody: string, signature: string | null | undefined) {
-  const secret = process.env.RAZORPAY_TEST_WEBHOOK_SECRET;
+  const secret = process.env.RAZORPAY_LIVE_ENABLED === "true"
+    ? process.env.RAZORPAY_LIVE_WEBHOOK_SECRET
+    : process.env.RAZORPAY_TEST_WEBHOOK_SECRET;
   if (!secret || !signature) return false;
   const expected = createHmac("sha256", secret).update(rawBody, "utf8").digest("hex");
   const expectedBuffer = Buffer.from(expected, "utf8");

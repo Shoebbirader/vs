@@ -1,4 +1,4 @@
-import { NOT_ADMIN_ERR_MSG, UNAUTHED_ERR_MSG } from '@shared/const';
+import { NOT_ADMIN_ERR_MSG, UNAUTHED_ERR_MSG } from "@shared/const";
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import type { TrpcContext } from "./context";
@@ -13,39 +13,46 @@ export const publicProcedure = t.procedure;
 // SECURITY: Validate CSRF token on mutations
 const validateCsrfToken = t.middleware(async opts => {
   const { ctx, next, type } = opts;
-  
+
   // Only validate CSRF on mutations (not queries)
   if (type === "mutation" && ctx.fleetopsUser) {
-    // Safely get header values - handle both Express and test contexts
-    const getHeader = (name: string) => {
-      if (typeof ctx.req.header === "function") {
-        return ctx.req.header(name);
-      }
-      // Fallback for test contexts
-      return (ctx.req.headers as any)?.[name];
-    };
-    
-    const csrfToken = getHeader("x-csrf-token");
+    const getHeader = (name: string) =>
+      typeof ctx.req.header === "function"
+        ? ctx.req.header(name)
+        : (
+            ctx.req.headers as
+              | Record<string, string | string[] | undefined>
+              | undefined
+          )?.[name];
     const authHeader = getHeader("authorization");
-    const cookies = (ctx.req as any).cookies ?? {};
-    const sessionToken = (cookies["sb-access-token"] || authHeader || "").trim();
-    
-    // Skip CSRF validation if header doesn't exist (for testing)
-    if (!csrfToken || typeof csrfToken !== "string") {
-      // Only throw if we have a session but no CSRF token (real request)
-      if (sessionToken) {
-        throw new TRPCError({ code: "FORBIDDEN", message: "CSRF token is required for mutations" });
-      }
-      // For test requests without session token, allow to proceed
-      return next();
+    const cookies =
+      (ctx.req as { cookies?: Record<string, string> }).cookies ?? {};
+    const cookieSession =
+      cookies["sb-access-token"] || cookies["supabase-auth-token"];
+
+    if (authHeader) return next();
+    if (!cookieSession) return next();
+
+    const csrfToken = getHeader("x-csrf-token");
+    const origin = getHeader("origin");
+    const referer = getHeader("referer");
+    const requestOrigin =
+      origin ?? (typeof referer === "string" ? new URL(referer).origin : null);
+    const expectedOrigin = `${ctx.req.protocol}://${ctx.req.get("host")}`;
+    if (!csrfToken || typeof csrfToken !== "string" || csrfToken.length < 16) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "CSRF token is required for cookie-authenticated mutations",
+      });
     }
-    
-    // Validate token format (should match Bearer token pattern)
-    if (!sessionToken && csrfToken.length < 10) {
-      throw new TRPCError({ code: "FORBIDDEN", message: "Invalid CSRF token format" });
+    if (!requestOrigin || requestOrigin !== expectedOrigin) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Cross-site mutation rejected",
+      });
     }
   }
-  
+
   return next();
 });
 
@@ -68,19 +75,24 @@ export const protectedProcedure = t.procedure.use(requireUser);
 
 const requireFleetOpsUser = t.middleware(async ({ ctx, next }) => {
   if (!ctx.fleetopsUser) {
-    throw new TRPCError({ code: "UNAUTHORIZED", message: "Supabase authentication required" });
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "Supabase authentication required",
+    });
   }
   return next({ ctx: { ...ctx, fleetopsUser: ctx.fleetopsUser } });
 });
 
 // SECURITY: Apply CSRF validation to FleetOps procedures
-export const fleetOpsProcedure = t.procedure.use(requireFleetOpsUser).use(validateCsrfToken);
+export const fleetOpsProcedure = t.procedure
+  .use(requireFleetOpsUser)
+  .use(validateCsrfToken);
 
 export const adminProcedure = t.procedure.use(
   t.middleware(async opts => {
     const { ctx, next } = opts;
 
-    if (!ctx.user || ctx.user.role !== 'admin') {
+    if (!ctx.user || ctx.user.role !== "admin") {
       throw new TRPCError({ code: "FORBIDDEN", message: NOT_ADMIN_ERR_MSG });
     }
 
@@ -90,5 +102,5 @@ export const adminProcedure = t.procedure.use(
         user: ctx.user,
       },
     });
-  }),
+  })
 );
