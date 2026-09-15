@@ -19,10 +19,11 @@ from .notifications import list_notifications
 from .components import list_components
 from .documents import list_document_versions, list_documents
 from .audit import list_audit_events
-from .finance import financial_metrics
+from .billing import billing_invoices, billing_plans, billing_payments, billing_status
+from .finance import financial_metrics, maintenance_performance
 from .planning import maintenance_planning
 from .profile import get_organization_settings, get_profile
-from .team import list_members
+from .team import list_assignable_members, list_members
 
 router = APIRouter(prefix="/api/trpc", tags=["frontend-compatibility"])
 
@@ -140,8 +141,26 @@ async def _dispatch(
         )
     if procedure == "financials.metrics":
         return await financial_metrics(current_user, session)
+    if procedure == "reports.maintenancePerformance":
+        filters = cast(Mapping[str, object], input_value or {})
+        return await maintenance_performance(
+            from_date=_date_input(filters.get("from")),
+            to_date=_date_input(filters.get("to")),
+            current_user=current_user,
+            session=session,
+        )
     if procedure == "team.members":
         return await list_members(current_user, session)
+    if procedure == "team.assignableMembers":
+        return await list_assignable_members(current_user, session)
+    if procedure == "billing.plans":
+        return await billing_plans()
+    if procedure == "billing.status":
+        return await billing_status(current_user, session)
+    if procedure == "billing.invoices":
+        return await billing_invoices(current_user, session)
+    if procedure == "billing.payments":
+        return await billing_payments(current_user, session)
     if procedure == "audit.list":
         filters = cast(Mapping[str, object], input_value or {})
         return await list_audit_events(
