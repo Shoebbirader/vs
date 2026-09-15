@@ -1716,6 +1716,78 @@ async def _dispatch(
                 ),
             ),
         )[:100]
+    if procedure == "triage.update":
+        if user.role not in {"SUPERADMIN", "FLEET_MANAGER"}:
+            raise HTTPException(status_code=403, detail="Triage access required")
+        filters = cast(Mapping[str, object], input_value or {})
+        kind = filters.get("kind")
+        reference_id = filters.get("referenceId")
+        state = filters.get("state")
+        if not kind or not reference_id or not state:
+            raise HTTPException(
+                status_code=400,
+                detail="kind, referenceId, and state are required",
+            )
+        table_by_kind = {
+            "VEHICLE_ISSUE": "vehicle_issues",
+            "WORK_ORDER": "work_orders",
+            "DOCUMENT": "documents",
+            "LOW_STOCK": "inventory_parts",
+        }
+        if str(kind) not in table_by_kind or str(state) not in {
+            "ACKNOWLEDGED",
+            "ASSIGNED",
+            "DEFERRED",
+            "RESOLVED",
+        }:
+            raise HTTPException(status_code=400, detail="Invalid triage kind or state")
+        table = table_by_kind[str(kind)]
+        async with session.begin():
+            entity_result = await session.execute(
+                text(
+                    f'select "id" from "{table}" where "id" = :reference_id '
+                    'and "orgId" = :org_id'
+                ),
+                {"reference_id": str(reference_id), "org_id": user.org_id},
+            )
+            if entity_result.first() is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Triage item was not found in this organization",
+                )
+            assignee_id = user.id if str(state) == "ASSIGNED" else None
+            await session.execute(
+                text(
+                    'insert into "audit_events" '
+                    '("id", "orgId", "actorId", "actorRole", "action", "entityType", '
+                    '"entityId", "summary", "metadata", "createdAt") values '
+                    '(:id, :org_id, :actor_id, :actor_role, :action, :entity_type, '
+                    ':entity_id, :summary, :metadata, now())'
+                ),
+                {
+                    "id": str(uuid4()),
+                    "org_id": user.org_id,
+                    "actor_id": user.id,
+                    "actor_role": user.role,
+                    "action": "TRIAGE_STATE_CHANGED",
+                    "entity_type": str(kind),
+                    "entity_id": str(reference_id),
+                    "summary": f'{kind} triage marked {str(state).lower()}',
+                    "metadata": json.dumps(
+                        {
+                            "state": str(state),
+                            "assigneeId": assignee_id,
+                            "note": filters.get("note"),
+                        }
+                    ),
+                },
+            )
+        return {
+            "kind": str(kind),
+            "referenceId": str(reference_id),
+            "state": str(state),
+            "assigneeId": assignee_id,
+        }
     if procedure == "team.invitations":
         return await list_invitations(user, session)
     if procedure == "team.invite":
