@@ -57,6 +57,8 @@ from .finance import (
     ReconcileRecord,
     approve_record,
     create_financial,
+    export_financials_csv,
+    export_financials_pdf,
     financial_metrics,
     financial_vehicles,
     list_financials,
@@ -684,6 +686,24 @@ async def _dispatch(
         return await financial_vehicles(user, session)
     if procedure == "financials.reconcile":
         return await reconcile_financials(user, session)
+    if procedure in {"financials.exportCsv", "financials.exportPdf"}:
+        filters = cast(Mapping[str, object], input_value or {})
+        export_handler = (
+            export_financials_csv
+            if procedure == "financials.exportCsv"
+            else export_financials_pdf
+        )
+        return await export_handler(
+            vehicle_id=(
+                UUID(str(filters["vehicleId"])) if filters.get("vehicleId") else None
+            ),
+            record_type=str(filters["type"]) if filters.get("type") else None,
+            category=str(filters["category"]) if filters.get("category") else None,
+            from_date=_date_input(filters.get("from")),
+            to_date=_date_input(filters.get("to")),
+            current_user=user,
+            session=session,
+        )
     if procedure == "financials.list":
         filters = cast(Mapping[str, object], input_value or {})
         return await list_financials(
