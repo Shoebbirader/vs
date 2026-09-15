@@ -2841,6 +2841,117 @@ async def _dispatch(
                 },
             )
         return dict(approved)
+    if procedure in {"team.updateRole", "team.removeMember"}:
+        if user.role != "SUPERADMIN":
+            raise HTTPException(status_code=403, detail="Superadmin access required")
+        filters = cast(Mapping[str, object], input_value or {})
+        member_id = filters.get("userId") or filters.get("id")
+        try:
+            parsed_member_id = UUID(str(member_id))
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail="userId must be a UUID") from None
+        async with session.begin():
+            member_result = await session.execute(
+                text(
+                    'select * from "users" where "id" = :member_id '
+                    'and "orgId" = :org_id for update'
+                ),
+                {"member_id": str(parsed_member_id), "org_id": user.org_id},
+            )
+            member = member_result.mappings().first()
+            if member is None:
+                raise HTTPException(status_code=404, detail="Team member not found in this organization")
+            if procedure == "team.updateRole":
+                role = str(filters.get("role", ""))
+                if role not in {
+                    "FLEET_MANAGER",
+                    "MECHANIC",
+                    "TECHNICIAN",
+                    "DRIVER",
+                    "INVENTORY_MANAGER",
+                    "ACCOUNTANT",
+                }:
+                    raise HTTPException(status_code=400, detail="Invalid team member role")
+                updated_result = await session.execute(
+                    text(
+                        'update "users" set "role" = :role, "updatedAt" = now() '
+                        'where "id" = :member_id and "orgId" = :org_id returning *'
+                    ),
+                    {
+                        "role": role,
+                        "member_id": str(parsed_member_id),
+                        "org_id": user.org_id,
+                    },
+                )
+                updated = updated_result.mappings().one()
+                action = "ROLE_CHANGED"
+                summary = f'Role changed for {member["fullName"]}'
+                metadata = {
+                    "previousRole": member["role"],
+                    "nextRole": role,
+                }
+            else:
+                if str(parsed_member_id) == user.id:
+                    raise HTTPException(
+                        status_code=403,
+                        detail="You cannot remove your own organization owner account",
+                    )
+                if member["role"] == "SUPERADMIN":
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Organization owner accounts cannot be removed from Team",
+                    )
+                settings = get_settings()
+                auth_user_id = member.get("authUserId")
+                if not auth_user_id or not settings.supabase_url or not settings.supabase_service_role_key:
+                    raise HTTPException(status_code=503, detail="Supabase Auth is not configured")
+                async with httpx.AsyncClient(timeout=20) as client:
+                    response = await client.delete(
+                        f'{settings.supabase_url.rstrip("/")}/auth/v1/admin/users/{auth_user_id}',
+                        headers={
+                            "apikey": settings.supabase_service_role_key,
+                            "Authorization": f"Bearer {settings.supabase_service_role_key}",
+                        },
+                    )
+                if response.status_code >= 400 and response.status_code != 404:
+                    raise HTTPException(status_code=502, detail="Auth account could not be removed")
+                deleted_result = await session.execute(
+                    text(
+                        'delete from "users" where "id" = :member_id '
+                        'and "orgId" = :org_id returning *'
+                    ),
+                    {
+                        "member_id": str(parsed_member_id),
+                        "org_id": user.org_id,
+                    },
+                )
+                updated = deleted_result.mappings().one()
+                action = "TEAM_MEMBER_REMOVED"
+                summary = f'Removed {member["fullName"]} from the organization'
+                metadata = {
+                    "email": member["email"],
+                    "role": member["role"],
+                }
+            await session.execute(
+                text(
+                    'insert into "audit_events" '
+                    '("id", "orgId", "actorId", "actorRole", "action", "entityType", '
+                    '"entityId", "summary", "metadata", "createdAt") values '
+                    '(:id, :org_id, :actor_id, :actor_role, :action, \'USER\', '
+                    ':entity_id, :summary, :metadata, now())'
+                ),
+                {
+                    "id": str(uuid4()),
+                    "org_id": user.org_id,
+                    "actor_id": user.id,
+                    "actor_role": user.role,
+                    "action": action,
+                    "entity_id": str(parsed_member_id),
+                    "summary": summary,
+                    "metadata": json.dumps(metadata),
+                },
+            )
+        return dict(updated)
     if procedure == "workOrders.bulkUpdate":
         filters = cast(Mapping[str, object], input_value or {})
         return await bulk_update_work_orders(
