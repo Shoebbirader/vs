@@ -1,3 +1,5 @@
+import csv
+import io
 import json
 import re
 from collections.abc import Mapping
@@ -67,6 +69,7 @@ from .finance import (
     reconcile_record,
     reconcile_financials,
     reverse_record,
+    _simple_pdf,
 )
 from .inventory import (
     InventoryImport,
@@ -635,6 +638,67 @@ async def _dispatch(
             current_user=user,
         )
         return {"url": access.signed_url, "expiresIn": access.expires_in}
+    if procedure in {"documents.exportCsv", "documents.exportPdf"}:
+        if user.role not in {"SUPERADMIN", "FLEET_MANAGER"}:
+            raise HTTPException(status_code=403, detail="Compliance document access required")
+        documents = await list_documents(
+            include_archived=False,
+            current_user=user,
+            session=session,
+        )
+        vehicle_result = await session.execute(
+            text(
+                'select "id", "licensePlate", "vin" from "vehicles" '
+                'where "orgId" = :org_id'
+            ),
+            {"org_id": user.org_id},
+        )
+        vehicles = {
+            str(row["id"]): row
+            for row in vehicle_result.mappings()
+        }
+        rows = []
+        for document in documents:
+            vehicle = vehicles.get(str(document.vehicle_id)) if document.vehicle_id else None
+            vehicle_name = (
+                str(vehicle["licensePlate"] or vehicle["vin"])
+                if vehicle
+                else "Organization"
+            )
+            rows.append(
+                {
+                    "title": document.title,
+                    "docType": document.doc_type,
+                    "vehicle": vehicle_name,
+                    "expiryDate": document.expiry_date.date().isoformat(),
+                    "fileStatus": "STORED" if document.file_key else "MISSING",
+                }
+            )
+        if procedure == "documents.exportCsv":
+            output = io.StringIO()
+            writer = csv.DictWriter(
+                output,
+                fieldnames=["title", "docType", "vehicle", "expiryDate", "fileStatus"],
+            )
+            writer.writeheader()
+            writer.writerows(rows)
+            return {
+                "filename": f"vahansync-compliance-{datetime.now(timezone.utc).date()}.csv",
+                "content": output.getvalue(),
+                "rowCount": len(rows),
+            }
+        lines = [
+            "Documents: " + str(len(rows)),
+            *[
+                f"{row['title']} | {row['docType']} | {row['vehicle']} | expires {row['expiryDate']}"
+                for row in rows
+            ],
+        ]
+        return {
+            "filename": f"vahansync-compliance-{datetime.now(timezone.utc).date()}.pdf",
+            "content": _simple_pdf("VahanSync Compliance Register", lines),
+            "rowCount": len(rows),
+        }
     if procedure == "components.list":
         filters = cast(Mapping[str, object], input_value or {})
         vehicle_id = filters.get("vehicleId")
