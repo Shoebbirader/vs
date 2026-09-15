@@ -60,6 +60,8 @@ from .finance import (
     reverse_record,
 )
 from .inventory import (
+    InventoryImport,
+    PartCreate,
     PartAdjustment,
     PartIssue,
     PartReceive,
@@ -67,6 +69,8 @@ from .inventory import (
     PartTransfer,
     ReservationReturn,
     adjust_part,
+    create_part,
+    import_inventory,
     issue_part,
     receive_part,
     reserve_part,
@@ -257,6 +261,34 @@ async def _dispatch(
         )
     if procedure == "inventory.list":
         return await list_parts(user, session)
+    if procedure == "inventory.create":
+        filters = cast(Mapping[str, object], input_value or {})
+        return await create_part(
+            PartCreate(
+                sku=str(filters.get("sku", "")),
+                name=str(filters.get("name", "")),
+                bin_location=(
+                    str(filters["binLocation"])
+                    if filters.get("binLocation") is not None
+                    else None
+                ),
+                quantity_on_hand=int(filters.get("quantityOnHand", 0)),
+                min_reorder_level=int(filters.get("minReorderLevel", 0)),
+                unit_cost=float(filters.get("unitCost", 0)),
+            ),
+            user,
+            session,
+        )
+    if procedure == "inventory.importCsv":
+        filters = cast(Mapping[str, object], input_value or {})
+        csv_value = filters.get("csv")
+        if not isinstance(csv_value, str):
+            raise HTTPException(status_code=400, detail="csv is required")
+        return await import_inventory(
+            InventoryImport(csv=csv_value),
+            user,
+            session,
+        )
     if procedure == "notifications.list":
         filters = cast(Mapping[str, object], input_value or {})
         return await list_notifications(
