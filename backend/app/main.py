@@ -6,6 +6,7 @@ from .routes.health import router as health_router
 from .routes.inventory import router as inventory_router
 from .routes.maintenance import router as maintenance_router
 from .routes.documents import router as documents_router
+from .routes.procurement import router as procurement_router
 from .routes.safety import router as safety_router
 from .routes.v2 import router as v2_router
 from .routes.vendors import router as vendors_router
@@ -26,6 +27,7 @@ def create_app() -> FastAPI:
     application.include_router(v2_router)
     application.include_router(fleet_router)
     application.include_router(maintenance_router)
+    application.include_router(procurement_router)
     application.include_router(safety_router)
     application.include_router(vendors_router)
     return application

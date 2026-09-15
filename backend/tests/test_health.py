@@ -23,6 +23,7 @@ def test_v2_docs_are_available_outside_production() -> None:
     assert "/api/v2/inventory/parts" in response.json()["paths"]
     assert "/api/v2/documents" in response.json()["paths"]
     assert "/api/v2/vendors" in response.json()["paths"]
+    assert "/api/v2/purchase-orders" in response.json()["paths"]
 
 
 def test_protected_fleet_route_requires_authentication() -> None:
