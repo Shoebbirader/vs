@@ -5747,14 +5747,37 @@ export const appRouter = router({
             code: "BAD_REQUEST",
             message: `Cannot move purchase order from ${order.status} to ${input.status}.`,
           });
-        const updated = await fleetDb.purchaseOrder.update({
-          where: { id: order.id },
-          data: {
-            status: input.status,
-            ...(input.status === "RECEIVED" ? { receivedAt: new Date() } : {}),
-            ...(input.status === "CLOSED" ? { closedAt: new Date() } : {}),
-          },
-        });
+        const statusData = {
+          status: input.status,
+          ...(input.status === "RECEIVED" ? { receivedAt: new Date() } : {}),
+          ...(input.status === "CLOSED" ? { closedAt: new Date() } : {}),
+        };
+        let updated;
+        if (input.expectedUpdatedAt) {
+          const changed = await fleetDb.purchaseOrder.updateMany({
+            where: {
+              id: order.id,
+              orgId: ctx.fleetopsUser.orgId,
+              status: order.status,
+              updatedAt: input.expectedUpdatedAt,
+            },
+            data: statusData,
+          });
+          if (!changed.count)
+            throw new TRPCError({
+              code: "CONFLICT",
+              message:
+                "This purchase order changed elsewhere. Refresh before updating its status.",
+            });
+          updated = await fleetDb.purchaseOrder.findFirst({
+            where: { id: order.id, orgId: ctx.fleetopsUser.orgId },
+          });
+        } else {
+          updated = await fleetDb.purchaseOrder.update({
+            where: { id: order.id },
+            data: statusData,
+          });
+        }
         await recordAudit(ctx, {
           action: "PURCHASE_ORDER_STATUS_CHANGED",
           entityType: "PURCHASE_ORDER",
@@ -6257,35 +6280,38 @@ export const appRouter = router({
             code: "BAD_REQUEST",
             message: "A document file is required.",
           });
-        const created = await fleetDb.document.create({
-          data: {
-            id: crypto.randomUUID(),
-            ...data,
-            fileUrl,
-            fileKey,
-            fileChecksum,
-            fileSizeBytes,
-            retentionUntil: retentionAfterExpiry(input.expiryDate),
-            orgId: ctx.fleetopsUser.orgId,
-            createdAt: new Date(),
-          },
-        });
-        await fleetDb.documentVersion.create({
-          data: {
-            id: crypto.randomUUID(),
-            orgId: ctx.fleetopsUser.orgId,
-            documentId: created.id,
-            versionNumber: 1,
-            title: created.title,
-            docType: created.docType,
-            fileUrl: created.fileUrl,
-            fileKey: created.fileKey,
-            fileChecksum: created.fileChecksum,
-            fileSizeBytes: created.fileSizeBytes,
-            expiryDate: created.expiryDate,
-            createdById: ctx.fleetopsUser.id,
-            createdAt: new Date(),
-          },
+        const created = await fleetDb.$transaction(async (tx: any) => {
+          const document = await tx.document.create({
+            data: {
+              id: crypto.randomUUID(),
+              ...data,
+              fileUrl,
+              fileKey,
+              fileChecksum,
+              fileSizeBytes,
+              retentionUntil: retentionAfterExpiry(input.expiryDate),
+              orgId: ctx.fleetopsUser.orgId,
+              createdAt: new Date(),
+            },
+          });
+          await tx.documentVersion.create({
+            data: {
+              id: crypto.randomUUID(),
+              orgId: ctx.fleetopsUser.orgId,
+              documentId: document.id,
+              versionNumber: 1,
+              title: document.title,
+              docType: document.docType,
+              fileUrl: document.fileUrl,
+              fileKey: document.fileKey,
+              fileChecksum: document.fileChecksum,
+              fileSizeBytes: document.fileSizeBytes,
+              expiryDate: document.expiryDate,
+              createdById: ctx.fleetopsUser.id,
+              createdAt: new Date(),
+            },
+          });
+          return document;
         });
         await recordAudit(ctx, {
           action: "DOCUMENT_CREATED",
@@ -6353,32 +6379,35 @@ export const appRouter = router({
         }
         if (input.expiryDate)
           updateData.retentionUntil = retentionAfterExpiry(input.expiryDate);
-        const updated = await fleetDb.document.update({
-          where: { id },
-          data: updateData,
-        });
-        const versions = await fleetDb.documentVersion.findMany({
-          where: { orgId: ctx.fleetopsUser.orgId, documentId: existing.id },
-          orderBy: { versionNumber: "desc" },
-          take: 1,
-        });
-        const nextVersion = Number(versions[0]?.versionNumber ?? 0) + 1;
-        await fleetDb.documentVersion.create({
-          data: {
-            id: crypto.randomUUID(),
-            orgId: ctx.fleetopsUser.orgId,
-            documentId: updated.id,
-            versionNumber: nextVersion,
-            title: updated.title,
-            docType: updated.docType,
-            fileUrl: updated.fileUrl,
-            fileKey: updated.fileKey,
-            fileChecksum: updated.fileChecksum,
-            fileSizeBytes: updated.fileSizeBytes,
-            expiryDate: updated.expiryDate,
-            createdById: ctx.fleetopsUser.id,
-            createdAt: new Date(),
-          },
+        const updated = await fleetDb.$transaction(async (tx: any) => {
+          const document = await tx.document.update({
+            where: { id },
+            data: updateData,
+          });
+          const versions = await tx.documentVersion.findMany({
+            where: { orgId: ctx.fleetopsUser.orgId, documentId: existing.id },
+            orderBy: { versionNumber: "desc" },
+            take: 1,
+          });
+          const nextVersion = Number(versions[0]?.versionNumber ?? 0) + 1;
+          await tx.documentVersion.create({
+            data: {
+              id: crypto.randomUUID(),
+              orgId: ctx.fleetopsUser.orgId,
+              documentId: document.id,
+              versionNumber: nextVersion,
+              title: document.title,
+              docType: document.docType,
+              fileUrl: document.fileUrl,
+              fileKey: document.fileKey,
+              fileChecksum: document.fileChecksum,
+              fileSizeBytes: document.fileSizeBytes,
+              expiryDate: document.expiryDate,
+              createdById: ctx.fleetopsUser.id,
+              createdAt: new Date(),
+            },
+          });
+          return document;
         });
         await recordAudit(ctx, {
           action: "DOCUMENT_UPDATED",
@@ -6415,10 +6444,27 @@ export const appRouter = router({
             code: "NOT_FOUND",
             message: "Active document not found.",
           });
-        const archived = await fleetDb.document.update({
-          where: { id: document.id },
+        const changed = await fleetDb.document.updateMany({
+          where: {
+            id: document.id,
+            orgId: ctx.fleetopsUser.orgId,
+            archivedAt: null,
+          },
           data: { archivedAt: new Date(), archivedById: ctx.fleetopsUser.id },
         });
+        if (!changed.count)
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "This document was archived elsewhere.",
+          });
+        const archived = await fleetDb.document.findFirst({
+          where: { id: document.id, orgId: ctx.fleetopsUser.orgId },
+        });
+        if (!archived)
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Document not found.",
+          });
         await recordAudit(ctx, {
           action: "DOCUMENT_ARCHIVED",
           entityType: "DOCUMENT",
@@ -7582,13 +7628,30 @@ export const appRouter = router({
             code: "BAD_REQUEST",
             message: "Resolved notifications cannot be escalated.",
           });
-        const updated = await fleetDb.notification.update({
-          where: { id: current.id },
+        const changed = await fleetDb.notification.updateMany({
+          where: {
+            id: current.id,
+            orgId: ctx.fleetopsUser.orgId,
+            resolvedAt: null,
+          },
           data: {
-            escalationLevel: (current.escalationLevel ?? 0) + 1,
+            escalationLevel: { increment: 1 },
             isRead: false,
           },
         });
+        if (!changed.count)
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "This notification was resolved elsewhere.",
+          });
+        const updated = await fleetDb.notification.findFirst({
+          where: { id: current.id, orgId: ctx.fleetopsUser.orgId },
+        });
+        if (!updated)
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Notification not found.",
+          });
         try {
           const managers = await fleetDb.user.findMany({
             where: {
@@ -7688,14 +7751,36 @@ export const appRouter = router({
                 "Clear the source vehicle before closing this notification.",
             });
         }
-        const updated = await fleetDb.notification.update({
-          where: { id: current.id },
+        const changed = await fleetDb.notification.updateMany({
+          where: {
+            id: current.id,
+            orgId: ctx.fleetopsUser.orgId,
+            resolvedAt: null,
+          },
           data: {
             isRead: true,
             acknowledgedAt: current.acknowledgedAt ?? new Date(),
             resolvedAt: new Date(),
           },
         });
+        if (!changed.count) {
+          const alreadyResolved = await fleetDb.notification.findFirst({
+            where: { id: current.id, orgId: ctx.fleetopsUser.orgId },
+          });
+          if (alreadyResolved?.resolvedAt) return alreadyResolved;
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "This notification changed elsewhere.",
+          });
+        }
+        const updated = await fleetDb.notification.findFirst({
+          where: { id: current.id, orgId: ctx.fleetopsUser.orgId },
+        });
+        if (!updated)
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Notification not found.",
+          });
         await recordAudit(ctx, {
           action: "NOTIFICATION_RESOLVED",
           entityType: "NOTIFICATION",
