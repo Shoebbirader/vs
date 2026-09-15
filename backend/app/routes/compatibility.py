@@ -766,6 +766,35 @@ async def _dispatch(
             current_user=user,
             session=session,
         )
+    if procedure == "maintenanceTemplates.list":
+        if user.role not in {"SUPERADMIN", "FLEET_MANAGER"}:
+            raise HTTPException(
+                status_code=403,
+                detail="Maintenance template access required",
+            )
+        return [
+            {
+                "id": "CITY_BUS",
+                "name": "City bus preventive maintenance",
+                "components": [
+                    {
+                        "name": "Engine Oil",
+                        "expectedLifeKm": 10000,
+                        "alertThresholdKm": 8000,
+                    },
+                    {
+                        "name": "Brakes",
+                        "expectedLifeKm": 50000,
+                        "alertThresholdKm": 40000,
+                    },
+                    {
+                        "name": "Tires",
+                        "expectedLifeKm": 60000,
+                        "alertThresholdKm": 50000,
+                    },
+                ],
+            }
+        ]
     if procedure == "components.create":
         filters = cast(Mapping[str, object], input_value or {})
         return await create_component(
