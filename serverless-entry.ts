@@ -4,8 +4,10 @@ import { appRouter } from "./server/routers.ts";
 import { createContext } from "./server/_core/context.ts";
 import { processRazorpayWebhook } from "./server/razorpay.ts";
 import { getReadiness } from "./server/health.ts";
+import { attachEventHandlers } from "./server/_core/events.middleware.ts";
 
 const app = express();
+attachEventHandlers(app);
 app.get(["/healthz", "/api/healthz"], (_req, res) => {
   res.status(200).json({ ok: true, service: "FleetOps API" });
 });

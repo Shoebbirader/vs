@@ -27,6 +27,13 @@ import {
 import { assertRazorpayTestMode, createRazorpayTestOrder } from "./razorpay";
 import { sendInvitationEmail } from "./invitation-email";
 import { vehicleIdentity } from "./vehicle-identity";
+import {
+  getDriverAssignment,
+  getPreTripChecklist,
+  getVehicleIssueHistory,
+  submitPreTripChecklist,
+  submitVehicleIssue,
+} from "./drivers";
 const Priority = {
   LOW: "LOW",
   MEDIUM: "MEDIUM",
@@ -4278,6 +4285,80 @@ export const appRouter = router({
       }),
   }),
   driver: router({
+    assignment: fleetOpsProcedure.query(async ({ ctx }) => {
+      requireRole(ctx.fleetopsUser.role, ["DRIVER", "SUPERADMIN"]);
+      return getDriverAssignment(ctx.fleetopsUser.id, ctx.fleetopsUser.orgId);
+    }),
+    preTripChecklist: fleetOpsProcedure
+      .input(z.object({ vehicleId: z.string().uuid() }))
+      .query(async ({ ctx, input }) => {
+        requireRole(ctx.fleetopsUser.role, ["DRIVER", "SUPERADMIN"]);
+        await assertDriverVehicle(ctx, input.vehicleId);
+        return getPreTripChecklist(input.vehicleId);
+      }),
+    submitPreTripChecklist: fleetOpsProcedure
+      .input(
+        z.object({
+          vehicleId: z.string().uuid(),
+          results: z
+            .array(
+              z.object({
+                itemId: z.string().min(1).max(40),
+                passed: z.boolean(),
+                notes: z.string().max(1000).optional(),
+              })
+            )
+            .min(1)
+            .max(100),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        requireRole(ctx.fleetopsUser.role, ["DRIVER", "SUPERADMIN"]);
+        await assertDriverVehicle(ctx, input.vehicleId);
+        return submitPreTripChecklist(
+          input.vehicleId,
+          ctx.fleetopsUser.id,
+          ctx.fleetopsUser.orgId,
+          input.results
+        );
+      }),
+    issueHistory: fleetOpsProcedure
+      .input(
+        z.object({
+          vehicleId: z.string().uuid(),
+          limit: z.number().int().min(1).max(100).default(50),
+        })
+      )
+      .query(async ({ ctx, input }) => {
+        requireRole(ctx.fleetopsUser.role, ["DRIVER", "SUPERADMIN"]);
+        await assertDriverVehicle(ctx, input.vehicleId);
+        return getVehicleIssueHistory(
+          input.vehicleId,
+          ctx.fleetopsUser.orgId,
+          input.limit
+        );
+      }),
+    submitWorkflowIssue: fleetOpsProcedure
+      .input(
+        z.object({
+          vehicleId: z.string().uuid(),
+          title: z.string().trim().min(3).max(160),
+          description: z.string().trim().min(5).max(4000),
+          priority: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]),
+          category: z.string().trim().min(1).max(80),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        requireRole(ctx.fleetopsUser.role, ["DRIVER", "SUPERADMIN"]);
+        assertWritable(ctx.fleetopsUser.org);
+        await assertDriverVehicle(ctx, input.vehicleId);
+        return submitVehicleIssue(
+          input.vehicleId,
+          ctx.fleetopsUser.id,
+          ctx.fleetopsUser.orgId,
+          input
+        );
+      }),
     inspections: fleetOpsProcedure.query(async ({ ctx }) =>
       fleetDb.dvirInspection.findMany({
         where: { orgId: ctx.fleetopsUser.orgId, driverId: ctx.fleetopsUser.id },
