@@ -18,6 +18,11 @@ class Settings(BaseSettings):
     supabase_anon_key: str | None = Field(default=None, alias="SUPABASE_ANON_KEY")
     supabase_database_url: str | None = Field(default=None, alias="SUPABASE_DATABASE_URL")
     public_app_url: str | None = Field(default=None, alias="PUBLIC_APP_URL")
+    razorpay_test_key_id: str | None = Field(default=None, alias="RAZORPAY_TEST_KEY_ID")
+    razorpay_test_key_secret: str | None = Field(default=None, alias="RAZORPAY_TEST_KEY_SECRET")
+    razorpay_test_webhook_secret: str | None = Field(default=None, alias="RAZORPAY_TEST_WEBHOOK_SECRET")
+    razorpay_test_webhook_enabled: bool = Field(default=False, alias="RAZORPAY_TEST_WEBHOOK_ENABLED")
+    razorpay_live_enabled: bool = Field(default=False, alias="RAZORPAY_LIVE_ENABLED")
 
     @property
     def production(self) -> bool:
