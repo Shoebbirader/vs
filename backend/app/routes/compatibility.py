@@ -17,8 +17,24 @@ from .inventory import list_parts
 from .maintenance import list_work_orders
 from .notifications import list_notifications
 from .notifications import mark_notification_read
-from .components import list_components
-from .documents import list_document_versions, list_documents
+from .components import (
+    ComponentCreate,
+    ComponentUpdate,
+    create_component,
+    list_components,
+    remove_component,
+    update_component,
+)
+from .documents import (
+    DocumentArchive,
+    DocumentCreate,
+    DocumentUpdate,
+    archive_document,
+    create_document,
+    list_document_versions,
+    list_documents,
+    update_document,
+)
 from .audit import list_audit_events
 from .billing import billing_invoices, billing_plans, billing_payments, billing_status
 from .finance import financial_metrics, maintenance_performance
@@ -191,6 +207,149 @@ async def _dispatch(
             vehicle_id=UUID(str(vehicle_id)) if vehicle_id else None,
             current_user=current_user,
             session=session,
+        )
+    if procedure == "components.create":
+        filters = cast(Mapping[str, object], input_value or {})
+        return await create_component(
+            ComponentCreate(
+                vehicle_id=UUID(str(filters["vehicleId"])),
+                inventory_part_id=(
+                    UUID(str(filters["inventoryPartId"]))
+                    if filters.get("inventoryPartId")
+                    else None
+                ),
+                name=str(filters.get("name", "")),
+                component_type=str(filters.get("componentType", "OTHER")),
+                component_subtype=filters.get("componentSubtype"),
+                brand=filters.get("brand"),
+                part_number=filters.get("partNumber"),
+                serial_number=filters.get("serialNumber"),
+                installation_date=_date_input(filters.get("installationDate")),
+                expected_life_km=float(filters.get("expectedLifeKm", 0)),
+                expected_life_days=(
+                    int(filters["expectedLifeDays"]) if filters.get("expectedLifeDays") else None
+                ),
+                last_serviced_odometer=float(filters.get("lastServicedOdometer", 0)),
+                alert_threshold_km=float(filters.get("alertThresholdKm", 0)),
+                alert_threshold_days=(
+                    int(filters["alertThresholdDays"])
+                    if filters.get("alertThresholdDays")
+                    else None
+                ),
+                notes=filters.get("notes"),
+                status=str(filters.get("status", "ACTIVE")),
+            ),
+            current_user,
+            session,
+        )
+    if procedure == "components.update":
+        filters = cast(Mapping[str, object], input_value or {})
+        component_id = filters.get("id") or filters.get("componentId")
+        if not component_id:
+            raise HTTPException(status_code=400, detail="componentId is required")
+        update_fields = {
+            key: filters[key]
+            for key in (
+                "inventoryPartId",
+                "name",
+                "componentType",
+                "componentSubtype",
+                "brand",
+                "partNumber",
+                "serialNumber",
+                "installationDate",
+                "expectedLifeKm",
+                "expectedLifeDays",
+                "lastServicedOdometer",
+                "alertThresholdKm",
+                "alertThresholdDays",
+                "notes",
+                "status",
+            )
+            if key in filters
+        }
+        component_update: dict[str, object] = {}
+        field_map = {
+            "inventoryPartId": "inventory_part_id",
+            "name": "name",
+            "componentType": "component_type",
+            "componentSubtype": "component_subtype",
+            "brand": "brand",
+            "partNumber": "part_number",
+            "serialNumber": "serial_number",
+            "expectedLifeKm": "expected_life_km",
+            "expectedLifeDays": "expected_life_days",
+            "lastServicedOdometer": "last_serviced_odometer",
+            "alertThresholdKm": "alert_threshold_km",
+            "alertThresholdDays": "alert_threshold_days",
+            "notes": "notes",
+            "status": "status",
+        }
+        for source_key, target_key in field_map.items():
+            if source_key in update_fields:
+                component_update[target_key] = update_fields[source_key]
+        if "installationDate" in update_fields:
+            component_update["installation_date"] = _date_input(update_fields["installationDate"])
+        return await update_component(
+            UUID(str(component_id)),
+            ComponentUpdate(**component_update),
+            current_user,
+            session,
+        )
+    if procedure == "components.remove":
+        filters = cast(Mapping[str, object], input_value or {})
+        component_id = filters.get("id") or filters.get("componentId")
+        if not component_id:
+            raise HTTPException(status_code=400, detail="componentId is required")
+        return await remove_component(UUID(str(component_id)), current_user, session)
+    if procedure == "documents.create":
+        filters = cast(Mapping[str, object], input_value or {})
+        return await create_document(
+            DocumentCreate(
+                title=str(filters.get("title", "")),
+                doc_type=str(filters.get("docType", "")),
+                file_url=str(filters.get("fileUrl", "")),
+                file_key=filters.get("fileKey"),
+                file_checksum=filters.get("fileChecksum"),
+                file_size_bytes=(
+                    int(filters["fileSizeBytes"]) if filters.get("fileSizeBytes") is not None else None
+                ),
+                expiry_date=_date_input(filters.get("expiryDate")) or datetime.now(timezone.utc),
+                vehicle_id=UUID(str(filters["vehicleId"])) if filters.get("vehicleId") else None,
+            ),
+            current_user,
+            session,
+        )
+    if procedure == "documents.update":
+        filters = cast(Mapping[str, object], input_value or {})
+        document_id = filters.get("id") or filters.get("documentId")
+        if not document_id:
+            raise HTTPException(status_code=400, detail="documentId is required")
+        return await update_document(
+            UUID(str(document_id)),
+            DocumentUpdate(
+                title=filters.get("title"),
+                file_url=filters.get("fileUrl"),
+                file_key=filters.get("fileKey"),
+                file_checksum=filters.get("fileChecksum"),
+                file_size_bytes=(
+                    int(filters["fileSizeBytes"]) if filters.get("fileSizeBytes") is not None else None
+                ),
+                expiry_date=_date_input(filters.get("expiryDate")),
+            ),
+            current_user,
+            session,
+        )
+    if procedure == "documents.archive":
+        filters = cast(Mapping[str, object], input_value or {})
+        document_id = filters.get("id") or filters.get("documentId")
+        if not document_id:
+            raise HTTPException(status_code=400, detail="documentId is required")
+        return await archive_document(
+            UUID(str(document_id)),
+            DocumentArchive(reason=str(filters.get("reason", "Archived from frontend"))),
+            current_user,
+            session,
         )
     if procedure == "planning.maintenance":
         filters = cast(Mapping[str, object], input_value or {})
