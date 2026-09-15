@@ -1305,6 +1305,119 @@ async def _dispatch(
                 }
             )
         return handoffs
+    if procedure == "triage.queue":
+        if user.role not in {"SUPERADMIN", "FLEET_MANAGER"}:
+            raise HTTPException(status_code=403, detail="Triage access required")
+        cutoff = datetime.now(timezone.utc) + timedelta(days=30)
+        issue_result = await session.execute(
+            text(
+                'select i.*, v."licensePlate", v."vin" from "vehicle_issues" i '
+                'left join "vehicles" v on v."id" = i."vehicleId" '
+                'where i."orgId" = :org_id and i."status" not in (\'RESOLVED\', \'CLOSED\') '
+                'order by i."createdAt" desc limit 50'
+            ),
+            {"org_id": user.org_id},
+        )
+        order_result = await session.execute(
+            text(
+                'select o.*, v."licensePlate", v."vin", u."fullName" as "assignedName" '
+                'from "work_orders" o left join "vehicles" v on v."id" = o."vehicleId" '
+                'left join "users" u on u."id" = o."assignedMechanicId" '
+                'where o."orgId" = :org_id and o."status" not in (\'COMPLETED\', \'CANCELLED\') '
+                'order by o."createdAt" desc limit 50'
+            ),
+            {"org_id": user.org_id},
+        )
+        document_result = await session.execute(
+            text(
+                'select d.*, v."licensePlate", v."vin" from "documents" d '
+                'left join "vehicles" v on v."id" = d."vehicleId" '
+                'where d."orgId" = :org_id and d."expiryDate" <= :cutoff '
+                'order by d."expiryDate" asc limit 50'
+            ),
+            {"org_id": user.org_id, "cutoff": cutoff},
+        )
+        part_result = await session.execute(
+            text(
+                'select * from "inventory_parts" where "orgId" = :org_id '
+                'order by "name" limit 200'
+            ),
+            {"org_id": user.org_id},
+        )
+        items: list[dict[str, object]] = []
+        for row in issue_result.mappings():
+            items.append(
+                {
+                    "id": row["id"],
+                    "kind": "VEHICLE_ISSUE",
+                    "title": row["title"],
+                    "subtitle": f'{row["licensePlate"] or row["vin"] or row["vehicleId"]} · Driver issue',
+                    "priority": row["priority"],
+                    "status": row["status"],
+                    "createdAt": row["createdAt"],
+                    "referenceId": row["id"],
+                    "actionable": True,
+                    "triageState": None,
+                }
+            )
+        for row in order_result.mappings():
+            items.append(
+                {
+                    "id": row["id"],
+                    "kind": "WORK_ORDER",
+                    "title": row["title"],
+                    "subtitle": f'{row["licensePlate"] or row["vin"] or row["vehicleId"]} · {row["assignedName"] or "Unassigned"}',
+                    "priority": row["priority"],
+                    "status": row["status"],
+                    "createdAt": row["createdAt"],
+                    "referenceId": row["id"],
+                    "actionable": True,
+                    "triageState": None,
+                }
+            )
+        for row in document_result.mappings():
+            items.append(
+                {
+                    "id": row["id"],
+                    "kind": "DOCUMENT",
+                    "title": row["title"],
+                    "subtitle": f'{row["licensePlate"] or row["vin"] or "Organization document"} · expires {row["expiryDate"].date().isoformat()}',
+                    "priority": "CRITICAL" if row["expiryDate"] < datetime.now(row["expiryDate"].tzinfo) else "HIGH",
+                    "status": "REVIEW",
+                    "createdAt": row["createdAt"],
+                    "referenceId": row["id"],
+                    "actionable": True,
+                    "triageState": None,
+                }
+            )
+        for row in part_result.mappings():
+            if row["quantityOnHand"] <= row["minReorderLevel"]:
+                items.append(
+                    {
+                        "id": row["id"],
+                        "kind": "LOW_STOCK",
+                        "title": f'{row["sku"]} · {row["name"]}',
+                        "subtitle": f'{row["quantityOnHand"]} on hand · reorder at {row["minReorderLevel"]}',
+                        "priority": "HIGH",
+                        "status": "REORDER",
+                        "createdAt": row.get("updatedAt") or row.get("createdAt"),
+                        "referenceId": row["id"],
+                        "actionable": True,
+                        "triageState": None,
+                    }
+                )
+        priority_rank = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
+        return sorted(
+            items,
+            key=lambda item: (
+                priority_rank.get(str(item["priority"]), 4),
+                -(
+                    item["createdAt"].timestamp()
+                    if item["createdAt"] is not None
+                    else 0
+                ),
+            ),
+        )[:100]
     if procedure == "team.invitations":
         return await list_invitations(user, session)
     if procedure == "team.invite":
