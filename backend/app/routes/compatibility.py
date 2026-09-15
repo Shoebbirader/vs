@@ -3184,6 +3184,133 @@ async def _dispatch(
                 },
             )
         return {"receipt": dict(receipt_result.mappings().one()), "order": dict(updated_order)}
+    if procedure == "triage.createWorkOrderFromIssue":
+        if user.role not in {"SUPERADMIN", "FLEET_MANAGER"}:
+            raise HTTPException(status_code=403, detail="Fleet management access required")
+        filters = cast(Mapping[str, object], input_value or {})
+        try:
+            issue_id = UUID(str(filters["issueId"]))
+        except (KeyError, TypeError, ValueError):
+            raise HTTPException(status_code=400, detail="issueId must be a UUID") from None
+        assigned_mechanic_id = filters.get("assignedMechanicId")
+        if assigned_mechanic_id:
+            try:
+                assigned_mechanic_id = str(UUID(str(assigned_mechanic_id)))
+            except ValueError:
+                raise HTTPException(status_code=400, detail="assignedMechanicId must be a UUID") from None
+        priority = str(filters.get("priority", ""))
+        if priority and priority not in {"LOW", "MEDIUM", "HIGH", "CRITICAL"}:
+            raise HTTPException(status_code=400, detail="Invalid work-order priority")
+        note = str(filters.get("note", "")).strip()
+        async with session.begin():
+            issue_result = await session.execute(
+                text(
+                    'select * from "vehicle_issues" where "id" = :issue_id '
+                    'and "orgId" = :org_id for update'
+                ),
+                {"issue_id": str(issue_id), "org_id": user.org_id},
+            )
+            issue = issue_result.mappings().first()
+            if issue is None:
+                raise HTTPException(status_code=404, detail="Vehicle issue not found in this organization")
+            if issue["status"] in {"RESOLVED", "CLOSED"}:
+                raise HTTPException(status_code=400, detail="Resolved issues cannot be dispatched")
+            if assigned_mechanic_id:
+                assignee = await session.execute(
+                    text(
+                        'select "id" from "users" where "id" = :assignee_id '
+                        'and "orgId" = :org_id and "role" in (\'MECHANIC\', \'TECHNICIAN\')'
+                    ),
+                    {"assignee_id": assigned_mechanic_id, "org_id": user.org_id},
+                )
+                if assignee.first() is None:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Assignee must belong to this organization and be a mechanic or technician",
+                    )
+            existing = await session.execute(
+                text(
+                    'select 1 from "audit_events" where "orgId" = :org_id '
+                    'and "action" = \'WORK_ORDER_CREATED\' and "entityType" = \'WORK_ORDER\' '
+                    'and "metadata"::jsonb ->> \'sourceIssueId\' = :issue_id limit 1'
+                ),
+                {"org_id": user.org_id, "issue_id": str(issue_id)},
+            )
+            if existing.first() is not None:
+                raise HTTPException(status_code=409, detail="This driver issue already has a dispatched work order")
+            work_order_id = str(uuid4())
+            work_order_result = await session.execute(
+                text(
+                    'insert into "work_orders" '
+                    '("id", "orgId", "vehicleId", "title", "description", "priority", '
+                    '"status", "assignedMechanicId", "createdAt", "updatedAt") values '
+                    '(:id, :org_id, :vehicle_id, :title, :description, :priority, '
+                    '\'OPEN\', :assigned_mechanic_id, now(), now()) returning *'
+                ),
+                {
+                    "id": work_order_id,
+                    "org_id": user.org_id,
+                    "vehicle_id": issue["vehicleId"],
+                    "title": f'Driver issue: {issue["title"]}',
+                    "description": "\n\n".join(
+                        value for value in [issue["description"], note] if value
+                    ),
+                    "priority": priority or issue["priority"],
+                    "assigned_mechanic_id": assigned_mechanic_id,
+                },
+            )
+            work_order = work_order_result.mappings().one()
+            await session.execute(
+                text(
+                    'update "vehicle_issues" set "status" = \'ACKNOWLEDGED\', '
+                    '"updatedAt" = now() where "id" = :issue_id and "orgId" = :org_id'
+                ),
+                {"issue_id": str(issue_id), "org_id": user.org_id},
+            )
+            for action, entity_type, entity_id, summary, metadata in [
+                (
+                    "WORK_ORDER_CREATED",
+                    "WORK_ORDER",
+                    work_order_id,
+                    f'Dispatched work order from driver issue: {issue["title"]}',
+                    {
+                        "sourceIssueId": str(issue_id),
+                        "sourceType": "VEHICLE_ISSUE",
+                        "assignedMechanicId": assigned_mechanic_id,
+                    },
+                ),
+                (
+                    "VEHICLE_ISSUE_DISPATCHED",
+                    "VEHICLE_ISSUE",
+                    str(issue_id),
+                    f'Driver issue dispatched to maintenance: {issue["title"]}',
+                    {
+                        "workOrderId": work_order_id,
+                        "assignedMechanicId": assigned_mechanic_id,
+                    },
+                ),
+            ]:
+                await session.execute(
+                    text(
+                        'insert into "audit_events" '
+                        '("id", "orgId", "actorId", "actorRole", "action", "entityType", '
+                        '"entityId", "summary", "metadata", "createdAt") values '
+                        '(:id, :org_id, :actor_id, :actor_role, :action, :entity_type, '
+                        ':entity_id, :summary, :metadata, now())'
+                    ),
+                    {
+                        "id": str(uuid4()),
+                        "org_id": user.org_id,
+                        "actor_id": user.id,
+                        "actor_role": user.role,
+                        "action": action,
+                        "entity_type": entity_type,
+                        "entity_id": entity_id,
+                        "summary": summary,
+                        "metadata": json.dumps(metadata),
+                    },
+                )
+        return dict(work_order)
     if procedure == "workOrders.bulkUpdate":
         filters = cast(Mapping[str, object], input_value or {})
         return await bulk_update_work_orders(
