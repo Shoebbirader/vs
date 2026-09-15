@@ -272,6 +272,45 @@ async def _dispatch(
             current_user=user,
             session=session,
         )
+    if procedure == "workOrders.board":
+        orders = await list_work_orders(
+            vehicle_id=None,
+            work_order_status=None,
+            current_user=user,
+            session=session,
+        )
+        statuses = [
+            "OPEN",
+            "IN_PROGRESS",
+            "WAITING_FOR_PARTS",
+            "READY_FOR_REVIEW",
+            "REWORK",
+            "COMPLETED",
+            "CANCELLED",
+        ]
+        return {
+            "columns": [
+                {
+                    "status": status_name,
+                    "items": [
+                        order
+                        for order in orders
+                        if order.status == status_name
+                    ],
+                }
+                for status_name in statuses
+            ],
+            "totals": {
+                "all": len(orders),
+                "open": sum(order.status == "OPEN" for order in orders),
+                "inProgress": sum(
+                    order.status == "IN_PROGRESS" for order in orders
+                ),
+                "completed": sum(
+                    order.status == "COMPLETED" for order in orders
+                ),
+            },
+        }
     if procedure == "workOrders.create":
         filters = cast(Mapping[str, object], input_value or {})
         return await create_work_order(
