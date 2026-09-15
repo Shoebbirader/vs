@@ -57,7 +57,9 @@ from .finance import (
     approve_record,
     create_financial,
     financial_metrics,
+    list_financials,
     maintenance_performance,
+    approval_queue,
     reconcile_record,
     reverse_record,
 )
@@ -96,9 +98,20 @@ from .profile import (
     update_organization_settings,
     update_profile,
 )
-from .issues import VehicleIssueCreate, create_vehicle_issue
-from .procurement import PurchaseOrderCreate, create_purchase_order
-from .safety import FuelLogCreate, InspectionCreate, create_fuel_log, create_inspection
+from .issues import VehicleIssueCreate, create_vehicle_issue, list_vehicle_issues
+from .procurement import (
+    PurchaseOrderCreate,
+    create_purchase_order,
+    list_purchase_orders,
+)
+from .safety import (
+    FuelLogCreate,
+    InspectionCreate,
+    create_fuel_log,
+    create_inspection,
+    current_assignment,
+    list_fuel_logs,
+)
 from .team import (
     InviteMember,
     RevokeInvitation,
@@ -109,7 +122,7 @@ from .team import (
     resend_invitation,
     revoke_invitation,
 )
-from .vendors import VendorCreate, create_vendor
+from .vendors import VendorCreate, create_vendor, list_vendors
 
 router = APIRouter(prefix="/api/trpc", tags=["frontend-compatibility"])
 
@@ -234,6 +247,12 @@ async def _dispatch(
             user,
             session,
         )
+    if procedure == "vehicleIssues.list":
+        return await list_vehicle_issues(user, session)
+    if procedure == "driver.assignment":
+        return await current_assignment(user, session)
+    if procedure == "driver.fuelLogs":
+        return await list_fuel_logs(user, session)
     if procedure == "workOrders.list":
         filters = cast(Mapping[str, object], input_value or {})
         vehicle_id = filters.get("vehicleId")
@@ -655,6 +674,21 @@ async def _dispatch(
         )
     if procedure == "financials.metrics":
         return await financial_metrics(user, session)
+    if procedure == "financials.list":
+        filters = cast(Mapping[str, object], input_value or {})
+        return await list_financials(
+            vehicle_id=(
+                UUID(str(filters["vehicleId"])) if filters.get("vehicleId") else None
+            ),
+            record_type=str(filters["type"]) if filters.get("type") else None,
+            category=str(filters["category"]) if filters.get("category") else None,
+            from_date=_date_input(filters.get("from")),
+            to_date=_date_input(filters.get("to")),
+            current_user=user,
+            session=session,
+        )
+    if procedure == "financials.approvalQueue":
+        return await approval_queue(user, session)
     if procedure == "financials.create":
         filters = cast(Mapping[str, object], input_value or {})
         return await create_financial(
@@ -788,6 +822,8 @@ async def _dispatch(
             user,
             session,
         )
+    if procedure == "vendors.list":
+        return await list_vendors(user, session)
     if procedure == "purchaseOrders.create":
         filters = cast(Mapping[str, object], input_value or {})
         return await create_purchase_order(
@@ -803,6 +839,8 @@ async def _dispatch(
             user,
             session,
         )
+    if procedure == "purchaseOrders.list":
+        return await list_purchase_orders(user, session)
     if procedure == "billing.plans":
         return await billing_plans()
     if procedure == "billing.status":
