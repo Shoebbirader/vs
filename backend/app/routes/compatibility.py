@@ -1,5 +1,6 @@
 import base64
 import csv
+import hashlib
 import io
 import json
 import re
@@ -138,6 +139,50 @@ from .team import (
 from .vendors import VendorCreate, create_vendor, list_vendors
 
 router = APIRouter(prefix="/api/trpc", tags=["frontend-compatibility"])
+
+
+@router.get("/onboarding.inviteDetails", include_in_schema=False)
+async def frontend_invitation_details(
+    input: str | None = Query(default=None),
+    session: AsyncSession = Depends(get_db_session),
+) -> object:
+    filters = cast(Mapping[str, object], _input_value(input, 0) or {})
+    token = filters.get("token")
+    if not token:
+        raise HTTPException(status_code=400, detail="token is required")
+    try:
+        parsed_token = UUID(str(token))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="token must be a UUID") from None
+    token_hash = hashlib.sha256(str(parsed_token).encode("utf-8")).hexdigest()
+    result = await session.execute(
+        text(
+            'select i."email", i."role", i."expiresAt", o."id" as "orgId", '
+            'o."name" as "orgName" from "invitations" i join "organizations" o '
+            'on o."id" = i."orgId" where i."tokenHash" = :token_hash '
+            'and i."acceptedAt" is null and i."revokedAt" is null '
+            'and i."expiresAt" > now()'
+        ),
+        {"token_hash": token_hash},
+    )
+    row = result.mappings().first()
+    if row is None:
+        raise HTTPException(
+            status_code=404,
+            detail="This invitation is invalid, expired, or already redeemed",
+        )
+    return {
+        "result": {
+            "data": {
+                "json": {
+                    "email": row["email"],
+                    "role": row["role"],
+                    "organization": {"id": row["orgId"], "name": row["orgName"]},
+                    "expiresAt": row["expiresAt"],
+                }
+            }
+        }
+    }
 
 
 def _camel_case(value: str) -> str:
