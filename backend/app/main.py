@@ -21,6 +21,7 @@ from .routes.audit import router as audit_router
 from .routes.automation import router as automation_router
 from .routes.finance import router as finance_router
 from .routes.billing import router as billing_router
+from .routes.storage import router as storage_router
 
 
 def create_app() -> FastAPI:
@@ -52,6 +53,7 @@ def create_app() -> FastAPI:
     application.include_router(automation_router)
     application.include_router(finance_router)
     application.include_router(billing_router)
+    application.include_router(storage_router)
     return application
 
 
