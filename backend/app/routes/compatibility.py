@@ -49,6 +49,7 @@ from .billing import (
     billing_status,
     create_test_order,
     generate_invoice,
+    plan_eligibility,
 )
 from .finance import (
     Decision,
@@ -57,10 +58,12 @@ from .finance import (
     approve_record,
     create_financial,
     financial_metrics,
+    financial_vehicles,
     list_financials,
     maintenance_performance,
     approval_queue,
     reconcile_record,
+    reconcile_financials,
     reverse_record,
 )
 from .inventory import (
@@ -674,6 +677,10 @@ async def _dispatch(
         )
     if procedure == "financials.metrics":
         return await financial_metrics(user, session)
+    if procedure == "financials.vehicles":
+        return await financial_vehicles(user, session)
+    if procedure == "financials.reconcile":
+        return await reconcile_financials(user, session)
     if procedure == "financials.list":
         filters = cast(Mapping[str, object], input_value or {})
         return await list_financials(
@@ -843,6 +850,12 @@ async def _dispatch(
         return await list_purchase_orders(user, session)
     if procedure == "billing.plans":
         return await billing_plans()
+    if procedure == "billing.checkPlanEligibility":
+        filters = cast(Mapping[str, object], input_value or {})
+        plan = filters.get("plan")
+        if not isinstance(plan, str):
+            raise HTTPException(status_code=400, detail="plan is required")
+        return await plan_eligibility(plan, user, session)
     if procedure == "billing.status":
         return await billing_status(user, session)
     if procedure == "billing.invoices":
