@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_db_session
 from ..config import get_settings
+from ..auth import get_auth_identity
 from ..tenant import TenantUser, get_current_user
 from .fleet import VehicleCreate, create_vehicle, dashboard_summary, list_vehicles
 from .inventory import list_parts
@@ -57,6 +58,7 @@ from .billing import (
     generate_invoice,
     plan_eligibility,
 )
+from .automation import evaluate_automation
 from .finance import (
     Decision,
     FinancialCreate,
@@ -139,6 +141,131 @@ from .team import (
 from .vendors import VendorCreate, create_vendor, list_vendors
 
 router = APIRouter(prefix="/api/trpc", tags=["frontend-compatibility"])
+
+
+@router.post("/onboarding.bootstrap", include_in_schema=False)
+async def frontend_onboarding_bootstrap(
+    request: Request,
+    session: AsyncSession = Depends(get_db_session),
+) -> object:
+    identity = await get_auth_identity(request)
+    payload = await request.json()
+    filters = payload.get("json", payload) if isinstance(payload, Mapping) else {}
+    if not isinstance(filters, Mapping):
+        filters = {}
+    full_name = str(
+        filters.get("fullName")
+        or identity.metadata.get("fullName")
+        or (identity.email or "Fleet operator").split("@")[0]
+    ).strip()
+    org_name = str(
+        filters.get("orgName")
+        or identity.metadata.get("orgName")
+        or f"{full_name}'s Fleet"
+    ).strip()
+    if len(full_name) < 2 or len(org_name) < 2:
+        raise HTTPException(status_code=400, detail="Organization and full name are required")
+    async with session.begin():
+        existing = await session.execute(
+            text(
+                'select u.*, o.* from "users" u join "organizations" o on o."id" = u."orgId" '
+                'where u."authUserId" = :auth_user_id or lower(u."email") = lower(:email) limit 1'
+            ),
+            {"auth_user_id": identity.id, "email": identity.email or ""},
+        )
+        existing_row = existing.mappings().first()
+        if existing_row is not None:
+            return {"user": dict(existing_row)}
+        org_result = await session.execute(
+            text(
+                'insert into "organizations" '
+                '("name", "subscriptionTier", "trialEndsAt", "maxVehicles", "maxUsers", "currency") '
+                'values (:name, \'TRIAL_FREE\', :trial_ends_at, 3, 999999, \'INR\') returning *'
+            ),
+            {
+                "name": org_name,
+                "trial_ends_at": datetime.now(timezone.utc) + timedelta(days=14),
+            },
+        )
+        organization = org_result.mappings().one()
+        user_result = await session.execute(
+            text(
+                'insert into "users" '
+                '("authUserId", "orgId", "email", "fullName", "role") '
+                'values (:auth_user_id, :org_id, :email, :full_name, \'SUPERADMIN\') returning *'
+            ),
+            {
+                "auth_user_id": identity.id,
+                "org_id": organization["id"],
+                "email": identity.email or "",
+                "full_name": full_name,
+            },
+        )
+        user = user_result.mappings().one()
+    return {"user": dict(user), "org": dict(organization)}
+
+
+@router.post("/onboarding.acceptInvite", include_in_schema=False)
+async def frontend_accept_invite(
+    request: Request,
+    session: AsyncSession = Depends(get_db_session),
+) -> object:
+    identity = await get_auth_identity(request)
+    payload = await request.json()
+    filters = payload.get("json", payload) if isinstance(payload, Mapping) else {}
+    if not isinstance(filters, Mapping):
+        raise HTTPException(status_code=400, detail="Invitation input is required")
+    try:
+        token = UUID(str(filters["token"]))
+    except (KeyError, TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="token must be a UUID") from None
+    token_hash = hashlib.sha256(str(token).encode("utf-8")).hexdigest()
+    full_name = str(filters.get("fullName") or identity.metadata.get("fullName") or "").strip()
+    async with session.begin():
+        invite_result = await session.execute(
+            text(
+                'select i."id", i."orgId", i."role", i."email", o."name" as "orgName" '
+                'from "invitations" i join "organizations" o on o."id" = i."orgId" '
+                'where i."tokenHash" = :token_hash and lower(i."email") = lower(:email) '
+                'and i."acceptedAt" is null and i."revokedAt" is null '
+                'and i."expiresAt" > now() for update'
+            ),
+            {"token_hash": token_hash, "email": identity.email or ""},
+        )
+        invite = invite_result.mappings().first()
+        if invite is None:
+            raise HTTPException(status_code=404, detail="Invitation is invalid, expired, or already redeemed")
+        claimed = await session.execute(
+            text(
+                'update "invitations" set "acceptedAt" = now() '
+                'where "id" = :invite_id and "acceptedAt" is null '
+                'and "revokedAt" is null and "expiresAt" > now() returning "id"'
+            ),
+            {"invite_id": invite["id"]},
+        )
+        if claimed.first() is None:
+            raise HTTPException(status_code=409, detail="Invitation was already redeemed or revoked")
+        if len(full_name) < 2:
+            full_name = (identity.email or "Fleet operator").split("@")[0]
+        user_result = await session.execute(
+            text(
+                'insert into "users" ("authUserId", "orgId", "email", "fullName", "role") '
+                'values (:auth_user_id, :org_id, :email, :full_name, :role) '
+                'on conflict ("authUserId") do update set '
+                '"orgId" = excluded."orgId", "email" = excluded."email", '
+                '"fullName" = excluded."fullName", "role" = excluded."role", "updatedAt" = now() '
+                'returning *'
+            ),
+            {
+                "auth_user_id": identity.id,
+                "org_id": invite["orgId"],
+                "email": identity.email or invite["email"],
+                "full_name": full_name,
+                "role": invite["role"],
+            },
+        )
+        user = user_result.mappings().one()
+    return dict(user)
 
 
 @router.get("/onboarding.inviteDetails", include_in_schema=False)
@@ -919,6 +1046,114 @@ async def _dispatch(
                     }
                 )
         return history
+    if procedure == "driver.submitWorkflowIssue":
+        if user.role not in {"DRIVER", "SUPERADMIN"}:
+            raise HTTPException(status_code=403, detail="Driver access required")
+        filters = cast(Mapping[str, object], input_value or {})
+        try:
+            vehicle_id = UUID(str(filters["vehicleId"]))
+        except (KeyError, TypeError, ValueError):
+            raise HTTPException(status_code=400, detail="vehicleId must be a UUID") from None
+        title = str(filters.get("title", "")).strip()
+        description = str(filters.get("description", "")).strip()
+        priority = str(filters.get("priority", "")).upper()
+        category = str(filters.get("category", "")).strip()
+        if len(title) < 3 or len(title) > 160 or len(description) < 5 or len(description) > 4000:
+            raise HTTPException(status_code=400, detail="Invalid issue title or description")
+        if priority not in {"LOW", "MEDIUM", "HIGH", "CRITICAL"} or not 1 <= len(category) <= 80:
+            raise HTTPException(status_code=400, detail="Invalid issue priority or category")
+        async with session.begin():
+            vehicle_result = await session.execute(
+                text(
+                    'select "id" from "vehicles" where "id" = :vehicle_id and "orgId" = :org_id'
+                ),
+                {"vehicle_id": str(vehicle_id), "org_id": user.org_id},
+            )
+            if vehicle_result.first() is None:
+                raise HTTPException(status_code=404, detail="Vehicle not found in your organization")
+            if user.role == "DRIVER":
+                assignment = await session.execute(
+                    text(
+                        'select 1 from "vehicle_assignments" where "orgId" = :org_id '
+                        'and "vehicleId" = :vehicle_id and "driverId" = :driver_id and "active" = true'
+                    ),
+                    {
+                        "org_id": user.org_id,
+                        "vehicle_id": str(vehicle_id),
+                        "driver_id": user.id,
+                    },
+                )
+                if assignment.first() is None:
+                    raise HTTPException(status_code=403, detail="Vehicle is not assigned to this driver")
+            issue_id = str(uuid4())
+            await session.execute(
+                text(
+                    'insert into "vehicle_issues" '
+                    '("id", "orgId", "vehicleId", "driverId", "title", "description", '
+                    '"priority", "status", "createdById", "updatedById") '
+                    'values (:id, :org_id, :vehicle_id, :driver_id, :title, :description, '
+                    ':priority, \'OPEN\', :driver_id, :driver_id)'
+                ),
+                {
+                    "id": issue_id,
+                    "org_id": user.org_id,
+                    "vehicle_id": str(vehicle_id),
+                    "driver_id": user.id,
+                    "title": title,
+                    "description": description,
+                    "priority": priority,
+                },
+            )
+            await session.execute(
+                text(
+                    'insert into "audit_events" '
+                    '("id", "orgId", "actorId", "actorRole", "action", "entityType", '
+                    '"entityId", "summary", "metadata", "createdAt") values '
+                    '(:id, :org_id, :actor_id, :actor_role, \'DRIVER_ISSUE_REPORTED\', '
+                    '\'VEHICLE\', :entity_id, :summary, :metadata, now())'
+                ),
+                {
+                    "id": str(uuid4()),
+                    "org_id": user.org_id,
+                    "actor_id": user.id,
+                    "actor_role": user.role,
+                    "entity_id": str(vehicle_id),
+                    "summary": f"Issue: {title}",
+                    "metadata": json.dumps(
+                        {
+                            "issueId": issue_id,
+                            "category": category,
+                            "priority": priority,
+                            "description": description,
+                        }
+                    ),
+                },
+            )
+            work_order_id = None
+            if priority in {"HIGH", "CRITICAL"}:
+                work_order_result = await session.execute(
+                    text(
+                        'insert into "work_orders" '
+                        '("id", "orgId", "vehicleId", "title", "description", "priority", "status") '
+                        'values (:id, :org_id, :vehicle_id, :title, :description, :priority, \'OPEN\') '
+                        'returning "id"'
+                    ),
+                    {
+                        "id": str(uuid4()),
+                        "org_id": user.org_id,
+                        "vehicle_id": str(vehicle_id),
+                        "title": f"Vehicle Issue: {title}",
+                        "description": f"Driver reported: {description}",
+                        "priority": priority,
+                    },
+                )
+                work_order_id = str(work_order_result.scalar_one())
+        return {
+            "issueId": issue_id,
+            "vehicleId": str(vehicle_id),
+            "workOrderId": work_order_id,
+            "status": "WORK_ORDER_CREATED" if work_order_id else "LOGGED",
+        }
     if procedure == "driver.submitPreTripChecklist":
         if user.role not in {"DRIVER", "SUPERADMIN"}:
             raise HTTPException(status_code=403, detail="Driver access required")
@@ -4307,7 +4542,7 @@ async def _dispatch(
         return await list_purchase_orders(user, session)
     if procedure == "billing.plans":
         return await billing_plans()
-    if procedure == "billing.checkPlanEligibility":
+    if procedure in {"billing.checkPlanEligibility", "billingTest.checkPlanEligibility"}:
         filters = cast(Mapping[str, object], input_value or {})
         plan = filters.get("plan")
         if not isinstance(plan, str):
@@ -4329,6 +4564,33 @@ async def _dispatch(
         return await create_test_order(UUID(str(invoice_id)), user, session)
     if procedure == "billingTest.activateStarter":
         return await activate_starter(user, session)
+    if procedure == "automation.evaluate":
+        return await evaluate_automation(user, session)
+    if procedure == "purchaseOrders.receipts":
+        filters = cast(Mapping[str, object], input_value or {})
+        purchase_order_id = filters.get("purchaseOrderId")
+        if not purchase_order_id:
+            raise HTTPException(status_code=400, detail="purchaseOrderId is required")
+        if user.role not in {"SUPERADMIN", "INVENTORY_MANAGER"}:
+            raise HTTPException(status_code=403, detail="Inventory manager access required")
+        order_result = await session.execute(
+            text(
+                'select "id" from "purchase_orders" where "id" = :purchase_order_id '
+                'and "orgId" = :org_id'
+            ),
+            {"purchase_order_id": str(purchase_order_id), "org_id": user.org_id},
+        )
+        if order_result.first() is None:
+            raise HTTPException(status_code=404, detail="Purchase order not found in your organization")
+        receipts = await session.execute(
+            text(
+                'select * from "purchase_order_receipts" '
+                'where "purchaseOrderId" = :purchase_order_id and "orgId" = :org_id '
+                'order by "receivedAt" desc'
+            ),
+            {"purchase_order_id": str(purchase_order_id), "org_id": user.org_id},
+        )
+        return [dict(row) for row in receipts.mappings()]
     if procedure == "audit.list":
         filters = cast(Mapping[str, object], input_value or {})
         return await list_audit_events(
