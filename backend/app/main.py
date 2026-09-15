@@ -10,6 +10,7 @@ from .routes.documents import router as documents_router
 from .routes.components import router as components_router
 from .routes.procurement import router as procurement_router
 from .routes.planning import router as planning_router
+from .routes.profile import router as profile_router
 from .routes.safety import router as safety_router
 from .routes.v2 import router as v2_router
 from .routes.vendors import router as vendors_router
@@ -34,6 +35,7 @@ def create_app() -> FastAPI:
     application.include_router(maintenance_router)
     application.include_router(procurement_router)
     application.include_router(planning_router)
+    application.include_router(profile_router)
     application.include_router(safety_router)
     application.include_router(vendors_router)
     return application
