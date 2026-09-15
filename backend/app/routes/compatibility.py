@@ -957,6 +957,125 @@ async def _dispatch(
             "errors": errors,
             "rows": parsed_rows[:100],
         }
+    if procedure == "documents.importCsv":
+        if user.role not in {"SUPERADMIN", "FLEET_MANAGER"}:
+            raise HTTPException(status_code=403, detail="Document import access required")
+        filters = cast(Mapping[str, object], input_value or {})
+        raw_csv = filters.get("csv")
+        if not isinstance(raw_csv, str) or len(raw_csv) > 1_000_000:
+            raise HTTPException(status_code=400, detail="csv is required and must be under 1MB")
+        reader = csv.DictReader(io.StringIO(raw_csv.lstrip("\ufeff")))
+        required = ["title", "docType", "expiryDate", "vehicleId"]
+        headers = reader.fieldnames or []
+        missing = [field for field in required if field not in headers]
+        if missing:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Missing required columns: {', '.join(missing)}",
+            )
+        valid_types = {"INSURANCE", "RC", "FITNESS", "PERMIT", "DRIVER_LICENSE"}
+        rows: list[dict[str, str]] = []
+        errors: list[str] = []
+        for row_number, row in enumerate(reader, start=2):
+            values = {key: (value or "").strip() for key, value in row.items() if key}
+            row_errors: list[str] = []
+            if len(values.get("title", "")) < 2:
+                row_errors.append("title is required")
+            if values.get("docType") not in valid_types:
+                row_errors.append("docType is invalid")
+            try:
+                datetime.strptime(values.get("expiryDate", ""), "%Y-%m-%d")
+            except ValueError:
+                row_errors.append("expiryDate must be YYYY-MM-DD")
+            try:
+                UUID(values.get("vehicleId", ""))
+            except ValueError:
+                row_errors.append("vehicleId must be a UUID")
+            if row_errors:
+                errors.extend(f"Row {row_number}: {item}" for item in row_errors)
+            rows.append(values)
+        if errors:
+            raise HTTPException(status_code=400, detail="; ".join(errors[:8]))
+        async with session.begin():
+            vehicle_result = await session.execute(
+                text('select "id" from "vehicles" where "orgId" = :org_id'),
+                {"org_id": user.org_id},
+            )
+            vehicle_ids = {str(row["id"]) for row in vehicle_result.mappings()}
+            if any(row["vehicleId"] not in vehicle_ids for row in rows):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Every row must reference an organization vehicle.",
+                )
+            existing_result = await session.execute(
+                text(
+                    'select "title", "docType", "vehicleId", "expiryDate" '
+                    'from "documents" where "orgId" = :org_id and "archivedAt" is null'
+                ),
+                {"org_id": user.org_id},
+            )
+            seen = {
+                (
+                    str(row["title"]),
+                    str(row["docType"]),
+                    str(row["vehicleId"]),
+                    row["expiryDate"].date().isoformat(),
+                )
+                for row in existing_result.mappings()
+            }
+            candidates = []
+            for row in rows:
+                key = (
+                    row["title"],
+                    row["docType"],
+                    row["vehicleId"],
+                    row["expiryDate"],
+                )
+                if key in seen:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Every row must not duplicate an existing compliance document.",
+                    )
+                seen.add(key)
+                candidates.append(row)
+            for row in candidates:
+                document_result = await session.execute(
+                    text(
+                        'insert into "documents" '
+                        '("orgId", "vehicleId", "title", "docType", "fileUrl", '
+                        '"expiryDate", "retentionUntil") values '
+                        '(:org_id, :vehicle_id, :title, :doc_type, :file_url, '
+                        ':expiry_date, :expiry_date) returning "id"'
+                    ),
+                    {
+                        "org_id": user.org_id,
+                        "vehicle_id": row["vehicleId"],
+                        "title": row["title"],
+                        "doc_type": row["docType"],
+                        "file_url": row.get("fileUrl", ""),
+                        "expiry_date": datetime.strptime(row["expiryDate"], "%Y-%m-%d"),
+                    },
+                )
+                document_id = document_result.scalar_one()
+                await session.execute(
+                    text(
+                        'insert into "document_versions" '
+                        '("orgId", "documentId", "versionNumber", "title", "docType", '
+                        '"fileUrl", "expiryDate", "createdById") values '
+                        '(:org_id, :document_id, 1, :title, :doc_type, :file_url, '
+                        ':expiry_date, :actor_id)'
+                    ),
+                    {
+                        "org_id": user.org_id,
+                        "document_id": document_id,
+                        "title": row["title"],
+                        "doc_type": row["docType"],
+                        "file_url": row.get("fileUrl", ""),
+                        "expiry_date": datetime.strptime(row["expiryDate"], "%Y-%m-%d"),
+                        "actor_id": user.id,
+                    },
+                )
+        return {"importedCount": len(rows)}
     if procedure == "documents.versions":
         filters = cast(Mapping[str, object], input_value or {})
         document_id = filters.get("documentId")
