@@ -2328,6 +2328,66 @@ async def _dispatch(
                 },
             )
         return dict(updated)
+    if procedure == "workOrders.startWork":
+        if user.role not in {"MECHANIC", "TECHNICIAN"}:
+            raise HTTPException(status_code=403, detail="Mechanic access required")
+        filters = cast(Mapping[str, object], input_value or {})
+        work_order_id = filters.get("workOrderId") or filters.get("id")
+        if not work_order_id:
+            raise HTTPException(status_code=400, detail="workOrderId is required")
+        try:
+            parsed_work_order_id = UUID(str(work_order_id))
+        except ValueError:
+            raise HTTPException(status_code=400, detail="workOrderId must be a UUID") from None
+        async with session.begin():
+            current_result = await session.execute(
+                text(
+                    'select * from "work_orders" where "id" = :work_order_id '
+                    'and "orgId" = :org_id and "assignedMechanicId" = :mechanic_id '
+                    'for update'
+                ),
+                {
+                    "work_order_id": str(parsed_work_order_id),
+                    "org_id": user.org_id,
+                    "mechanic_id": user.id,
+                },
+            )
+            current = current_result.mappings().first()
+            if current is None:
+                raise HTTPException(status_code=404, detail="Work order is not assigned to you")
+            if current["status"] in {"COMPLETED", "CANCELLED"}:
+                raise HTTPException(status_code=400, detail="Closed work orders cannot be started")
+            updated_result = await session.execute(
+                text(
+                    'update "work_orders" set "status" = \'IN_PROGRESS\', '
+                    '"startedAt" = coalesce("startedAt", now()), "updatedAt" = now() '
+                    'where "id" = :work_order_id and "orgId" = :org_id returning *'
+                ),
+                {
+                    "work_order_id": str(parsed_work_order_id),
+                    "org_id": user.org_id,
+                },
+            )
+            updated = updated_result.mappings().one()
+            await session.execute(
+                text(
+                    'insert into "audit_events" '
+                    '("id", "orgId", "actorId", "actorRole", "action", "entityType", '
+                    '"entityId", "summary", "metadata", "createdAt") values '
+                    '(:id, :org_id, :actor_id, :actor_role, \'WORK_ORDER_STARTED\', '
+                    '\'WORK_ORDER\', :entity_id, :summary, :metadata, now())'
+                ),
+                {
+                    "id": str(uuid4()),
+                    "org_id": user.org_id,
+                    "actor_id": user.id,
+                    "actor_role": user.role,
+                    "entity_id": str(parsed_work_order_id),
+                    "summary": f'Work started on {updated["title"]}',
+                    "metadata": json.dumps({"previousStatus": current["status"]}),
+                },
+            )
+        return dict(updated)
     if procedure == "workOrders.bulkUpdate":
         filters = cast(Mapping[str, object], input_value or {})
         return await bulk_update_work_orders(
