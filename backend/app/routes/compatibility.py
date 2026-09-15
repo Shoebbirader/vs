@@ -15,8 +15,13 @@ from ..tenant import TenantUser, get_current_user
 from .fleet import dashboard_summary, list_vehicles
 from .inventory import list_parts
 from .maintenance import list_work_orders
-from .notifications import list_notifications
-from .notifications import mark_notification_read
+from .notifications import (
+    ResolveNotification,
+    escalate_notification,
+    list_notifications,
+    mark_notification_read,
+    resolve_notification,
+)
 from .components import (
     ComponentCreate,
     ComponentUpdate,
@@ -168,10 +173,27 @@ async def _dispatch(
         if not notification_id:
             raise HTTPException(status_code=400, detail="id is required")
         return await mark_notification_read(UUID(str(notification_id)), user, session)
+    if procedure == "notifications.escalate":
+        filters = cast(Mapping[str, object], input_value or {})
+        notification_id = filters.get("id")
+        if not notification_id:
+            raise HTTPException(status_code=400, detail="id is required")
+        return await escalate_notification(UUID(str(notification_id)), user, session)
+    if procedure == "notifications.resolve":
+        filters = cast(Mapping[str, object], input_value or {})
+        notification_id = filters.get("id")
+        if not notification_id:
+            raise HTTPException(status_code=400, detail="id is required")
+        return await resolve_notification(
+            UUID(str(notification_id)),
+            ResolveNotification(note=str(filters.get("note", ""))),
+            user,
+            session,
+        )
     if procedure == "activity.recent":
         return await _recent_activity(user, session)
     if procedure == "profile.get":
-        return await get_profile(current_user, session)
+        return await get_profile(user, session)
     if procedure == "profile.update":
         filters = cast(Mapping[str, object], input_value or {})
         return await update_profile(
@@ -181,11 +203,11 @@ async def _dispatch(
                 sms_alerts_enabled=bool(filters.get("smsAlertsEnabled", False)),
                 whatsapp_alerts_enabled=bool(filters.get("whatsappAlertsEnabled", False)),
             ),
-            current_user,
+            user,
             session,
         )
     if procedure == "organizationSettings.get":
-        return await get_organization_settings(current_user, session)
+        return await get_organization_settings(user, session)
     if procedure == "organizationSettings.update":
         filters = cast(Mapping[str, object], input_value or {})
         return await update_organization_settings(
@@ -204,14 +226,14 @@ async def _dispatch(
                     else None
                 ),
             ),
-            current_user,
+            user,
             session,
         )
     if procedure == "documents.list":
         filters = cast(Mapping[str, object], input_value or {})
         return await list_documents(
             include_archived=bool(filters.get("includeArchived", False)),
-            current_user=current_user,
+            current_user=user,
             session=session,
         )
     if procedure == "documents.versions":
@@ -219,13 +241,13 @@ async def _dispatch(
         document_id = filters.get("documentId")
         if not document_id:
             raise HTTPException(status_code=400, detail="documentId is required")
-        return await list_document_versions(UUID(str(document_id)), current_user, session)
+        return await list_document_versions(UUID(str(document_id)), user, session)
     if procedure == "components.list":
         filters = cast(Mapping[str, object], input_value or {})
         vehicle_id = filters.get("vehicleId")
         return await list_components(
             vehicle_id=UUID(str(vehicle_id)) if vehicle_id else None,
-            current_user=current_user,
+            current_user=user,
             session=session,
         )
     if procedure == "components.create":
@@ -259,7 +281,7 @@ async def _dispatch(
                 notes=filters.get("notes"),
                 status=str(filters.get("status", "ACTIVE")),
             ),
-            current_user,
+            user,
             session,
         )
     if procedure == "components.update":
@@ -313,7 +335,7 @@ async def _dispatch(
         return await update_component(
             UUID(str(component_id)),
             ComponentUpdate(**component_update),
-            current_user,
+            user,
             session,
         )
     if procedure == "components.remove":
@@ -321,7 +343,7 @@ async def _dispatch(
         component_id = filters.get("id") or filters.get("componentId")
         if not component_id:
             raise HTTPException(status_code=400, detail="componentId is required")
-        return await remove_component(UUID(str(component_id)), current_user, session)
+        return await remove_component(UUID(str(component_id)), user, session)
     if procedure == "documents.create":
         filters = cast(Mapping[str, object], input_value or {})
         return await create_document(
@@ -337,7 +359,7 @@ async def _dispatch(
                 expiry_date=_date_input(filters.get("expiryDate")) or datetime.now(timezone.utc),
                 vehicle_id=UUID(str(filters["vehicleId"])) if filters.get("vehicleId") else None,
             ),
-            current_user,
+            user,
             session,
         )
     if procedure == "documents.update":
@@ -357,7 +379,7 @@ async def _dispatch(
                 ),
                 expiry_date=_date_input(filters.get("expiryDate")),
             ),
-            current_user,
+            user,
             session,
         )
     if procedure == "documents.archive":
@@ -368,7 +390,7 @@ async def _dispatch(
         return await archive_document(
             UUID(str(document_id)),
             DocumentArchive(reason=str(filters.get("reason", "Archived from frontend"))),
-            current_user,
+            user,
             session,
         )
     if procedure in {
@@ -391,7 +413,7 @@ async def _dispatch(
                     unit_cost=float(filters["unitCost"]) if filters.get("unitCost") is not None else None,
                     reason=str(filters.get("reason", "")),
                 ),
-                current_user,
+                user,
                 session,
             )
         if procedure == "inventory.issue":
@@ -404,7 +426,7 @@ async def _dispatch(
                         UUID(str(filters["workOrderId"])) if filters.get("workOrderId") else None
                     ),
                 ),
-                current_user,
+                user,
                 session,
             )
         if procedure == "inventory.transfer":
@@ -414,7 +436,7 @@ async def _dispatch(
                     to_bin_location=str(filters.get("toBinLocation", "")),
                     reason=str(filters.get("reason", "")),
                 ),
-                current_user,
+                user,
                 session,
             )
         if procedure == "inventory.adjust":
@@ -425,7 +447,7 @@ async def _dispatch(
                     delta=int(filters.get("delta", 0)),
                     reason=str(filters.get("reason", "")),
                 ),
-                current_user,
+                user,
                 session,
             )
         return await reserve_part(
@@ -435,7 +457,7 @@ async def _dispatch(
                 quantity=int(filters.get("quantity", 0)),
                 reason=str(filters.get("reason", "Reserved for work order")),
             ),
-            current_user,
+            user,
             session,
         )
     if procedure == "returnReservedPart":
@@ -446,7 +468,7 @@ async def _dispatch(
                 quantity=int(filters.get("quantity", 0)),
                 reason=str(filters.get("reason", "Returned unused reserved stock")),
             ),
-            current_user,
+            user,
             session,
         )
     if procedure == "workOrders.updateStatus":
@@ -460,7 +482,7 @@ async def _dispatch(
                 status=str(filters.get("status", "")),
                 expected_updated_at=_date_input(filters.get("expectedUpdatedAt")),
             ),
-            current_user,
+            user,
             session,
         )
     if procedure == "workOrders.bulkUpdate":
@@ -478,7 +500,7 @@ async def _dispatch(
                 archive=bool(filters["archive"]) if filters.get("archive") is not None else None,
                 cancel=bool(filters.get("cancel", False)),
             ),
-            current_user,
+            user,
             session,
         )
     if procedure == "planning.maintenance":
@@ -488,31 +510,31 @@ async def _dispatch(
         return await maintenance_planning(
             from_date=_date_input(from_date),
             to_date=_date_input(to_date),
-            current_user=current_user,
+            current_user=user,
             session=session,
         )
     if procedure == "financials.metrics":
-        return await financial_metrics(current_user, session)
+        return await financial_metrics(user, session)
     if procedure == "reports.maintenancePerformance":
         filters = cast(Mapping[str, object], input_value or {})
         return await maintenance_performance(
             from_date=_date_input(filters.get("from")),
             to_date=_date_input(filters.get("to")),
-            current_user=current_user,
+            current_user=user,
             session=session,
         )
     if procedure == "team.members":
-        return await list_members(current_user, session)
+        return await list_members(user, session)
     if procedure == "team.assignableMembers":
-        return await list_assignable_members(current_user, session)
+        return await list_assignable_members(user, session)
     if procedure == "billing.plans":
         return await billing_plans()
     if procedure == "billing.status":
-        return await billing_status(current_user, session)
+        return await billing_status(user, session)
     if procedure == "billing.invoices":
-        return await billing_invoices(current_user, session)
+        return await billing_invoices(user, session)
     if procedure == "billing.payments":
-        return await billing_payments(current_user, session)
+        return await billing_payments(user, session)
     if procedure == "audit.list":
         filters = cast(Mapping[str, object], input_value or {})
         return await list_audit_events(
@@ -523,13 +545,13 @@ async def _dispatch(
             date_from=_date_input(filters.get("dateFrom")),
             date_to=_date_input(filters.get("dateTo")),
             limit=int(filters.get("limit", 100)),
-            current_user=current_user,
+            current_user=user,
             session=session,
         )
     if procedure == "compliance.summary":
         return await _compliance_summary(
             filters=cast(Mapping[str, object], input_value or {}),
-            user=current_user,
+            user=user,
             session=session,
         )
     raise HTTPException(status_code=404, detail=f"Python compatibility route not migrated: {procedure}")
