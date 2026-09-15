@@ -1,7 +1,7 @@
-from pydantic import BaseModel, ConfigDict
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-from fastapi import APIRouter, Depends
 
 from ..db import get_db_session
 from ..tenant import TenantUser, get_current_user
@@ -27,6 +27,62 @@ class DashboardSummary(BaseModel):
     active_vehicle_count: int
     open_work_order_count: int
     unread_notification_count: int
+
+
+class VehicleCreate(BaseModel):
+    vin: str = Field(min_length=5, max_length=32)
+    license_plate: str = Field(min_length=1, max_length=32)
+    make: str = Field(min_length=1, max_length=100)
+    model: str = Field(min_length=1, max_length=100)
+    year: int = Field(ge=1900, le=2200)
+    current_odometer: float = Field(ge=0)
+    status: str = Field(min_length=1, max_length=32)
+
+
+@router.post("/vehicles", response_model=VehicleSummary, status_code=201)
+async def create_vehicle(
+    payload: VehicleCreate,
+    current_user: TenantUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> VehicleSummary:
+    if current_user.role not in {"SUPERADMIN", "FLEET_MANAGER"}:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Fleet manager access required",
+        )
+    async with session.begin():
+        result = await session.execute(
+            text(
+                'insert into "vehicles" '
+                '("orgId", "vin", "licensePlate", "make", "model", "year", '
+                '"currentOdometer", "status") '
+                "values (:org_id, :vin, :license_plate, :make, :model, :year, "
+                ":current_odometer, :status) "
+                'returning "id", "vin", "licensePlate", "make", "model", "year", '
+                '"currentOdometer", "status"'
+            ),
+            {
+                "org_id": current_user.org_id,
+                "vin": payload.vin.strip().upper(),
+                "license_plate": payload.license_plate.strip().upper(),
+                "make": payload.make.strip(),
+                "model": payload.model.strip(),
+                "year": payload.year,
+                "current_odometer": payload.current_odometer,
+                "status": payload.status.strip().upper(),
+            },
+        )
+        row = result.mappings().one()
+    return VehicleSummary(
+        id=str(row["id"]),
+        vin=str(row["vin"]),
+        license_plate=str(row["licensePlate"]),
+        make=str(row["make"]),
+        model=str(row["model"]),
+        year=row["year"],
+        current_odometer=float(row["currentOdometer"]),
+        status=str(row["status"]),
+    )
 
 
 @router.get("/vehicles", response_model=list[VehicleSummary])

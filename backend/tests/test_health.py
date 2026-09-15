@@ -16,6 +16,7 @@ def test_v2_docs_are_available_outside_production() -> None:
     assert response.status_code == 200
     assert "/api/v2/auth/me" in response.json()["paths"]
     assert "/api/v2/vehicles" in response.json()["paths"]
+    assert response.json()["paths"]["/api/v2/vehicles"]["post"]["responses"]["201"]
 
 
 def test_protected_fleet_route_requires_authentication() -> None:
