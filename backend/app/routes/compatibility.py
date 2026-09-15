@@ -311,6 +311,84 @@ async def _dispatch(
                 ),
             },
         }
+    if procedure == "workOrders.detail":
+        if user.role not in {
+            "SUPERADMIN",
+            "FLEET_MANAGER",
+            "MECHANIC",
+            "TECHNICIAN",
+            "ACCOUNTANT",
+        }:
+            raise HTTPException(status_code=403, detail="Work-order access required")
+        filters = cast(Mapping[str, object], input_value or {})
+        work_order_id = filters.get("workOrderId")
+        if not work_order_id:
+            raise HTTPException(status_code=400, detail="workOrderId is required")
+        scope = (
+            'and "assignedMechanicId" = :actor_id'
+            if user.role in {"MECHANIC", "TECHNICIAN"}
+            else ""
+        )
+        params: dict[str, object] = {
+            "work_order_id": str(work_order_id),
+            "org_id": user.org_id,
+            "actor_id": user.id,
+        }
+        order_result = await session.execute(
+            text(
+                'select "id", "orgId", "vehicleId", "title", "description", '
+                '"priority", "status", "scheduledFor", "assignedMechanicId", '
+                '"createdAt", "updatedAt", "startedAt", "completedAt" '
+                'from "work_orders" where "id" = :work_order_id and "orgId" = :org_id '
+                + scope
+            ),
+            params,
+        )
+        order = order_result.mappings().first()
+        if order is None:
+            raise HTTPException(status_code=404, detail="Work order not found")
+        vehicle_result = await session.execute(
+            text(
+                'select * from "vehicles" where "id" = :vehicle_id and "orgId" = :org_id'
+            ),
+            {"vehicle_id": str(order["vehicleId"]), "org_id": user.org_id},
+        )
+        vehicle = vehicle_result.mappings().first()
+        component_result = await session.execute(
+            text(
+                'select * from "components" where "vehicleId" = :vehicle_id '
+                'and "orgId" = :org_id order by "name"'
+            ),
+            {"vehicle_id": str(order["vehicleId"]), "org_id": user.org_id},
+        )
+        evidence_result = await session.execute(
+            text(
+                'select * from "work_order_evidence" where "workOrderId" = :work_order_id '
+                'and "orgId" = :org_id order by "createdAt" desc'
+            ),
+            {"work_order_id": str(work_order_id), "org_id": user.org_id},
+        )
+        activity_result = await session.execute(
+            text(
+                'select * from "audit_events" where "orgId" = :org_id '
+                'and "entityType" = \'WORK_ORDER\' and "entityId" = :work_order_id '
+                'order by "createdAt" desc limit 100'
+            ),
+            {"org_id": user.org_id, "work_order_id": str(work_order_id)},
+        )
+        vehicle_data = dict(vehicle) if vehicle else None
+        if vehicle_data is not None:
+            vehicle_data["components"] = [
+                dict(row) for row in component_result.mappings()
+            ]
+        return {
+            "order": {
+                **dict(order),
+                "vehicle": vehicle_data,
+                "evidence": [dict(row) for row in evidence_result.mappings()],
+            },
+            "activity": [dict(row) for row in activity_result.mappings()],
+        }
     if procedure == "workOrders.create":
         filters = cast(Mapping[str, object], input_value or {})
         return await create_work_order(
