@@ -24,6 +24,25 @@ export const COMPONENT_CATALOG = [
 ] as const;
 import { evaluateAllOrganizations, evaluateLowInventory, evaluateVehicleMaintenance } from "./automation";
 
+async function reserveMutation(ctx: { fleetopsUser: { orgId: string; id: string } }, mutationId: string | undefined, procedure: string) {
+  if (!mutationId) return;
+  if (!fleetDb.idempotencyRecord?.create) return;
+  try {
+    await fleetDb.idempotencyRecord.create({
+      data: {
+        id: crypto.randomUUID(),
+        orgId: ctx.fleetopsUser.orgId,
+        userId: ctx.fleetopsUser.id,
+        idempotencyKey: mutationId,
+        procedure,
+        createdAt: new Date(),
+      },
+    });
+  } catch {
+    throw new TRPCError({ code: "CONFLICT", message: "This mutation has already been submitted. Refresh before retrying." });
+  }
+}
+
 export function assertWritable(org: { subscriptionTier: string; trialEndsAt: Date; billingStatus?: string | null; paymentFailedAt?: Date | null }) {
   if (!billingWriteAllowed(org.billingStatus)) throw new TRPCError({ code: "FORBIDDEN", message: org.billingStatus === "CANCELLED" ? "The subscription is cancelled. Historical data and exports remain available, but operational writes are paused." : "Billing is suspended. Historical data and exports remain available, but operational writes are paused until payment is restored." });
   
@@ -404,10 +423,11 @@ export const appRouter = router({
       const dueDocuments = documents.filter((item: any) => new Date(item.expiryDate).getTime() < Date.now() + 30 * 86_400_000); 
       return { vehicle: { ...vehicle, components }, odometers, workOrders, documents, health: { componentCount: components.length, dueComponents: dueComponents.length, openWorkOrders: workOrders.filter((item: any) => !["COMPLETED", "CANCELLED"].includes(item.status)).length, dueDocuments: dueDocuments.length, readiness: vehicle.status === "ACTIVE" && dueComponents.length === 0 && dueDocuments.length === 0 ? "READY" : "REVIEW" } }; 
     }),
-    updateOdometer: fleetOpsProcedure.input(z.object({ vehicleId: z.string().uuid(), reading: z.number().min(0), source: z.enum(["MANUAL_DRIVER", "GPS_API", "MECHANIC"]) })).mutation(async ({ ctx, input }) => {
+    updateOdometer: fleetOpsProcedure.input(z.object({ vehicleId: z.string().uuid(), reading: z.number().min(0), source: z.enum(["MANUAL_DRIVER", "GPS_API", "MECHANIC"]), mutationId: z.string().uuid().optional() })).mutation(async ({ ctx, input }) => {
       assertWritable(ctx.fleetopsUser.org);
       requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER", "MECHANIC", "TECHNICIAN", "DRIVER"]);
       await assertDriverVehicle(ctx, input.vehicleId);
+      await reserveMutation(ctx, input.mutationId, "vehicles.updateOdometer");
       const vehicle = await fleetDb.vehicle.findFirst({ where: { id: input.vehicleId, orgId: ctx.fleetopsUser.orgId } });
       if (!vehicle) throw new TRPCError({ code: "NOT_FOUND", message: "Vehicle not found." });
       const current = Number(vehicle.currentOdometer);
@@ -642,10 +662,11 @@ export const appRouter = router({
   }),
   driver: router({
     inspections: fleetOpsProcedure.query(async ({ ctx }) => fleetDb.dvirInspection.findMany({ where: { orgId: ctx.fleetopsUser.orgId, driverId: ctx.fleetopsUser.id }, orderBy: { createdAt: "desc" }, take: 50 })),
-    createInspection: fleetOpsProcedure.input(z.object({ vehicleId: z.string().uuid(), inspectionType: z.enum(["PRE_TRIP", "POST_TRIP"]), status: z.enum(["PASS", "FAIL"]), notes: z.string().max(2000).optional(), photoData: z.string().max(2_000_000).optional(), photoContentType: z.string().optional() })).mutation(async ({ ctx, input }) => {
+    createInspection: fleetOpsProcedure.input(z.object({ vehicleId: z.string().uuid(), inspectionType: z.enum(["PRE_TRIP", "POST_TRIP"]), status: z.enum(["PASS", "FAIL"]), notes: z.string().max(2000).optional(), photoData: z.string().max(2_000_000).optional(), photoContentType: z.string().optional(), mutationId: z.string().uuid().optional() })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["DRIVER", "SUPERADMIN"]);
       assertWritable(ctx.fleetopsUser.org);
       await assertDriverVehicle(ctx, input.vehicleId);
+      await reserveMutation(ctx, input.mutationId, "driver.createInspection");
       const vehicle = await fleetDb.vehicle.findFirst({ where: { id: input.vehicleId, orgId: ctx.fleetopsUser.orgId } });
       if (!vehicle) throw new TRPCError({ code: "NOT_FOUND", message: "Vehicle not found." });
       let photoUrl: string | undefined;
@@ -662,10 +683,11 @@ export const appRouter = router({
       return inspection;
     }),
     fuelLogs: fleetOpsProcedure.query(({ ctx }) => fleetDb.fuelLog.findMany({ where: { orgId: ctx.fleetopsUser.orgId, driverId: ctx.fleetopsUser.id }, orderBy: { createdAt: "desc" }, take: 50 })),
-    createFuelLog: fleetOpsProcedure.input(z.object({ vehicleId: z.string().uuid(), liters: z.number().positive(), amount: z.number().nonnegative(), odometer: z.number().nonnegative(), station: z.string().max(200).optional(), receiptData: z.string().max(2_000_000).optional(), receiptContentType: z.string().optional() })).mutation(async ({ ctx, input }) => {
+    createFuelLog: fleetOpsProcedure.input(z.object({ vehicleId: z.string().uuid(), liters: z.number().positive(), amount: z.number().nonnegative(), odometer: z.number().nonnegative(), station: z.string().max(200).optional(), receiptData: z.string().max(2_000_000).optional(), receiptContentType: z.string().optional(), mutationId: z.string().uuid().optional() })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.fleetopsUser.role, ["DRIVER", "SUPERADMIN"]);
       assertWritable(ctx.fleetopsUser.org);
       await assertDriverVehicle(ctx, input.vehicleId);
+      await reserveMutation(ctx, input.mutationId, "driver.createFuelLog");
       const vehicle = await fleetDb.vehicle.findFirst({ where: { id: input.vehicleId, orgId: ctx.fleetopsUser.orgId } });
       if (!vehicle) throw new TRPCError({ code: "NOT_FOUND", message: "Vehicle not found." });
       const previousLog = await fleetDb.odometerLog.findFirst({ where: { vehicleId: vehicle.id }, orderBy: { createdAt: "desc" } });
@@ -682,7 +704,7 @@ export const appRouter = router({
   }),
   vehicleIssues: router({
     list: fleetOpsProcedure.query(({ ctx }) => { requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER", "DRIVER"]); const where = ctx.fleetopsUser.role === "DRIVER" ? { orgId: ctx.fleetopsUser.orgId, driverId: ctx.fleetopsUser.id } : { orgId: ctx.fleetopsUser.orgId }; return fleetDb.vehicleIssue.findMany({ where, orderBy: { createdAt: "desc" }, take: 50 }); }),
-    create: fleetOpsProcedure.input(z.object({ vehicleId: z.string().uuid(), title: z.string().trim().min(3).max(160), description: z.string().trim().min(5).max(4000), priority: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).default("MEDIUM"), photoData: z.string().max(4_000_000).optional(), photoContentType: z.string().startsWith("image/").optional() })).mutation(async ({ ctx, input }) => { requireRole(ctx.fleetopsUser.role, ["DRIVER"]); assertWritable(ctx.fleetopsUser.org); await assertDriverVehicle(ctx, input.vehicleId); const vehicle = await fleetDb.vehicle.findFirst({ where: { id: input.vehicleId, orgId: ctx.fleetopsUser.orgId } }); if (!vehicle) throw new TRPCError({ code: "NOT_FOUND", message: "Vehicle not found." }); let photoUrl: string | undefined; let photoKey: string | undefined; if (input.photoData) { const uploaded = await storagePut(`fleetops/vehicle-issues/${ctx.fleetopsUser.orgId}/${input.vehicleId}/${Date.now()}.jpg`, Buffer.from(input.photoData.replace(/^data:[^;]+;base64,/, ""), "base64"), input.photoContentType ?? "image/jpeg"); photoUrl = uploaded.url; photoKey = uploaded.key; } const issue = await fleetDb.vehicleIssue.create({ data: { id: crypto.randomUUID(), orgId: ctx.fleetopsUser.orgId, vehicleId: input.vehicleId, driverId: ctx.fleetopsUser.id, title: input.title, description: input.description, priority: input.priority, status: "OPEN", photoUrl, photoKey, createdAt: new Date(), updatedAt: new Date() } }); const managers = await fleetDb.user.findMany({ where: { orgId: ctx.fleetopsUser.orgId, role: "FLEET_MANAGER" } }); if (managers.length) await fleetDb.notification.createMany({ data: managers.map((manager: any) => ({ id: crypto.randomUUID(), orgId: ctx.fleetopsUser.orgId, recipientId: manager.id, title: `${input.priority} priority issue: ${input.title}`, message: `Driver: ${ctx.fleetopsUser.fullName} · Vehicle: ${vehicleIdentity(vehicle)} · Issue: ${input.title} · Priority: ${input.priority}`, type: "VEHICLE_ISSUE", severity: input.priority === "CRITICAL" ? "CRITICAL" : input.priority === "HIGH" ? "HIGH" : "INFO", sourceType: "VEHICLE_ISSUE", dedupeKey: `VEHICLE_ISSUE:${issue.id}`, referenceId: issue.id, isRead: false, createdAt: new Date() })) }); await recordAudit(ctx, { action: "VEHICLE_ISSUE_REPORTED", entityType: "VEHICLE_ISSUE", entityId: issue.id, summary: `Driver reported vehicle issue: ${issue.title}`, metadata: { priority: issue.priority, vehicleId: vehicle.id, driverId: ctx.fleetopsUser.id, driverName: ctx.fleetopsUser.fullName, vehicleIdentity: vehicleIdentity(vehicle) } }); return issue; }),
+    create: fleetOpsProcedure.input(z.object({ vehicleId: z.string().uuid(), title: z.string().trim().min(3).max(160), description: z.string().trim().min(5).max(4000), priority: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).default("MEDIUM"), photoData: z.string().max(4_000_000).optional(), photoContentType: z.string().startsWith("image/").optional(), mutationId: z.string().uuid().optional() })).mutation(async ({ ctx, input }) => { requireRole(ctx.fleetopsUser.role, ["DRIVER"]); assertWritable(ctx.fleetopsUser.org); await assertDriverVehicle(ctx, input.vehicleId); await reserveMutation(ctx, input.mutationId, "vehicleIssues.create"); const vehicle = await fleetDb.vehicle.findFirst({ where: { id: input.vehicleId, orgId: ctx.fleetopsUser.orgId } }); if (!vehicle) throw new TRPCError({ code: "NOT_FOUND", message: "Vehicle not found." }); let photoUrl: string | undefined; let photoKey: string | undefined; if (input.photoData) { const uploaded = await storagePut(`fleetops/vehicle-issues/${ctx.fleetopsUser.orgId}/${input.vehicleId}/${Date.now()}.jpg`, Buffer.from(input.photoData.replace(/^data:[^;]+;base64,/, ""), "base64"), input.photoContentType ?? "image/jpeg"); photoUrl = uploaded.url; photoKey = uploaded.key; } const issue = await fleetDb.vehicleIssue.create({ data: { id: crypto.randomUUID(), orgId: ctx.fleetopsUser.orgId, vehicleId: input.vehicleId, driverId: ctx.fleetopsUser.id, title: input.title, description: input.description, priority: input.priority, status: "OPEN", photoUrl, photoKey, createdAt: new Date(), updatedAt: new Date() } }); const managers = await fleetDb.user.findMany({ where: { orgId: ctx.fleetopsUser.orgId, role: "FLEET_MANAGER" } }); if (managers.length) await fleetDb.notification.createMany({ data: managers.map((manager: any) => ({ id: crypto.randomUUID(), orgId: ctx.fleetopsUser.orgId, recipientId: manager.id, title: `${input.priority} priority issue: ${input.title}`, message: `Driver: ${ctx.fleetopsUser.fullName} · Vehicle: ${vehicleIdentity(vehicle)} · Issue: ${input.title} · Priority: ${input.priority}`, type: "VEHICLE_ISSUE", severity: input.priority === "CRITICAL" ? "CRITICAL" : input.priority === "HIGH" ? "HIGH" : "INFO", sourceType: "VEHICLE_ISSUE", dedupeKey: `VEHICLE_ISSUE:${issue.id}`, referenceId: issue.id, isRead: false, createdAt: new Date() })) }); await recordAudit(ctx, { action: "VEHICLE_ISSUE_REPORTED", entityType: "VEHICLE_ISSUE", entityId: issue.id, summary: `Driver reported vehicle issue: ${issue.title}`, metadata: { priority: issue.priority, vehicleId: vehicle.id, driverId: ctx.fleetopsUser.id, driverName: ctx.fleetopsUser.fullName, vehicleIdentity: vehicleIdentity(vehicle) } }); return issue; }),
     updateStatus: fleetOpsProcedure.input(z.object({ issueId: z.string().uuid(), status: z.enum(["OPEN", "ACKNOWLEDGED", "IN_PROGRESS", "RESOLVED", "CLOSED"]) })).mutation(async ({ ctx, input }) => { requireRole(ctx.fleetopsUser.role, ["SUPERADMIN", "FLEET_MANAGER"]); assertWritable(ctx.fleetopsUser.org); const issue = await fleetDb.vehicleIssue.findFirst({ where: { id: input.issueId, orgId: ctx.fleetopsUser.orgId } }); if (!issue) throw new TRPCError({ code: "NOT_FOUND", message: "Vehicle issue not found in this organization." }); const updated = await fleetDb.vehicleIssue.update({ where: { id: issue.id }, data: { status: input.status } }); await recordAudit(ctx, { action: "VEHICLE_ISSUE_STATUS_CHANGED", entityType: "VEHICLE_ISSUE", entityId: issue.id, summary: `Vehicle issue moved from ${issue.status} to ${input.status}`, metadata: { previousStatus: issue.status, nextStatus: input.status } }); return updated; }),
   }),
   triage: router({
