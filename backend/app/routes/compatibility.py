@@ -265,6 +265,114 @@ async def _dispatch(
         return await list_fuel_logs(user, session)
     if procedure == "driver.inspections":
         return await list_inspections(user, session)
+    if procedure == "driver.dailyHome":
+        if user.role != "DRIVER":
+            raise HTTPException(status_code=403, detail="Driver access required")
+        assignment_result = await session.execute(
+            text(
+                'select "vehicleId" from "vehicle_assignments" '
+                'where "orgId" = :org_id and "driverId" = :driver_id '
+                'and "active" = true order by "updatedAt" desc limit 1'
+            ),
+            {"org_id": user.org_id, "driver_id": user.id},
+        )
+        assignment = assignment_result.mappings().first()
+        if assignment is None:
+            return {
+                "vehicle": None,
+                "readiness": "UNASSIGNED",
+                "latestInspection": None,
+                "openIssues": [],
+                "nextAction": "Contact Fleet Manager for an active vehicle assignment.",
+            }
+        vehicle_id = str(assignment["vehicleId"])
+        vehicle_result = await session.execute(
+            text(
+                'select * from "vehicles" where "id" = :vehicle_id '
+                'and "orgId" = :org_id'
+            ),
+            {"vehicle_id": vehicle_id, "org_id": user.org_id},
+        )
+        vehicle = vehicle_result.mappings().first()
+        odometer_result = await session.execute(
+            text(
+                'select "reading", "createdAt", "source" from "odometer_logs" '
+                'where "vehicleId" = :vehicle_id order by "createdAt" desc limit 1'
+            ),
+            {"vehicle_id": vehicle_id},
+        )
+        latest_odometer = odometer_result.mappings().first()
+        inspection_result = await session.execute(
+            text(
+                'select * from "dvir_inspections" where "orgId" = :org_id '
+                'and "driverId" = :driver_id and "vehicleId" = :vehicle_id '
+                'order by "createdAt" desc limit 10'
+            ),
+            {
+                "org_id": user.org_id,
+                "driver_id": user.id,
+                "vehicle_id": vehicle_id,
+            },
+        )
+        issue_result = await session.execute(
+            text(
+                'select * from "vehicle_issues" where "orgId" = :org_id '
+                'and "driverId" = :driver_id and "vehicleId" = :vehicle_id '
+                'and "status" in (\'OPEN\', \'ACKNOWLEDGED\', \'IN_PROGRESS\') '
+                'order by "createdAt" desc limit 20'
+            ),
+            {
+                "org_id": user.org_id,
+                "driver_id": user.id,
+                "vehicle_id": vehicle_id,
+            },
+        )
+        latest_inspection = next(iter(inspection_result.mappings()), None)
+        open_issues = [dict(row) for row in issue_result.mappings()]
+        unsafe = vehicle is not None and vehicle["status"] == "OUT_OF_SERVICE"
+        ready = (
+            latest_inspection is not None
+            and latest_inspection["inspectionType"] == "PRE_TRIP"
+            and latest_inspection["status"] == "PASS"
+            and not any(
+                row["priority"] in {"HIGH", "CRITICAL"} for row in open_issues
+            )
+        )
+        if unsafe:
+            readiness = "UNSAFE"
+        elif ready:
+            readiness = "READY"
+        else:
+            readiness = "ACTION_REQUIRED"
+        vehicle_data = dict(vehicle) if vehicle else None
+        if vehicle_data is not None:
+            vehicle_data["currentOdometer"] = (
+                latest_odometer["reading"]
+                if latest_odometer
+                else vehicle_data.get("currentOdometer")
+            )
+            vehicle_data["latestOdometerReading"] = vehicle_data["currentOdometer"]
+            vehicle_data["latestOdometerAt"] = (
+                latest_odometer["createdAt"]
+                if latest_odometer
+                else vehicle_data.get("updatedAt")
+            )
+            vehicle_data["latestOdometerSource"] = (
+                latest_odometer["source"] if latest_odometer else "VEHICLE_RECORD"
+            )
+        return {
+            "vehicle": vehicle_data,
+            "readiness": readiness,
+            "latestInspection": dict(latest_inspection) if latest_inspection else None,
+            "openIssues": open_issues,
+            "nextAction": (
+                "Vehicle cleared for shift."
+                if readiness == "READY"
+                else "Do not drive. Fleet Manager disposition required."
+                if readiness == "UNSAFE"
+                else "Complete a passing pre-trip inspection and resolve high-priority issues."
+            ),
+        }
     if procedure == "workOrders.list":
         filters = cast(Mapping[str, object], input_value or {})
         vehicle_id = filters.get("vehicleId")
