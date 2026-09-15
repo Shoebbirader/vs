@@ -12,8 +12,21 @@ describe("Drizzle FleetOps data layer", () => {
 
   it("renders arithmetic update operators for inventory balances", () => {
     const source = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
-    expect(source).toContain("quote(k)} = ${quote(k)} - ${Number(v.decrement)}");
-    expect(source).toContain("quote(k)} = ${quote(k)} + ${Number(v.increment)}");
+    expect(source).toContain(
+      "identifier(k)} = ${identifier(k)} - ${Number(v.decrement)}"
+    );
+    expect(source).toContain(
+      "identifier(k)} = ${identifier(k)} + ${Number(v.increment)}"
+    );
+    expect(source).toContain("sql`${identifier(k)} = ${normalize(v)}`");
+  });
+
+  it("guards destructive or empty compatibility operations", () => {
+    const source = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
+    expect(source).toContain('requireColumns("create", keys)');
+    expect(source).toContain('requireColumns("update", columns)');
+    expect(source).toContain('updateMany requires a where clause');
+    expect(source).toContain('requireWhereId("delete", options.where)');
   });
 
   it("exposes the PostgreSQL client and FleetOps table definitions", () => {
