@@ -4,6 +4,7 @@ from .config import get_settings
 from .routes.fleet import router as fleet_router
 from .routes.health import router as health_router
 from .routes.maintenance import router as maintenance_router
+from .routes.safety import router as safety_router
 from .routes.v2 import router as v2_router
 
 
@@ -20,6 +21,7 @@ def create_app() -> FastAPI:
     application.include_router(v2_router)
     application.include_router(fleet_router)
     application.include_router(maintenance_router)
+    application.include_router(safety_router)
     return application
 
 
