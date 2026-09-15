@@ -51,8 +51,8 @@ export async function evaluateLowInventory(orgId: string) {
   const lowStock = (allParts as any[]).filter((part) => Number(part.quantityOnHand) <= Number(part.minReorderLevel));
   if (!lowStock.length) return { lowStock: 0, draftPurchaseOrders: 0 };
   let draftPurchaseOrders = 0;
-  let vendor = await fleetDb.vendor.findFirst({ where: { orgId, name: "FleetOps auto-reorder queue" } });
-  if (!vendor) vendor = await fleetDb.vendor.create({ data: { id: crypto.randomUUID(), orgId, name: "FleetOps auto-reorder queue", phone: "SYSTEM", createdAt: new Date() } });
+  let vendor = await fleetDb.vendor.findFirst({ where: { orgId, name: "VahanSync auto-reorder queue" } });
+  if (!vendor) vendor = await fleetDb.vendor.create({ data: { id: crypto.randomUUID(), orgId, name: "VahanSync auto-reorder queue", phone: "SYSTEM", createdAt: new Date() } });
   for (const part of lowStock) {
     const alreadyNotified = await fleetDb.notification.findFirst({ where: { orgId, referenceId: part.id, type: "INVENTORY_LOW", createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } } });
     if (alreadyNotified) continue;

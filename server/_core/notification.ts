@@ -33,6 +33,6 @@ const validatePayload = (input: NotificationPayload): NotificationPayload => {
  */
 export async function notifyOwner(payload: NotificationPayload): Promise<boolean> {
   const validated = validatePayload(payload);
-  console.info(`[FleetOps notification] ${validated.title}: ${validated.content}`);
+  console.info(`[VahanSync notification] ${validated.title}: ${validated.content}`);
   return true;
 }

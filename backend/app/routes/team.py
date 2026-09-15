@@ -145,7 +145,7 @@ async def _invitation_response(
     row: dict[str, object], token: UUID
 ) -> dict[str, object]:
     settings = get_settings()
-    origin = settings.public_app_url or "https://fleetops-v2.vercel.app"
+    origin = settings.public_app_url or "https://vahansync.com"
     return {**_invitation(row).model_dump(mode="json"), "join_url": f"{origin.rstrip('/')}/join/{token}"}
 
 

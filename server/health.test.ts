@@ -16,7 +16,7 @@ describe("HTTP readiness checks", () => {
       ok: true,
       database: "ok",
       configuration: "ok",
-      service: "FleetOps API",
+      service: "VahanSync API",
     });
     expect(mocks.execute).toHaveBeenCalledOnce();
   });

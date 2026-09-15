@@ -2,8 +2,8 @@ import { chromium } from "@playwright/test";
 import fs from "node:fs/promises";
 import path from "node:path";
 
-const baseUrl = (process.env.FLEETOPS_RECORDING_BASE_URL ?? "https://fleetops-v2.vercel.app").replace(/\/$/, "");
-const outputDir = process.env.FLEETOPS_RECORDING_OUTPUT_DIR ?? "/home/ubuntu/webdev-static-assets/vahansync-workflow-recording/raw";
+const baseUrl = (process.env.VAHANSYNC_RECORDING_BASE_URL ?? "https://vahansync.com").replace(/\/$/, "");
+const outputDir = process.env.VAHANSYNC_RECORDING_OUTPUT_DIR ?? "/home/ubuntu/webdev-static-assets/vahansync-workflow-recording/raw";
 const stateDir = path.join(outputDir, ".session-state");
 const viewport = { width: 1280, height: 720 };
 
@@ -16,7 +16,7 @@ const roles = [
   { key: "inventory_manager", label: "Inventory Manager", sections: ["Inventory manager workspace", "Inventory", "Vendors", "Purchase orders"] },
   { key: "accountant", label: "Accountant", sections: ["Accountant ledger", "Profile"] },
 ];
-const requestedRoleKeys = (process.env.FLEETOPS_RECORDING_ROLES ?? roles.map((role) => role.key).join(","))
+const requestedRoleKeys = (process.env.VAHANSYNC_RECORDING_ROLES ?? roles.map((role) => role.key).join(","))
   .split(",")
   .map((value) => value.trim())
   .filter(Boolean);
@@ -27,7 +27,7 @@ const recordingRoles = requestedRoleKeys.map((key) => {
 });
 
 function envKey(role, field) {
-  return `FLEETOPS_RECORDING_${role.toUpperCase()}_${field}`;
+  return `VAHANSYNC_RECORDING_${role.toUpperCase()}_${field}`;
 }
 
 function credentialsFor(role) {

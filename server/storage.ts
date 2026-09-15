@@ -2,7 +2,7 @@ import { supabaseAdmin } from "./supabase";
 import { logRequestSignal } from "./observability";
 import { fleetDb } from "./db";
 
-const STORAGE_BUCKET = process.env.SUPABASE_STORAGE_BUCKET || "fleetops-files";
+const STORAGE_BUCKET = process.env.SUPABASE_STORAGE_BUCKET || "vahansync-files";
 
 function normalizeKey(relKey: string): string {
   return relKey.replace(/^\/+/, "");

@@ -5,17 +5,17 @@ const { Pool } = pg;
 const supabaseUrl = process.env.SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const anonKey = process.env.VITE_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY;
-const baseUrl = process.env.FLEETOPS_BASE_URL ?? "https://fleetops-elktaacw.manus.space";
+const baseUrl = process.env.VAHANSYNC_BASE_URL ?? "https://vahansync.com";
 if (!supabaseUrl || !serviceKey || !anonKey) throw new Error("Supabase server and browser keys are required");
 
 const admin = createClient(supabaseUrl, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
 const anon = createClient(supabaseUrl, anonKey, { auth: { autoRefreshToken: false, persistSession: false } });
 const pool = new Pool({ connectionString: process.env.SUPABASE_DATABASE_URL, ssl: { rejectUnauthorized: false } });
 const runId = Date.now().toString(36);
-const ownerEmail = `fleetops.e2e.owner.${runId}@example.com`;
-const invitedEmail = `fleetops.e2e.fleet-manager.${runId}@example.com`;
-const mechanicEmail = `fleetops.e2e.mechanic.${runId}@example.com`;
-const password = `FleetOpsE2E!${runId}A`;
+const ownerEmail = `vahansync.e2e.owner.${runId}@example.com`;
+const invitedEmail = `vahansync.e2e.fleet-manager.${runId}@example.com`;
+const mechanicEmail = `vahansync.e2e.mechanic.${runId}@example.com`;
+const password = `VahanSyncE2E!${runId}A`;
 const results = [];
 let ownerId;
 let invitedId;
@@ -62,21 +62,21 @@ async function check(name, fn) {
 
 try {
   const owner = await check("Create temporary Superadmin Auth user", async () => {
-    const { data, error } = await admin.auth.admin.createUser({ email: ownerEmail, password, email_confirm: true, user_metadata: { fullName: "FleetOps E2E Owner", needsOnboarding: true } });
+    const { data, error } = await admin.auth.admin.createUser({ email: ownerEmail, password, email_confirm: true, user_metadata: { fullName: "VahanSync E2E Owner", needsOnboarding: true } });
     if (error || !data.user) throw error ?? new Error("No owner user returned");
     ownerId = data.user.id;
     return data.user.id;
   });
   const ownerToken = await check("Sign in temporary Superadmin", () => signIn(ownerEmail));
-  const ownerContext = await check("Bootstrap or load organization", () => tRPC("onboarding.bootstrap", ownerToken, { orgName: `FleetOps E2E ${runId}`, fullName: "FleetOps E2E Owner" }));
+  const ownerContext = await check("Bootstrap or load organization", () => tRPC("onboarding.bootstrap", ownerToken, { orgName: `VahanSync E2E ${runId}`, fullName: "VahanSync E2E Owner" }));
   orgId = ownerContext.id ? ownerContext.orgId : undefined;
   const summary = await check("Load protected dashboard summary", () => tRPC("dashboard.summary", ownerToken, null, "GET"));
   if (!summary?.org?.id) throw new Error("Dashboard summary did not return an organization");
   orgId = summary.org.id;
-  await check("Complete organization onboarding", () => tRPC("onboarding.complete", ownerToken, { orgName: `FleetOps E2E ${runId}`, fullName: "FleetOps E2E Owner" }));
+  await check("Complete organization onboarding", () => tRPC("onboarding.complete", ownerToken, { orgName: `VahanSync E2E ${runId}`, fullName: "VahanSync E2E Owner" }));
 
   const invited = await check("Create temporary Fleet Manager Auth user", async () => {
-    const { data, error } = await admin.auth.admin.createUser({ email: invitedEmail, password, email_confirm: true, user_metadata: { fullName: "FleetOps E2E Fleet Manager" } });
+    const { data, error } = await admin.auth.admin.createUser({ email: invitedEmail, password, email_confirm: true, user_metadata: { fullName: "VahanSync E2E Fleet Manager" } });
     if (error || !data.user) throw error ?? new Error("No invited user returned");
     invitedId = data.user.id;
     return data.user.id;
@@ -88,15 +88,15 @@ try {
   const details = await check("Resolve organization-bound invitation details", () => tRPC("onboarding.inviteDetails", undefined, { token: invitation.tokenHash }, "GET"));
   if (details.email !== invitedEmail || details.role !== "FLEET_MANAGER" || details.organization.id !== orgId) throw new Error("Invitation details were not organization-bound");
   const invitedToken = await check("Sign in temporary invited user", () => signIn(invitedEmail));
-  const joined = await check("Redeem invitation as invited user", () => tRPC("onboarding.acceptInvite", invitedToken, { token: invitation.tokenHash, fullName: "FleetOps E2E Fleet Manager" }));
+  const joined = await check("Redeem invitation as invited user", () => tRPC("onboarding.acceptInvite", invitedToken, { token: invitation.tokenHash, fullName: "VahanSync E2E Fleet Manager" }));
   if (joined.role !== "FLEET_MANAGER" || joined.orgId !== orgId) throw new Error("Redeemed Fleet Manager role or organization mismatch");
-  const mechanic = await check("Create temporary Mechanic Auth user", async () => { const { data, error } = await admin.auth.admin.createUser({ email: mechanicEmail, password, email_confirm: true, user_metadata: { fullName: "FleetOps E2E Mechanic" } }); if (error || !data.user) throw error ?? new Error("No mechanic user returned"); mechanicId = data.user.id; return data.user.id; });
+  const mechanic = await check("Create temporary Mechanic Auth user", async () => { const { data, error } = await admin.auth.admin.createUser({ email: mechanicEmail, password, email_confirm: true, user_metadata: { fullName: "VahanSync E2E Mechanic" } }); if (error || !data.user) throw error ?? new Error("No mechanic user returned"); mechanicId = data.user.id; return data.user.id; });
   const mechanicInvite = await check("Create Mechanic invitation for handoff", () => tRPC("team.invite", ownerToken, { email: mechanicEmail, role: "MECHANIC" }));
   mechanicInvitationId = mechanicInvite.id;
   const mechanicDetails = await check("Resolve Mechanic invitation organization binding", () => tRPC("onboarding.inviteDetails", undefined, { token: mechanicInvite.tokenHash }, "GET"));
   if (mechanicDetails.organization.id !== orgId || mechanicDetails.role !== "MECHANIC") throw new Error("Mechanic invitation binding mismatch");
   mechanicToken = await check("Sign in temporary Mechanic", () => signIn(mechanicEmail));
-  const mechanicJoined = await check("Redeem Mechanic invitation", () => tRPC("onboarding.acceptInvite", mechanicToken, { token: mechanicInvite.tokenHash, fullName: "FleetOps E2E Mechanic" }));
+  const mechanicJoined = await check("Redeem Mechanic invitation", () => tRPC("onboarding.acceptInvite", mechanicToken, { token: mechanicInvite.tokenHash, fullName: "VahanSync E2E Mechanic" }));
   if (mechanicJoined.role !== "MECHANIC" || mechanicJoined.orgId !== orgId) throw new Error("Redeemed Mechanic role or organization mismatch");
   const directory = await check("Resolve Mechanic application member identity", () => tRPC("team.members", ownerToken, null, "GET"));
   const mechanicMember = directory.find((member) => member.email === mechanicEmail && member.role === "MECHANIC");
@@ -121,7 +121,7 @@ try {
   await check("Fleet Manager can read maintenance planning signals", () => tRPC("planning.maintenance", invitedToken, { from: new Date(), to: new Date(Date.now() + 180 * 86400000) }, "GET"));
   await check("Fleet Manager can read driver handoff visibility", () => tRPC("team.driverHandoffs", invitedToken, null, "GET"));
   await check("Fleet Manager can list compliance documents", () => tRPC("documents.list", invitedToken, null, "GET"));
-  const document = await check("Fleet Manager can create a compliance document", () => tRPC("documents.create", invitedToken, { title: `E2E Fitness ${runId}`, docType: "FITNESS", fileUrl: "https://example.com/fleetops-e2e.pdf", expiryDate: new Date(Date.now() + 30 * 86400000).toISOString(), vehicleId }));
+  const document = await check("Fleet Manager can create a compliance document", () => tRPC("documents.create", invitedToken, { title: `E2E Fitness ${runId}`, docType: "FITNESS", fileUrl: "https://example.com/vahansync-e2e.pdf", expiryDate: new Date(Date.now() + 30 * 86400000).toISOString(), vehicleId }));
   documentId = document.id;
   await check("Fleet Manager can update a compliance document", () => tRPC("documents.update", invitedToken, { id: documentId, title: `E2E Fitness Updated ${runId}` }));
   await check("Fleet Manager can export compliance CSV", () => tRPC("documents.exportCsv", invitedToken, null, "GET"));

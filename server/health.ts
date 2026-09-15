@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm";
 import { db } from "./db";
 
 export const RELEASE =
-  process.env.RELEASE_VERSION ?? "fleetops-observability-20260820";
+  process.env.RELEASE_VERSION ?? "vahansync-observability-20260820";
 
 type ReadinessResult = {
   ok: boolean;
@@ -37,7 +37,7 @@ export async function getReadiness(): Promise<ReadinessResult> {
   return {
     ok: database === "ok" && configuration === "ok",
     release: RELEASE,
-    service: "FleetOps API",
+    service: "VahanSync API",
     environment:
       process.env.NODE_ENV === "production" ? "production" : "development",
     database,

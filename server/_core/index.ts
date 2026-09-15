@@ -43,7 +43,7 @@ async function startServer() {
   attachEventHandlers(app);
   realtimeServer.attach(server);
   app.get(["/healthz", "/api/healthz"], (_req, res) => {
-    res.status(200).json({ ok: true, service: "FleetOps API" });
+    res.status(200).json({ ok: true, service: "VahanSync API" });
   });
   app.get(["/readyz", "/api/readyz"], async (_req, res) => {
     const readiness = await getReadiness();

@@ -248,7 +248,7 @@ export function assertWritable(org: {
       throw new TRPCError({
         code: "FORBIDDEN",
         message:
-          "Your trial has expired. Upgrade your FleetOps plan to continue writing data.",
+          "Your trial has expired. Upgrade your VahanSync plan to continue writing data.",
       });
     }
   }
@@ -325,7 +325,7 @@ async function assertVehicleCapacity(orgId: string, maxVehicles: number) {
   if (count >= maxVehicles)
     throw new TRPCError({
       code: "FORBIDDEN",
-      message: `Vehicle limit reached (${maxVehicles}). Upgrade your FleetOps plan to add more vehicles.`,
+      message: `Vehicle limit reached (${maxVehicles}). Upgrade your VahanSync plan to add more vehicles.`,
     });
 }
 
@@ -5424,7 +5424,7 @@ export const appRouter = router({
         const origin = String(
           ctx.req?.headers?.origin ??
             process.env.PUBLIC_APP_URL ??
-            "https://fleetops-v2.vercel.app"
+            "https://vahansync.com"
         );
         const joinUrl = new URL(`/join/${token}`, origin).toString();
         const authInvite = await createAuthInvitation(normalizedEmail, joinUrl);
@@ -5480,7 +5480,7 @@ export const appRouter = router({
         const origin = String(
           ctx.req?.headers?.origin ??
             process.env.PUBLIC_APP_URL ??
-            "https://fleetops-v2.vercel.app"
+            "https://vahansync.com"
         );
         const joinUrl = new URL(`/join/${token}`, origin).toString();
         const authInvite = await createAuthInvitation(

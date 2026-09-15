@@ -19,7 +19,7 @@ export const systemRouter = router({
         return { ok: false, release: RELEASE, database: "degraded" as const, checkedAt: new Date().toISOString(), latencyMs: Date.now() - startedAt, clientTimestamp: input.timestamp, correlationId };
       }
     }),
-  release: publicProcedure.query(() => ({ release: RELEASE, service: "FleetOps API", environment: process.env.NODE_ENV === "production" ? "production" : "development" })),
+  release: publicProcedure.query(() => ({ release: RELEASE, service: "VahanSync API", environment: process.env.NODE_ENV === "production" ? "production" : "development" })),
 
   notifyOwner: adminProcedure
     .input(

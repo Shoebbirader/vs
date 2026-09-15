@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     supabase_anon_key: str | None = Field(default=None, alias="SUPABASE_ANON_KEY")
     supabase_service_role_key: str | None = Field(default=None, alias="SUPABASE_SERVICE_ROLE_KEY")
     supabase_database_url: str | None = Field(default=None, alias="SUPABASE_DATABASE_URL")
-    supabase_storage_bucket: str = Field(default="fleetops-files", alias="SUPABASE_STORAGE_BUCKET")
+    supabase_storage_bucket: str = Field(default="vahansync-files", alias="SUPABASE_STORAGE_BUCKET")
     public_app_url: str | None = Field(default=None, alias="PUBLIC_APP_URL")
     razorpay_test_key_id: str | None = Field(default=None, alias="RAZORPAY_TEST_KEY_ID")
     razorpay_test_key_secret: str | None = Field(default=None, alias="RAZORPAY_TEST_KEY_SECRET")

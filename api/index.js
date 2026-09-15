@@ -232,7 +232,7 @@ var validatePayload = (input) => {
 };
 async function notifyOwner(payload) {
   const validated = validatePayload(payload);
-  console.info(`[FleetOps notification] ${validated.title}: ${validated.content}`);
+  console.info(`[VahanSync notification] ${validated.title}: ${validated.content}`);
   return true;
 }
 
@@ -426,7 +426,7 @@ async function transaction(fn) {
 }
 
 // server/_core/systemRouter.ts
-var RELEASE = "fleetops-observability-20260820";
+var RELEASE = "vahansync-observability-20260820";
 var systemRouter = router({
   health: publicProcedure.input(import_zod.z.object({ timestamp: import_zod.z.number().min(0, "timestamp cannot be negative"), correlationId: import_zod.z.string().trim().min(8).max(128).optional() })).query(async ({ input }) => {
     const startedAt = Date.now();
@@ -438,7 +438,7 @@ var systemRouter = router({
       return { ok: false, release: RELEASE, database: "degraded", checkedAt: (/* @__PURE__ */ new Date()).toISOString(), latencyMs: Date.now() - startedAt, clientTimestamp: input.timestamp, correlationId };
     }
   }),
-  release: publicProcedure.query(() => ({ release: RELEASE, service: "FleetOps API", environment: process.env.NODE_ENV === "production" ? "production" : "development" })),
+  release: publicProcedure.query(() => ({ release: RELEASE, service: "VahanSync API", environment: process.env.NODE_ENV === "production" ? "production" : "development" })),
   notifyOwner: adminProcedure.input(
     import_zod.z.object({
       title: import_zod.z.string().min(1, "title is required"),
@@ -589,7 +589,7 @@ function logRequestSignal(input) {
 }
 
 // server/storage.ts
-var STORAGE_BUCKET = process.env.SUPABASE_STORAGE_BUCKET || "fleetops-files";
+var STORAGE_BUCKET = process.env.SUPABASE_STORAGE_BUCKET || "vahansync-files";
 function normalizeKey(relKey) {
   return relKey.replace(/^\/+/, "");
 }
@@ -849,8 +849,8 @@ async function evaluateLowInventory(orgId) {
   const lowStock = allParts.filter((part) => Number(part.quantityOnHand) <= Number(part.minReorderLevel));
   if (!lowStock.length) return { lowStock: 0, draftPurchaseOrders: 0 };
   let draftPurchaseOrders = 0;
-  let vendor = await fleetDb.vendor.findFirst({ where: { orgId, name: "FleetOps auto-reorder queue" } });
-  if (!vendor) vendor = await fleetDb.vendor.create({ data: { id: crypto.randomUUID(), orgId, name: "FleetOps auto-reorder queue", phone: "SYSTEM", createdAt: /* @__PURE__ */ new Date() } });
+  let vendor = await fleetDb.vendor.findFirst({ where: { orgId, name: "VahanSync auto-reorder queue" } });
+  if (!vendor) vendor = await fleetDb.vendor.create({ data: { id: crypto.randomUUID(), orgId, name: "VahanSync auto-reorder queue", phone: "SYSTEM", createdAt: /* @__PURE__ */ new Date() } });
   for (const part of lowStock) {
     const alreadyNotified = await fleetDb.notification.findFirst({ where: { orgId, referenceId: part.id, type: "INVENTORY_LOW", createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1e3) } } });
     if (alreadyNotified) continue;
@@ -955,16 +955,16 @@ var COMPONENT_CATALOG = [
 function assertWritable(org) {
   if (!billingWriteAllowed(org.billingStatus)) throw new import_server3.TRPCError({ code: "FORBIDDEN", message: org.billingStatus === "CANCELLED" ? "The subscription is cancelled. Historical data and exports remain available, but operational writes are paused." : "Billing is suspended. Historical data and exports remain available, but operational writes are paused until payment is restored." });
   if (org.subscriptionTier === "TRIAL_FREE" && org.trialEndsAt.getTime() < Date.now()) {
-    throw new import_server3.TRPCError({ code: "FORBIDDEN", message: "Your trial has expired. Upgrade your FleetOps plan to continue writing data." });
+    throw new import_server3.TRPCError({ code: "FORBIDDEN", message: "Your trial has expired. Upgrade your VahanSync plan to continue writing data." });
   }
 }
 async function assertVehicleCapacity(orgId, maxVehicles) {
   const count = await fleetDb.vehicle.count({ where: { orgId } });
-  if (count >= maxVehicles) throw new import_server3.TRPCError({ code: "FORBIDDEN", message: `Vehicle limit reached (${maxVehicles}). Upgrade your FleetOps plan to add more vehicles.` });
+  if (count >= maxVehicles) throw new import_server3.TRPCError({ code: "FORBIDDEN", message: `Vehicle limit reached (${maxVehicles}). Upgrade your VahanSync plan to add more vehicles.` });
 }
 async function assertUserCapacity(orgId, maxUsers) {
   const count = await fleetDb.user.count({ where: { orgId } });
-  if (count >= maxUsers) throw new import_server3.TRPCError({ code: "FORBIDDEN", message: `User limit reached (${maxUsers}). Upgrade your FleetOps plan to invite more team members.` });
+  if (count >= maxUsers) throw new import_server3.TRPCError({ code: "FORBIDDEN", message: `User limit reached (${maxUsers}). Upgrade your VahanSync plan to invite more team members.` });
 }
 var ALLOWED_DOCUMENT_TYPES = /* @__PURE__ */ new Set(["application/pdf", "image/jpeg", "image/png", "image/webp"]);
 var MAX_DOCUMENT_BYTES = 3 * 1024 * 1024;
@@ -2110,7 +2110,7 @@ var appRouter = router({
       if (existing && new Date(existing.expiresAt).getTime() > Date.now()) throw new import_server3.TRPCError({ code: "CONFLICT", message: "An active invitation already exists for this email." });
       const invitation = await withServerTimeout(fleetDb.invitation.create({ data: { id: crypto.randomUUID(), orgId: ctx.fleetopsUser.orgId, email: normalizedEmail, role: input.role, tokenHash: crypto.randomUUID(), expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1e3), lastSentAt: /* @__PURE__ */ new Date(), createdAt: /* @__PURE__ */ new Date() } }), "Invitation storage did not respond within 12 seconds. No invitation was confirmed.");
       await recordAudit(ctx, { action: "INVITATION_CREATED", entityType: "INVITATION", entityId: invitation.id, summary: `Invitation created for ${input.email.toLowerCase()}`, metadata: { role: input.role } });
-      const origin = String(ctx.req?.headers?.origin ?? process.env.PUBLIC_APP_URL ?? "https://fleetops-v2.vercel.app");
+      const origin = String(ctx.req?.headers?.origin ?? process.env.PUBLIC_APP_URL ?? "https://vahansync.com");
       const joinUrl = new URL(`/join/${invitation.tokenHash}`, origin).toString();
       const authInvite = await createAuthInvitation(normalizedEmail, joinUrl);
       const emailResult = authInvite.error ? { error: { message: authInvite.error.message } } : await sendInvitationEmail({ organizationName: ctx.fleetopsUser.org.name, inviteeEmail: normalizedEmail, role: input.role, joinUrl, expiresAt: invitation.expiresAt ? new Date(invitation.expiresAt) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1e3) });
@@ -2124,7 +2124,7 @@ var appRouter = router({
       if (invitation.acceptedAt || invitation.revokedAt) throw new import_server3.TRPCError({ code: "BAD_REQUEST", message: "Accepted or revoked invitations cannot be resent." });
       const token = crypto.randomUUID();
       const updated = await fleetDb.invitation.update({ where: { id: invitation.id }, data: { tokenHash: token, expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1e3), resendCount: Number(invitation.resendCount ?? 0) + 1, lastSentAt: /* @__PURE__ */ new Date() } });
-      const origin = String(ctx.req?.headers?.origin ?? process.env.PUBLIC_APP_URL ?? "https://fleetops-v2.vercel.app");
+      const origin = String(ctx.req?.headers?.origin ?? process.env.PUBLIC_APP_URL ?? "https://vahansync.com");
       const joinUrl = new URL(`/join/${token}`, origin).toString();
       const authInvite = await createAuthInvitation(invitation.email, joinUrl);
       const emailResult = authInvite.error ? { error: { message: authInvite.error.message } } : await sendInvitationEmail({ organizationName: ctx.fleetopsUser.org.name, inviteeEmail: invitation.email, role: invitation.role, joinUrl, expiresAt: updated.expiresAt ? new Date(updated.expiresAt) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1e3) });
