@@ -82,6 +82,14 @@ async def _dispatch(
         return await dashboard_summary(user, session)
     if procedure == "vehicles.list":
         return await list_vehicles(user, session)
+    if procedure == "vehicles.odometerHistory":
+        return await _odometer_history(user, session)
+    if procedure == "vehicles.health":
+        filters = cast(Mapping[str, object], input_value or {})
+        vehicle_id = filters.get("vehicleId")
+        if not vehicle_id:
+            raise HTTPException(status_code=400, detail="vehicleId is required")
+        return await _vehicle_health(UUID(str(vehicle_id)), user, session)
     if procedure == "workOrders.list":
         filters = cast(Mapping[str, object], input_value or {})
         vehicle_id = filters.get("vehicleId")
@@ -104,6 +112,14 @@ async def _dispatch(
             current_user=user,
             session=session,
         )
+    if procedure == "notifications.sourceDetail":
+        filters = cast(Mapping[str, object], input_value or {})
+        notification_id = filters.get("id")
+        if not notification_id:
+            raise HTTPException(status_code=400, detail="id is required")
+        return await _notification_source_detail(UUID(str(notification_id)), user, session)
+    if procedure == "activity.recent":
+        return await _recent_activity(user, session)
     if procedure == "profile.get":
         return await get_profile(current_user, session)
     if procedure == "organizationSettings.get":
@@ -274,6 +290,205 @@ async def _compliance_summary(
             for status in ("VALID", "EXPIRING", "EXPIRED", "MISSING")
         },
     }
+
+
+async def _odometer_history(user: TenantUser, session: AsyncSession) -> list[dict[str, object]]:
+    if user.role != "FLEET_MANAGER":
+        raise HTTPException(status_code=403, detail="Fleet manager access required")
+    result = await session.execute(
+        text(
+            'select o.*, v."licensePlate", v."vin" from "odometer_logs" o '
+            'join "vehicles" v on v."id" = o."vehicleId" and v."orgId" = :org_id '
+            'order by o."createdAt" desc limit 100'
+        ),
+        {"org_id": user.org_id},
+    )
+    return [dict(row) for row in result.mappings()]
+
+
+async def _vehicle_health(
+    vehicle_id: UUID,
+    user: TenantUser,
+    session: AsyncSession,
+) -> dict[str, object]:
+    if user.role not in {"SUPERADMIN", "FLEET_MANAGER", "MECHANIC", "TECHNICIAN", "DRIVER"}:
+        raise HTTPException(status_code=403, detail="Vehicle health access required")
+    vehicle_result = await session.execute(
+        text('select * from "vehicles" where "id" = :vehicle_id and "orgId" = :org_id'),
+        {"vehicle_id": str(vehicle_id), "org_id": user.org_id},
+    )
+    vehicle = vehicle_result.mappings().first()
+    if vehicle is None:
+        raise HTTPException(status_code=404, detail="Vehicle not found in your organization scope")
+    components_result = await session.execute(
+        text('select * from "components" where "vehicleId" = :vehicle_id order by "name"'),
+        {"vehicle_id": str(vehicle_id)},
+    )
+    odometers_result = await session.execute(
+        text(
+            'select * from "odometer_logs" where "vehicleId" = :vehicle_id '
+            'order by "createdAt" desc limit 12'
+        ),
+        {"vehicle_id": str(vehicle_id)},
+    )
+    work_order_query = (
+        'select * from "work_orders" where "vehicleId" = :vehicle_id and "orgId" = :org_id '
+        'and "status" not in (\'COMPLETED\', \'CANCELLED\') '
+    )
+    params: dict[str, object] = {"vehicle_id": str(vehicle_id), "org_id": user.org_id}
+    if user.role in {"MECHANIC", "TECHNICIAN"}:
+        work_order_query += 'and "assignedMechanicId" = :user_id '
+        params["user_id"] = user.id
+    work_orders_result = await session.execute(
+        text(work_order_query + 'order by "updatedAt" desc limit 12'),
+        params,
+    )
+    documents_result = await session.execute(
+        text(
+            'select * from "documents" where "vehicleId" = :vehicle_id and "orgId" = :org_id '
+            'order by "expiryDate" limit 12'
+        ),
+        {"vehicle_id": str(vehicle_id), "org_id": user.org_id},
+    )
+    components = [dict(row) for row in components_result.mappings()]
+    odometers = [dict(row) for row in odometers_result.mappings()]
+    work_orders = [dict(row) for row in work_orders_result.mappings()]
+    documents = [dict(row) for row in documents_result.mappings()]
+    current_odometer = float(vehicle["currentOdometer"] or 0)
+    due_components = [
+        item
+        for item in components
+        if current_odometer - float(item["lastServicedOdometer"] or 0)
+        >= float(item["alertThresholdKm"] or 0)
+    ]
+    now = datetime.now(timezone.utc)
+    due_documents = [
+        item for item in documents if item["expiryDate"] <= now + timedelta(days=30)
+    ]
+    return {
+        "vehicle": {**dict(vehicle), "components": components},
+        "odometers": odometers,
+        "workOrders": work_orders,
+        "documents": documents,
+        "health": {
+            "componentCount": len(components),
+            "dueComponents": len(due_components),
+            "openWorkOrders": len(work_orders),
+            "dueDocuments": len(due_documents),
+            "readiness": "READY"
+            if vehicle["status"] == "ACTIVE" and not due_components and not due_documents
+            else "REVIEW",
+        },
+    }
+
+
+async def _recent_activity(user: TenantUser, session: AsyncSession) -> list[dict[str, object]]:
+    role_filter = ""
+    params: dict[str, object] = {"org_id": user.org_id}
+    if user.role in {"MECHANIC", "TECHNICIAN"}:
+        role_filter = 'and "assignedMechanicId" = :user_id '
+        params["user_id"] = user.id
+    orders = await session.execute(
+        text(
+            'select "id", "vehicleId", "title", "status", "createdAt" from "work_orders" '
+            'where "orgId" = :org_id ' + role_filter + 'order by "createdAt" desc limit 10'
+        ),
+        params,
+    )
+    alerts = await session.execute(
+        text(
+            'select "id", "title", "message", "createdAt" from "notifications" '
+            'where "orgId" = :org_id and "recipientId" = :user_id '
+            'order by "createdAt" desc limit 10'
+        ),
+        {"org_id": user.org_id, "user_id": user.id},
+    )
+    odometer_filter = ""
+    odometer_params: dict[str, object] = {"org_id": user.org_id}
+    if user.role == "DRIVER":
+        odometer_filter = 'where o."driverId" = :user_id '
+        odometer_params["user_id"] = user.id
+    odometers = await session.execute(
+        text(
+            'select o."id", o."vehicleId", o."reading", o."isFlagged", o."createdAt" '
+            'from "odometer_logs" o join "vehicles" v on v."id" = o."vehicleId" '
+            'and v."orgId" = :org_id ' + odometer_filter
+            + 'order by o."createdAt" desc limit 10'
+        ),
+        odometer_params,
+    )
+    activity: list[dict[str, object]] = []
+    for row in orders.mappings():
+        activity.append(
+            {
+                "id": row["id"],
+                "kind": "work_order",
+                "title": row["title"],
+                "detail": f'{row["vehicleId"]} · {row["status"]}',
+                "createdAt": row["createdAt"],
+            }
+        )
+    for row in alerts.mappings():
+        activity.append(
+            {
+                "id": row["id"],
+                "kind": "notification",
+                "title": row["title"],
+                "detail": row["message"],
+                "createdAt": row["createdAt"],
+            }
+        )
+    for row in odometers.mappings():
+        activity.append(
+            {
+                "id": row["id"],
+                "kind": "odometer",
+                "title": f'Odometer updated · {row["vehicleId"]}',
+                "detail": f'{row["reading"]} km' + (" · flagged" if row["isFlagged"] else ""),
+                "createdAt": row["createdAt"],
+            }
+        )
+    return sorted(activity, key=lambda item: item["createdAt"], reverse=True)[:20]
+
+
+async def _notification_source_detail(
+    notification_id: UUID,
+    user: TenantUser,
+    session: AsyncSession,
+) -> dict[str, object]:
+    notification_result = await session.execute(
+        text(
+            'select * from "notifications" where "id" = :notification_id '
+            'and "orgId" = :org_id and "recipientId" = :user_id'
+        ),
+        {
+            "notification_id": str(notification_id),
+            "org_id": user.org_id,
+            "user_id": user.id,
+        },
+    )
+    notification = notification_result.mappings().first()
+    if notification is None:
+        raise HTTPException(status_code=404, detail="Notification is outside your organization scope")
+    source = None
+    reference_id = notification["referenceId"]
+    source_type = str(notification["sourceType"] or "SYSTEM")
+    tables = {
+        "WORK_ORDER": "work_orders",
+        "VEHICLE_ISSUE": "vehicle_issues",
+        "VEHICLE": "vehicles",
+        "DOCUMENT_EXPIRY": "documents",
+        "INVENTORY_LOW": "inventory_parts",
+    }
+    table = tables.get(source_type)
+    if reference_id and table:
+        source_result = await session.execute(
+            text(f'select * from "{table}" where "id" = :reference_id and "orgId" = :org_id'),
+            {"reference_id": str(reference_id), "org_id": user.org_id},
+        )
+        row = source_result.mappings().first()
+        source = dict(row) if row else None
+    return {"notification": dict(notification), "sourceType": source_type, "source": source}
 
 
 @router.api_route("/{procedure:path}", methods=["GET"])
