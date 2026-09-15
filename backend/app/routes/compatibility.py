@@ -2363,6 +2363,34 @@ async def _dispatch(
             user,
             session,
         )
+    if procedure == "documents.lifecycle":
+        if user.role != "SUPERADMIN":
+            raise HTTPException(status_code=403, detail="Superadmin access required")
+        result = await session.execute(
+            text(
+                'select "id", "fileKey", "fileChecksum", "fileSizeBytes", '
+                '"retentionUntil" from "documents" where "orgId" = :org_id '
+                'order by "createdAt" desc'
+            ),
+            {"org_id": user.org_id},
+        )
+        rows = result.mappings().all()
+        now = datetime.now(timezone.utc)
+        return {
+            "total": len(rows),
+            "missingMetadata": [
+                str(row["id"])
+                for row in rows
+                if not row["fileKey"] or not row["fileChecksum"] or not row["fileSizeBytes"]
+            ],
+            "retentionExpired": [
+                str(row["id"])
+                for row in rows
+                if row["retentionUntil"] and row["retentionUntil"] < now
+            ],
+            "malwareScanPolicy": "EXTERNAL_SCAN_REQUIRED_BEFORE_PRODUCTION_UPLOAD",
+            "accessLogging": "FILE_ACCESSED audit events enabled",
+        }
     if procedure in {
         "inventory.receive",
         "inventory.issue",
