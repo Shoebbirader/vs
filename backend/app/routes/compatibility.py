@@ -2952,6 +2952,238 @@ async def _dispatch(
                 },
             )
         return dict(updated)
+    if procedure == "purchaseOrders.updateStatus":
+        if user.role not in {"SUPERADMIN", "INVENTORY_MANAGER"}:
+            raise HTTPException(status_code=403, detail="Inventory management access required")
+        filters = cast(Mapping[str, object], input_value or {})
+        order_id = filters.get("id") or filters.get("purchaseOrderId")
+        status = str(filters.get("status", ""))
+        if not order_id or status not in {
+            "DRAFT",
+            "SENT",
+            "APPROVED",
+            "ORDERED",
+            "PARTIALLY_RECEIVED",
+            "RECEIVED",
+            "CANCELLED",
+            "CLOSED",
+        }:
+            raise HTTPException(status_code=400, detail="Invalid purchase-order status input")
+        try:
+            parsed_order_id = UUID(str(order_id))
+        except ValueError:
+            raise HTTPException(status_code=400, detail="purchaseOrderId must be a UUID") from None
+        allowed = {
+            "DRAFT": {"SENT", "APPROVED", "CANCELLED"},
+            "SENT": {"APPROVED", "ORDERED", "PARTIALLY_RECEIVED", "RECEIVED", "CANCELLED"},
+            "APPROVED": {"ORDERED", "CANCELLED"},
+            "ORDERED": {"PARTIALLY_RECEIVED", "RECEIVED", "CANCELLED"},
+            "PARTIALLY_RECEIVED": {"RECEIVED", "CANCELLED"},
+            "RECEIVED": {"CLOSED"},
+            "CLOSED": set(),
+            "CANCELLED": set(),
+        }
+        if status == "APPROVED" and user.role != "SUPERADMIN":
+            raise HTTPException(status_code=403, detail="Only a Superadmin can approve a purchase order")
+        expected_updated_at = _date_input(filters.get("expectedUpdatedAt"))
+        async with session.begin():
+            current_result = await session.execute(
+                text(
+                    'select * from "purchase_orders" where "id" = :order_id '
+                    'and "orgId" = :org_id for update'
+                ),
+                {"order_id": str(parsed_order_id), "org_id": user.org_id},
+            )
+            current = current_result.mappings().first()
+            if current is None:
+                raise HTTPException(status_code=404, detail="Purchase order not found in this organization")
+            if expected_updated_at and current["updatedAt"] != expected_updated_at:
+                raise HTTPException(status_code=409, detail="This purchase order changed elsewhere")
+            if status not in allowed.get(current["status"], set()):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Cannot move purchase order from {current['status']} to {status}.",
+                )
+            updated_result = await session.execute(
+                text(
+                    'update "purchase_orders" set "status" = :status, '
+                    '"receivedAt" = case when :status = \'RECEIVED\' then now() else "receivedAt" end, '
+                    '"closedAt" = case when :status = \'CLOSED\' then now() else "closedAt" end, '
+                    '"updatedAt" = now() where "id" = :order_id and "orgId" = :org_id returning *'
+                ),
+                {
+                    "status": status,
+                    "order_id": str(parsed_order_id),
+                    "org_id": user.org_id,
+                },
+            )
+            updated = updated_result.mappings().one()
+            await session.execute(
+                text(
+                    'insert into "audit_events" '
+                    '("id", "orgId", "actorId", "actorRole", "action", "entityType", '
+                    '"entityId", "summary", "metadata", "createdAt") values '
+                    '(:id, :org_id, :actor_id, :actor_role, \'PURCHASE_ORDER_STATUS_CHANGED\', '
+                    '\'PURCHASE_ORDER\', :entity_id, :summary, :metadata, now())'
+                ),
+                {
+                    "id": str(uuid4()),
+                    "org_id": user.org_id,
+                    "actor_id": user.id,
+                    "actor_role": user.role,
+                    "entity_id": str(parsed_order_id),
+                    "summary": f"Purchase order moved from {current['status']} to {status}",
+                    "metadata": json.dumps(
+                        {"previousStatus": current["status"], "nextStatus": status}
+                    ),
+                },
+            )
+        return dict(updated)
+    if procedure == "purchaseOrders.receivePartial":
+        if user.role not in {"SUPERADMIN", "INVENTORY_MANAGER"}:
+            raise HTTPException(status_code=403, detail="Inventory management access required")
+        filters = cast(Mapping[str, object], input_value or {})
+        try:
+            parsed_order_id = UUID(str(filters["purchaseOrderId"]))
+            parsed_part_id = UUID(str(filters["partId"]))
+            quantity = int(filters["quantity"])
+            expected_quantity = int(filters["expectedQuantityOnHand"])
+            unit_cost = float(filters["unitCost"])
+        except (KeyError, TypeError, ValueError):
+            raise HTTPException(status_code=400, detail="Invalid receipt input") from None
+        damaged = int(filters.get("damagedQuantity", 0))
+        backordered = int(filters.get("backorderedQuantity", 0))
+        variance_reason = str(filters.get("varianceReason", "")).strip() or None
+        complete = bool(filters.get("complete", False))
+        if quantity <= 0 or expected_quantity < 0 or unit_cost < 0 or damaged < 0 or backordered < 0:
+            raise HTTPException(status_code=400, detail="Invalid receipt quantities")
+        if (damaged or backordered) and not variance_reason:
+            raise HTTPException(status_code=400, detail="A variance reason is required for damaged or back-ordered quantities")
+        async with session.begin():
+            order_result = await session.execute(
+                text(
+                    'select * from "purchase_orders" where "id" = :order_id '
+                    'and "orgId" = :org_id for update'
+                ),
+                {"order_id": str(parsed_order_id), "org_id": user.org_id},
+            )
+            order = order_result.mappings().first()
+            if order is None or order["status"] in {"CANCELLED", "CLOSED"}:
+                raise HTTPException(status_code=404, detail="Purchase order is not receivable in this organization")
+            part_result = await session.execute(
+                text(
+                    'select * from "inventory_parts" where "id" = :part_id '
+                    'and "orgId" = :org_id for update'
+                ),
+                {"part_id": str(parsed_part_id), "org_id": user.org_id},
+            )
+            part = part_result.mappings().first()
+            if part is None:
+                raise HTTPException(status_code=404, detail="Inventory part not found in this organization")
+            if int(part["quantityOnHand"] or 0) != expected_quantity:
+                raise HTTPException(status_code=409, detail="Inventory changed since it was loaded")
+            await session.execute(
+                text(
+                    'update "inventory_parts" set "quantityOnHand" = :new_quantity, '
+                    '"unitCost" = :unit_cost, "binLocation" = coalesce(:location, "binLocation"), '
+                    '"updatedAt" = now() where "id" = :part_id and "orgId" = :org_id'
+                ),
+                {
+                    "new_quantity": expected_quantity + quantity,
+                    "unit_cost": unit_cost,
+                    "location": filters.get("location"),
+                    "part_id": str(parsed_part_id),
+                    "org_id": user.org_id,
+                },
+            )
+            receipt_result = await session.execute(
+                text(
+                    'insert into "purchase_order_receipts" '
+                    '("id", "orgId", "purchaseOrderId", "partId", "quantity", '
+                    '"damagedQuantity", "backorderedQuantity", "varianceReason", '
+                    '"unitCost", "invoiceNumber", "location", "receivedById", "receivedAt") '
+                    'values (:id, :org_id, :order_id, :part_id, :quantity, :damaged, '
+                    ':backordered, :variance_reason, :unit_cost, :invoice_number, '
+                    ':location, :received_by, now()) returning *'
+                ),
+                {
+                    "id": str(uuid4()),
+                    "org_id": user.org_id,
+                    "order_id": str(parsed_order_id),
+                    "part_id": str(parsed_part_id),
+                    "quantity": quantity,
+                    "damaged": damaged,
+                    "backordered": backordered,
+                    "variance_reason": variance_reason,
+                    "unit_cost": unit_cost,
+                    "invoice_number": filters.get("invoiceNumber"),
+                    "location": filters.get("location"),
+                    "received_by": user.id,
+                },
+            )
+            await session.execute(
+                text(
+                    'insert into "inventory_movements" '
+                    '("orgId", "partId", "actorId", "movementType", "quantity", '
+                    '"unitCost", "reason") values (:org_id, :part_id, :actor_id, '
+                    '\'RECEIPT\', :quantity, :unit_cost, :reason)'
+                ),
+                {
+                    "org_id": user.org_id,
+                    "part_id": str(parsed_part_id),
+                    "actor_id": user.id,
+                    "quantity": quantity,
+                    "unit_cost": unit_cost,
+                    "reason": f"Purchase order receipt {parsed_order_id}",
+                },
+            )
+            new_status = "RECEIVED" if complete else "PARTIALLY_RECEIVED"
+            updated_order_result = await session.execute(
+                text(
+                    'update "purchase_orders" set "status" = :status, '
+                    '"supplierInvoiceNumber" = coalesce(:invoice_number, "supplierInvoiceNumber"), '
+                    '"receivedAt" = case when :complete then now() else "receivedAt" end, '
+                    '"updatedAt" = now() where "id" = :order_id and "orgId" = :org_id returning *'
+                ),
+                {
+                    "status": new_status,
+                    "invoice_number": filters.get("invoiceNumber"),
+                    "complete": complete,
+                    "order_id": str(parsed_order_id),
+                    "org_id": user.org_id,
+                },
+            )
+            updated_order = updated_order_result.mappings().one()
+            await session.execute(
+                text(
+                    'insert into "audit_events" '
+                    '("id", "orgId", "actorId", "actorRole", "action", "entityType", '
+                    '"entityId", "summary", "metadata", "createdAt") values '
+                    '(:id, :org_id, :actor_id, :actor_role, '
+                    '\'PURCHASE_ORDER_PARTIALLY_RECEIVED\', \'PURCHASE_ORDER\', '
+                    ':entity_id, :summary, :metadata, now())'
+                ),
+                {
+                    "id": str(uuid4()),
+                    "org_id": user.org_id,
+                    "actor_id": user.id,
+                    "actor_role": user.role,
+                    "entity_id": str(parsed_order_id),
+                    "summary": f"Received {quantity} units into {part['name']}",
+                    "metadata": json.dumps(
+                        {
+                            "partId": str(parsed_part_id),
+                            "quantity": quantity,
+                            "damagedQuantity": damaged,
+                            "backorderedQuantity": backordered,
+                            "varianceReason": variance_reason,
+                            "unitCost": unit_cost,
+                            "complete": complete,
+                        }
+                    ),
+                },
+            )
+        return {"receipt": dict(receipt_result.mappings().one()), "order": dict(updated_order)}
     if procedure == "workOrders.bulkUpdate":
         filters = cast(Mapping[str, object], input_value or {})
         return await bulk_update_work_orders(
