@@ -185,6 +185,144 @@ async def frontend_invitation_details(
     }
 
 
+@router.post("/onboarding.completeInviteWithPassword", include_in_schema=False)
+async def frontend_complete_invitation(
+    request: Request,
+    session: AsyncSession = Depends(get_db_session),
+) -> object:
+    payload = await request.json()
+    filters = payload.get("json", payload) if isinstance(payload, Mapping) else payload
+    if not isinstance(filters, Mapping):
+        raise HTTPException(status_code=400, detail="Invitation input is required")
+    try:
+        token = UUID(str(filters["token"]))
+    except (KeyError, TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="token must be a UUID") from None
+    full_name = str(filters.get("fullName", "")).strip()
+    password = str(filters.get("password", ""))
+    if len(full_name) < 2 or not 8 <= len(password) <= 128:
+        raise HTTPException(status_code=400, detail="Full name and password are invalid")
+    mobile_number = str(filters.get("mobileNumber", "")).strip()
+    sms_enabled = bool(filters.get("smsAlertsEnabled", False))
+    whatsapp_enabled = bool(filters.get("whatsappAlertsEnabled", False))
+    if (sms_enabled or whatsapp_enabled) and not mobile_number:
+        raise HTTPException(
+            status_code=400,
+            detail="Save a mobile number before enabling SMS or WhatsApp alerts",
+        )
+    settings = get_settings()
+    if not settings.supabase_url or not settings.supabase_service_role_key:
+        raise HTTPException(status_code=503, detail="Supabase Auth is not configured")
+    token_hash = hashlib.sha256(str(token).encode("utf-8")).hexdigest()
+    async with session.begin():
+        invite_result = await session.execute(
+            text(
+                'select i."id", i."orgId", i."role", i."email", o."name" as "orgName" '
+                'from "invitations" i join "organizations" o on o."id" = i."orgId" '
+                'where i."tokenHash" = :token_hash and i."acceptedAt" is null '
+                'and i."revokedAt" is null and i."expiresAt" > now() for update'
+            ),
+            {"token_hash": token_hash},
+        )
+        invite = invite_result.mappings().first()
+        if invite is None:
+            raise HTTPException(
+                status_code=404,
+                detail="This invitation is invalid, expired, or already redeemed",
+            )
+        headers = {
+            "apikey": settings.supabase_service_role_key,
+            "Authorization": f"Bearer {settings.supabase_service_role_key}",
+            "Content-Type": "application/json",
+        }
+        async with httpx.AsyncClient(timeout=20) as client:
+            users_response = await client.get(
+                f'{settings.supabase_url.rstrip("/")}/auth/v1/admin/users',
+                headers=headers,
+                params={"page": 1, "per_page": 1000},
+            )
+            if users_response.status_code >= 400:
+                raise HTTPException(status_code=502, detail="Invited account lookup failed")
+            auth_users = users_response.json().get("users", [])
+            auth_user = next(
+                (
+                    item
+                    for item in auth_users
+                    if str(item.get("email", "")).lower() == str(invite["email"]).lower()
+                ),
+                None,
+            )
+            auth_payload = {
+                "password": password,
+                "email_confirm": True,
+                "user_metadata": {
+                    "fullName": full_name,
+                    "needsOnboarding": False,
+                    "invitationToken": str(token),
+                },
+            }
+            if auth_user:
+                auth_response = await client.put(
+                    f'{settings.supabase_url.rstrip("/")}/auth/v1/admin/users/{auth_user["id"]}',
+                    headers=headers,
+                    json=auth_payload,
+                )
+            else:
+                auth_response = await client.post(
+                    f'{settings.supabase_url.rstrip("/")}/auth/v1/admin/users',
+                    headers=headers,
+                    json={
+                        "email": str(invite["email"]).lower(),
+                        **auth_payload,
+                    },
+                )
+            if auth_response.status_code >= 400:
+                raise HTTPException(status_code=502, detail="The invited account could not be prepared")
+            auth_response_payload = auth_response.json()
+            auth_user = auth_response_payload.get("user", auth_response_payload)
+        user_result = await session.execute(
+            text(
+                'insert into "users" ("authUserId", "orgId", "email", "fullName", "role", '
+                '"mobileNumber", "smsAlertsEnabled", "whatsappAlertsEnabled") values '
+                '(:auth_id, :org_id, :email, :full_name, :role, nullif(:mobile, \'\'), '
+                ':sms_enabled, :whatsapp_enabled) on conflict ("authUserId") do update set '
+                '"orgId" = excluded."orgId", "email" = excluded."email", '
+                '"fullName" = excluded."fullName", "role" = excluded."role", '
+                '"mobileNumber" = excluded."mobileNumber", '
+                '"smsAlertsEnabled" = excluded."smsAlertsEnabled", '
+                '"whatsappAlertsEnabled" = excluded."whatsappAlertsEnabled", '
+                '"updatedAt" = now() returning *'
+            ),
+            {
+                "auth_id": auth_user["id"],
+                "org_id": invite["orgId"],
+                "email": str(invite["email"]).lower(),
+                "full_name": full_name,
+                "role": invite["role"],
+                "mobile": mobile_number,
+                "sms_enabled": sms_enabled if mobile_number else False,
+                "whatsapp_enabled": whatsapp_enabled if mobile_number else False,
+            },
+        )
+        joined = user_result.mappings().one()
+        await session.execute(
+            text('update "invitations" set "acceptedAt" = now() where "id" = :invite_id'),
+            {"invite_id": invite["id"]},
+        )
+    return {
+        "result": {
+            "data": {
+                "json": {
+                    "email": joined["email"],
+                    "role": joined["role"],
+                    "organizationName": invite["orgName"],
+                    "metadataSyncPending": False,
+                }
+            }
+        }
+    }
+
+
 def _camel_case(value: str) -> str:
     return re.sub(r"_([a-z])", lambda match: match.group(1).upper(), value)
 
