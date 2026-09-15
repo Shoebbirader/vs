@@ -1404,6 +1404,106 @@ async def _dispatch(
                 str(row["id"]) not in assigned_vehicle_ids for row in vehicles
             ),
         }
+    if procedure == "team.assignVehicle":
+        if user.role not in {"SUPERADMIN", "FLEET_MANAGER"}:
+            raise HTTPException(status_code=403, detail="Fleet management access required")
+        filters = cast(Mapping[str, object], input_value or {})
+        driver_id = filters.get("driverId")
+        vehicle_id = filters.get("vehicleId")
+        active = filters.get("active", True)
+        if not driver_id or not vehicle_id:
+            raise HTTPException(status_code=400, detail="driverId and vehicleId are required")
+        async with session.begin():
+            driver_result = await session.execute(
+                text(
+                    'select "id", "fullName" from "users" where "id" = :driver_id '
+                    'and "orgId" = :org_id and "role" = \'DRIVER\''
+                ),
+                {"driver_id": str(driver_id), "org_id": user.org_id},
+            )
+            driver = driver_result.mappings().first()
+            vehicle_result = await session.execute(
+                text(
+                    'select "id", "licensePlate", "make", "model" from "vehicles" '
+                    'where "id" = :vehicle_id and "orgId" = :org_id'
+                ),
+                {"vehicle_id": str(vehicle_id), "org_id": user.org_id},
+            )
+            vehicle = vehicle_result.mappings().first()
+            if driver is None or vehicle is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Driver or vehicle not found in this organization",
+                )
+            conflict_result = await session.execute(
+                text(
+                    'select "id" from "vehicle_assignments" where "orgId" = :org_id '
+                    'and "active" = true and ("driverId" = :driver_id or "vehicleId" = :vehicle_id) '
+                    'for update'
+                ),
+                {
+                    "org_id": user.org_id,
+                    "driver_id": str(driver_id),
+                    "vehicle_id": str(vehicle_id),
+                },
+            )
+            closed_ids = [str(row["id"]) for row in conflict_result.mappings()]
+            if closed_ids:
+                await session.execute(
+                    text(
+                        'update "vehicle_assignments" set "active" = false, "updatedAt" = now() '
+                        'where "id" in (' + ", ".join(f":closed_{index}" for index in range(len(closed_ids))) + ")"
+                    ),
+                    {f"closed_{index}": value for index, value in enumerate(closed_ids)},
+                )
+            assignment_id = str(uuid4())
+            assignment_result = await session.execute(
+                text(
+                    'insert into "vehicle_assignments" '
+                    '("id", "orgId", "driverId", "vehicleId", "active", "createdAt", "updatedAt") '
+                    'values (:id, :org_id, :driver_id, :vehicle_id, :active, now(), now()) '
+                    'returning *'
+                ),
+                {
+                    "id": assignment_id,
+                    "org_id": user.org_id,
+                    "driver_id": str(driver_id),
+                    "vehicle_id": str(vehicle_id),
+                    "active": bool(active),
+                },
+            )
+            assignment = assignment_result.mappings().first()
+            await session.execute(
+                text(
+                    'insert into "audit_events" '
+                    '("id", "orgId", "actorId", "actorRole", "action", "entityType", '
+                    '"entityId", "summary", "metadata", "createdAt") values '
+                    '(:id, :org_id, :actor_id, :actor_role, :action, :entity_type, '
+                    ':entity_id, :summary, :metadata, now())'
+                ),
+                {
+                    "id": str(uuid4()),
+                    "org_id": user.org_id,
+                    "actor_id": user.id,
+                    "actor_role": user.role,
+                    "action": "VEHICLE_REASSIGNED" if closed_ids else "VEHICLE_ASSIGNED",
+                    "entity_type": "VEHICLE_ASSIGNMENT",
+                    "entity_id": assignment_id,
+                    "summary": (
+                        f'{"Reassigned" if closed_ids else "Assigned"} '
+                        f'{vehicle["licensePlate"] or vehicle_id} to {driver["fullName"]}'
+                    ),
+                    "metadata": json.dumps(
+                        {
+                            "vehicleId": str(vehicle_id),
+                            "driverId": str(driver_id),
+                            "active": bool(active),
+                            "closedAssignmentIds": closed_ids,
+                        }
+                    ),
+                },
+            )
+        return {**dict(assignment), "closedAssignments": len(closed_ids)}
     if procedure == "team.driverHandoffs":
         if user.role not in {"SUPERADMIN", "FLEET_MANAGER"}:
             raise HTTPException(status_code=403, detail="Fleet management access required")
