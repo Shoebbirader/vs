@@ -114,6 +114,7 @@ from .safety import (
     create_inspection,
     current_assignment,
     list_fuel_logs,
+    list_inspections,
 )
 from .team import (
     InviteMember,
@@ -256,6 +257,8 @@ async def _dispatch(
         return await current_assignment(user, session)
     if procedure == "driver.fuelLogs":
         return await list_fuel_logs(user, session)
+    if procedure == "driver.inspections":
+        return await list_inspections(user, session)
     if procedure == "workOrders.list":
         filters = cast(Mapping[str, object], input_value or {})
         vehicle_id = filters.get("vehicleId")

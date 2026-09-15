@@ -112,6 +112,39 @@ async def list_fuel_logs(
     ]
 
 
+@router.get("/driver/inspections", response_model=list[InspectionSummary])
+async def list_inspections(
+    current_user: TenantUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> list[InspectionSummary]:
+    if current_user.role not in {"DRIVER", "SUPERADMIN"}:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Driver access required",
+        )
+    result = await session.execute(
+        text(
+            'select "id", "vehicleId", "driverId", "inspectionType", "status", '
+            '"notes", "createdAt" from "dvir_inspections" '
+            'where "orgId" = :org_id and "driverId" = :driver_id '
+            'order by "createdAt" desc limit 50'
+        ),
+        {"org_id": current_user.org_id, "driver_id": current_user.id},
+    )
+    return [
+        InspectionSummary(
+            id=row["id"],
+            vehicle_id=row["vehicleId"],
+            driver_id=row["driverId"],
+            inspection_type=row["inspectionType"],
+            status=row["status"],
+            notes=row["notes"],
+            created_at=row["createdAt"],
+        )
+        for row in result.mappings()
+    ]
+
+
 @router.post("/driver/fuel-logs", response_model=FuelLogSummary, status_code=201)
 async def create_fuel_log(
     payload: FuelLogCreate,
