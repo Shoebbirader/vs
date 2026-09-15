@@ -702,6 +702,118 @@ async def _dispatch(
             "failedItems": failed_items,
             "workOrdersCreated": work_orders_created,
         }
+    if procedure == "driver.unsafeDisposition":
+        if user.role not in {"DRIVER", "SUPERADMIN"}:
+            raise HTTPException(status_code=403, detail="Driver access required")
+        filters = cast(Mapping[str, object], input_value or {})
+        vehicle_id = filters.get("vehicleId")
+        disposition = str(filters.get("disposition", ""))
+        notes = str(filters.get("notes", "")).strip()
+        if not vehicle_id or disposition not in {"UNSAFE_TO_DRIVE", "CLEARED_TO_DRIVE"}:
+            raise HTTPException(status_code=400, detail="vehicleId and a valid disposition are required")
+        if len(notes) < 3 or len(notes) > 1000:
+            raise HTTPException(status_code=400, detail="notes must be between 3 and 1000 characters")
+        try:
+            parsed_vehicle_id = UUID(str(vehicle_id))
+        except ValueError:
+            raise HTTPException(status_code=400, detail="vehicleId must be a UUID") from None
+        next_status = "OUT_OF_SERVICE" if disposition == "UNSAFE_TO_DRIVE" else "ACTIVE"
+        async with session.begin():
+            vehicle_result = await session.execute(
+                text(
+                    'select * from "vehicles" where "id" = :vehicle_id '
+                    'and "orgId" = :org_id for update'
+                ),
+                {"vehicle_id": str(parsed_vehicle_id), "org_id": user.org_id},
+            )
+            vehicle = vehicle_result.mappings().first()
+            if vehicle is None:
+                raise HTTPException(status_code=404, detail="Assigned vehicle not found")
+            if user.role == "DRIVER":
+                assignment = await session.execute(
+                    text(
+                        'select 1 from "vehicle_assignments" where "orgId" = :org_id '
+                        'and "vehicleId" = :vehicle_id and "driverId" = :driver_id '
+                        'and "active" = true'
+                    ),
+                    {
+                        "org_id": user.org_id,
+                        "vehicle_id": str(parsed_vehicle_id),
+                        "driver_id": user.id,
+                    },
+                )
+                if assignment.first() is None:
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Vehicle is not assigned to this driver",
+                    )
+            updated_result = await session.execute(
+                text(
+                    'update "vehicles" set "status" = :status, "updatedAt" = now() '
+                    'where "id" = :vehicle_id and "orgId" = :org_id returning *'
+                ),
+                {
+                    "status": next_status,
+                    "vehicle_id": str(parsed_vehicle_id),
+                    "org_id": user.org_id,
+                },
+            )
+            updated = updated_result.mappings().one()
+            managers = await session.execute(
+                text(
+                    'select "id" from "users" where "orgId" = :org_id '
+                    'and "role" = \'FLEET_MANAGER\''
+                ),
+                {"org_id": user.org_id},
+            )
+            title = (
+                "Driver marked vehicle unsafe"
+                if disposition == "UNSAFE_TO_DRIVE"
+                else "Driver cleared vehicle"
+            )
+            severity = "CRITICAL" if disposition == "UNSAFE_TO_DRIVE" else "INFO"
+            for manager in managers.mappings():
+                await session.execute(
+                    text(
+                        'insert into "notifications" '
+                        '("id", "orgId", "recipientId", "title", "message", "type", '
+                        '"severity", "sourceType", "dedupeKey", "referenceId", "isRead") '
+                        'values (:id, :org_id, :recipient_id, :title, :message, '
+                        '\'DRIVER_SAFETY_DISPOSITION\', :severity, \'VEHICLE\', '
+                        ':dedupe_key, :reference_id, false)'
+                    ),
+                    {
+                        "id": str(uuid4()),
+                        "org_id": user.org_id,
+                        "recipient_id": manager["id"],
+                        "title": title,
+                        "message": f'{vehicle["vin"]} / {vehicle["licensePlate"]}: {notes}',
+                        "severity": severity,
+                        "dedupe_key": f"DRIVER_SAFETY:{parsed_vehicle_id}:{disposition}",
+                        "reference_id": str(parsed_vehicle_id),
+                    },
+                )
+            await session.execute(
+                text(
+                    'insert into "audit_events" '
+                    '("id", "orgId", "actorId", "actorRole", "action", "entityType", '
+                    '"entityId", "summary", "metadata", "createdAt") values '
+                    '(:id, :org_id, :actor_id, :actor_role, :action, :entity_type, '
+                    ':entity_id, :summary, :metadata, now())'
+                ),
+                {
+                    "id": str(uuid4()),
+                    "org_id": user.org_id,
+                    "actor_id": user.id,
+                    "actor_role": user.role,
+                    "action": "DRIVER_SAFETY_DISPOSITION",
+                    "entity_type": "VEHICLE",
+                    "entity_id": str(parsed_vehicle_id),
+                    "summary": f'{vehicle["vin"]} / {vehicle["licensePlate"]} marked {disposition}',
+                    "metadata": json.dumps({"disposition": disposition, "notes": notes}),
+                },
+            )
+        return dict(updated)
     if procedure == "vehicleIssues.create":
         filters = cast(Mapping[str, object], input_value or {})
         return await create_vehicle_issue(
