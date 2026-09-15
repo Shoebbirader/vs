@@ -392,6 +392,65 @@ async def _dispatch(
             },
             "activity": [dict(row) for row in activity_result.mappings()],
         }
+    if procedure == "workOrders.handoffTimeline":
+        if user.role not in {
+            "SUPERADMIN",
+            "FLEET_MANAGER",
+            "MECHANIC",
+            "TECHNICIAN",
+            "ACCOUNTANT",
+        }:
+            raise HTTPException(status_code=403, detail="Work-order access required")
+        scope = (
+            'and o."assignedMechanicId" = :actor_id'
+            if user.role in {"MECHANIC", "TECHNICIAN"}
+            else ""
+        )
+        order_result = await session.execute(
+            text(
+                'select o."id", o."title", o."vehicleId", o."status", o."priority", '
+                'o."updatedAt", u."fullName" as "assignedMechanic", '
+                'v."licensePlate", v."make", v."model" from "work_orders" o '
+                'left join "users" u on u."id" = o."assignedMechanicId" '
+                'left join "vehicles" v on v."id" = o."vehicleId" '
+                'where o."orgId" = :org_id ' + scope
+                + ' order by o."updatedAt" desc limit 100'
+            ),
+            {"org_id": user.org_id, "actor_id": user.id},
+        )
+        orders = [dict(row) for row in order_result.mappings()]
+        activity_by_order: dict[str, list[dict[str, object]]] = {
+            str(row["id"]): [] for row in orders
+        }
+        if orders:
+            activity_result = await session.execute(
+                text(
+                    'select * from "audit_events" where "orgId" = :org_id '
+                    'and "entityType" = \'WORK_ORDER\' order by "createdAt" desc limit 500'
+                ),
+                {"org_id": user.org_id},
+            )
+            for row in activity_result.mappings():
+                entity_id = str(row["entityId"])
+                if entity_id in activity_by_order and len(activity_by_order[entity_id]) < 20:
+                    activity_by_order[entity_id].append(dict(row))
+        return [
+            {
+                "workOrderId": row["id"],
+                "title": row["title"],
+                "vehicle": (
+                    f'{row["licensePlate"]} · {row["make"]} {row["model"]}'
+                    if row["licensePlate"]
+                    else row["vehicleId"]
+                ),
+                "status": row["status"],
+                "priority": row["priority"],
+                "assignedMechanic": row["assignedMechanic"] or "Unassigned",
+                "updatedAt": row["updatedAt"],
+                "activity": activity_by_order[str(row["id"])],
+            }
+            for row in orders
+        ]
     if procedure == "workOrders.create":
         filters = cast(Mapping[str, object], input_value or {})
         return await create_work_order(
