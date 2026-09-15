@@ -291,6 +291,90 @@ async def _dispatch(
         )
     if procedure == "inventory.list":
         return await list_parts(user, session)
+    if procedure == "inventory.references":
+        if user.role not in {
+            "SUPERADMIN",
+            "INVENTORY_MANAGER",
+            "FLEET_MANAGER",
+            "MECHANIC",
+            "TECHNICIAN",
+        }:
+            raise HTTPException(status_code=403, detail="Inventory access required")
+        result = await session.execute(
+            text(
+                'select "id", "sku", "name" from "inventory_parts" '
+                'where "orgId" = :org_id order by "name"'
+            ),
+            {"org_id": user.org_id},
+        )
+        return [dict(row) for row in result.mappings()]
+    if procedure == "inventory.get":
+        if user.role not in {"SUPERADMIN", "INVENTORY_MANAGER"}:
+            raise HTTPException(status_code=403, detail="Inventory manager access required")
+        filters = cast(Mapping[str, object], input_value or {})
+        part_id = filters.get("partId")
+        if not part_id:
+            raise HTTPException(status_code=400, detail="partId is required")
+        part_result = await session.execute(
+            text(
+                'select "id", "sku", "name", "binLocation", "quantityOnHand", '
+                '"minReorderLevel", "unitCost" from "inventory_parts" '
+                'where "id" = :part_id and "orgId" = :org_id'
+            ),
+            {"part_id": str(part_id), "org_id": user.org_id},
+        )
+        part = part_result.mappings().first()
+        if part is None:
+            raise HTTPException(status_code=404, detail="Inventory part not found")
+        movement_result = await session.execute(
+            text(
+                'select * from "inventory_movements" where "orgId" = :org_id '
+                'and "partId" = :part_id order by "createdAt" desc limit 100'
+            ),
+            {"org_id": user.org_id, "part_id": str(part_id)},
+        )
+        movements = [dict(row) for row in movement_result.mappings()]
+        reserved = sum(
+            float(row.get("quantity", 0))
+            for row in movements
+            if row.get("movementType") == "RESERVATION"
+        )
+        released = sum(
+            abs(float(row.get("quantity", 0)))
+            for row in movements
+            if row.get("movementType") in {"RELEASE", "ISSUE"}
+        )
+        available_reserved = max(0, reserved - released)
+        return {
+            "part": dict(part),
+            "movements": movements,
+            "reserved": available_reserved,
+            "available": max(0, float(part["quantityOnHand"]) - available_reserved),
+        }
+    if procedure == "inventory.movements":
+        if user.role not in {"SUPERADMIN", "INVENTORY_MANAGER", "MECHANIC", "TECHNICIAN"}:
+            raise HTTPException(status_code=403, detail="Inventory access required")
+        filters = cast(Mapping[str, object], input_value or {})
+        clauses = ['"m"."orgId" = :org_id']
+        params: dict[str, object] = {"org_id": user.org_id}
+        if filters.get("partId"):
+            clauses.append('"m"."partId" = :part_id')
+            params["part_id"] = str(filters["partId"])
+        if filters.get("workOrderId"):
+            clauses.append('"m"."workOrderId" = :work_order_id')
+            params["work_order_id"] = str(filters["workOrderId"])
+        if user.role in {"MECHANIC", "TECHNICIAN"}:
+            clauses.append('"w"."assignedMechanicId" = :actor_id')
+            params["actor_id"] = user.id
+        result = await session.execute(
+            text(
+                'select "m".* from "inventory_movements" "m" '
+                'left join "work_orders" "w" on "w"."id" = "m"."workOrderId" '
+                f'where {" and ".join(clauses)} order by "m"."createdAt" desc limit 100'
+            ),
+            params,
+        )
+        return [dict(row) for row in result.mappings()]
     if procedure == "inventory.create":
         filters = cast(Mapping[str, object], input_value or {})
         return await create_part(
