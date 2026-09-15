@@ -1,4 +1,5 @@
 from collections.abc import AsyncIterator
+from urllib.parse import quote, urlsplit, urlunsplit
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
@@ -7,12 +8,23 @@ from .config import get_settings
 
 
 def _async_database_url(url: str) -> str:
-    if url.startswith("postgresql+asyncpg://"):
-        return url
-    if url.startswith("postgresql://"):
-        return "postgresql+asyncpg://" + url.removeprefix("postgresql://")
-    if url.startswith("postgres://"):
-        return "postgresql+asyncpg://" + url.removeprefix("postgres://")
+    if url.startswith(("postgresql://", "postgres://", "postgresql+asyncpg://")):
+        parsed = urlsplit(url)
+        if parsed.hostname is None:
+            raise ValueError("SUPABASE_DATABASE_URL must include a database host")
+        userinfo = ""
+        if parsed.username is not None:
+            userinfo = quote(parsed.username, safe="")
+            if parsed.password is not None:
+                userinfo += f":{quote(parsed.password, safe='')}"
+            userinfo += "@"
+        host = parsed.hostname
+        if ":" in host and not host.startswith("["):
+            host = f"[{host}]"
+        netloc = f"{userinfo}{host}"
+        if parsed.port is not None:
+            netloc += f":{parsed.port}"
+        return urlunsplit(("postgresql+asyncpg", netloc, parsed.path, parsed.query, parsed.fragment))
     raise ValueError("SUPABASE_DATABASE_URL must be a PostgreSQL connection string")
 
 
