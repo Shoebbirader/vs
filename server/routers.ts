@@ -4294,7 +4294,10 @@ export const appRouter = router({
       .query(async ({ ctx, input }) => {
         requireRole(ctx.fleetopsUser.role, ["DRIVER", "SUPERADMIN"]);
         await assertDriverVehicle(ctx, input.vehicleId);
-        return getPreTripChecklist(input.vehicleId);
+        return getPreTripChecklist(
+          input.vehicleId,
+          ctx.fleetopsUser.orgId
+        );
       }),
     submitPreTripChecklist: fleetOpsProcedure
       .input(

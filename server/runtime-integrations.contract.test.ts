@@ -17,6 +17,14 @@ const viteSource = readFileSync(
   new URL("../vite.config.ts", import.meta.url),
   "utf8"
 );
+const realtimeSource = readFileSync(
+  new URL("./realtime.ts", import.meta.url),
+  "utf8"
+);
+const realtimeHookSource = readFileSync(
+  new URL("../client/src/hooks/useRealtime.ts", import.meta.url),
+  "utf8"
+);
 
 describe("runtime integrations", () => {
   it("attaches events and realtime to the standalone HTTP server", () => {
@@ -38,5 +46,11 @@ describe("runtime integrations", () => {
   it("configures the PWA plugin", () => {
     expect(viteSource).toContain("VitePWA(");
     expect(viteSource).toContain("registerType: \"autoUpdate\"");
+  });
+
+  it("keeps WebSocket upgrades isolated from Vite and other HTTP upgrades", () => {
+    expect(realtimeSource).toContain('export const REALTIME_PATH = "/ws"');
+    expect(realtimeSource).toContain("if (pathname !== REALTIME_PATH) return;");
+    expect(realtimeHookSource).toContain("window.location.host}/ws?token=");
   });
 });

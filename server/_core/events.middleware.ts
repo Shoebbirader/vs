@@ -1,13 +1,18 @@
 import { Express } from "express";
 import { eventBus, setupEventHandlers } from "../events";
 
+let handlersAttached = false;
+
 /**
  * Attach event system to Express app
  * Makes event bus available to all request handlers via app.locals
  */
 export function attachEventHandlers(app: Express) {
   // Initialize event handlers
-  setupEventHandlers();
+  if (!handlersAttached) {
+    setupEventHandlers();
+    handlersAttached = true;
+  }
 
   // Store event bus in app locals so routers can access it
   app.locals.eventBus = eventBus;

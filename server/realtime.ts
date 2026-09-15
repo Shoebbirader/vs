@@ -8,6 +8,8 @@ import { Server as HTTPServer } from "node:http";
 import { supabaseAdmin } from "./supabase";
 import { fleetDb } from "./db";
 
+export const REALTIME_PATH = "/ws";
+
 /**
  * Verify JWT token and extract user info
  */
@@ -16,8 +18,12 @@ async function verifyToken(token: string): Promise<{ id: string; orgId: string }
     const { data, error } = await supabaseAdmin.auth.getUser(token);
     if (error || !data.user) throw error || new Error("User not found");
     
-    // Get org from user metadata or database
-    const orgId = (data.user.user_metadata?.orgId as string) || "";
+    const user = await fleetDb.user.findFirst({
+      where: { id: data.user.id },
+      select: { orgId: true },
+    });
+    const orgId =
+      user?.orgId || (data.user.user_metadata?.orgId as string) || "";
     if (!orgId) throw new Error("Organization ID not found");
     
     return {
@@ -75,6 +81,12 @@ export class RealtimeServer {
    */
   attach(httpServer: HTTPServer): void {
     httpServer.on("upgrade", (request, socket, head) => {
+      const pathname = new URL(
+        request.url || "",
+        `http://${request.headers.host || "localhost"}`
+      ).pathname;
+      if (pathname !== REALTIME_PATH) return;
+
       // Extract auth token from query string or headers
       const token = this.extractToken(request);
 
