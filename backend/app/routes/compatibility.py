@@ -1320,6 +1320,7 @@ async def _dispatch(
         "inventory.transfer",
         "inventory.adjust",
         "reservePart",
+        "workOrders.reservePart",
     }:
         filters = cast(Mapping[str, object], input_value or {})
         part_id = filters.get("id") or filters.get("partId")
@@ -1381,7 +1382,7 @@ async def _dispatch(
             user,
             session,
         )
-    if procedure == "returnReservedPart":
+    if procedure in {"returnReservedPart", "workOrders.returnReservedPart"}:
         filters = cast(Mapping[str, object], input_value or {})
         return await return_reserved_part(
             ReservationReturn(
