@@ -1206,6 +1206,105 @@ async def _dispatch(
                 str(row["id"]) not in assigned_vehicle_ids for row in vehicles
             ),
         }
+    if procedure == "team.driverHandoffs":
+        if user.role not in {"SUPERADMIN", "FLEET_MANAGER"}:
+            raise HTTPException(status_code=403, detail="Fleet management access required")
+        assignment_result = await session.execute(
+            text(
+                'select * from "vehicle_assignments" where "orgId" = :org_id '
+                'and "active" = true order by "updatedAt" desc'
+            ),
+            {"org_id": user.org_id},
+        )
+        driver_result = await session.execute(
+            text(
+                'select "id", "fullName", "email" from "users" '
+                'where "orgId" = :org_id and "role" = \'DRIVER\''
+            ),
+            {"org_id": user.org_id},
+        )
+        vehicle_result = await session.execute(
+            text(
+                'select "id", "licensePlate", "status" from "vehicles" '
+                'where "orgId" = :org_id'
+            ),
+            {"org_id": user.org_id},
+        )
+        issue_result = await session.execute(
+            text(
+                'select * from "vehicle_issues" where "orgId" = :org_id '
+                'order by "createdAt" desc limit 500'
+            ),
+            {"org_id": user.org_id},
+        )
+        notification_result = await session.execute(
+            text(
+                'select * from "notifications" where "orgId" = :org_id '
+                'and "type" = \'DRIVER_SAFETY_DISPOSITION\' '
+                'order by "createdAt" desc limit 500'
+            ),
+            {"org_id": user.org_id},
+        )
+        drivers = {str(row["id"]): dict(row) for row in driver_result.mappings()}
+        vehicles = {str(row["id"]): dict(row) for row in vehicle_result.mappings()}
+        latest_issue: dict[str, dict[str, object]] = {}
+        for row in issue_result.mappings():
+            latest_issue.setdefault(str(row["vehicleId"]), dict(row))
+        latest_disposition: dict[str, dict[str, object]] = {}
+        for row in notification_result.mappings():
+            latest_disposition.setdefault(str(row["referenceId"]), dict(row))
+        handoffs = []
+        for assignment in assignment_result.mappings():
+            assignment_data = dict(assignment)
+            driver = drivers.get(str(assignment["driverId"]))
+            vehicle = vehicles.get(str(assignment["vehicleId"]))
+            issue = latest_issue.get(str(assignment["vehicleId"]))
+            disposition = latest_disposition.get(str(assignment["vehicleId"]))
+            vehicle_status = str(vehicle["status"]) if vehicle else "UNKNOWN"
+            handoffs.append(
+                {
+                    "assignmentId": assignment_data["id"],
+                    "driverId": assignment_data["driverId"],
+                    "driverName": driver["fullName"] if driver else "Unknown driver",
+                    "driverEmail": driver["email"] if driver else "",
+                    "vehicleId": assignment_data["vehicleId"],
+                    "vehicleLabel": vehicle["licensePlate"] if vehicle else assignment_data["vehicleId"],
+                    "vehicleStatus": vehicle_status,
+                    "safety": (
+                        "UNSAFE"
+                        if vehicle_status == "OUT_OF_SERVICE"
+                        else "ACTIVE"
+                        if vehicle_status == "ACTIVE"
+                        else "REVIEW"
+                    ),
+                    "latestIssue": (
+                        {
+                            "id": issue["id"],
+                            "title": issue["title"],
+                            "priority": issue["priority"],
+                            "status": issue["status"],
+                            "createdAt": issue["createdAt"],
+                        }
+                        if issue
+                        else None
+                    ),
+                    "latestDisposition": (
+                        {
+                            "severity": disposition["severity"],
+                            "message": disposition["message"],
+                            "createdAt": disposition["createdAt"],
+                        }
+                        if disposition
+                        else None
+                    ),
+                    "acknowledgedAt": (
+                        issue["updatedAt"]
+                        if issue and issue["status"] == "ACKNOWLEDGED"
+                        else None
+                    ),
+                }
+            )
+        return handoffs
     if procedure == "team.invitations":
         return await list_invitations(user, session)
     if procedure == "team.invite":
