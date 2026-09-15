@@ -394,6 +394,133 @@ async def _dispatch(
         return dict(deleted) if deleted else None
     if procedure == "vehicles.odometerHistory":
         return await _odometer_history(user, session)
+    if procedure == "vehicles.updateOdometer":
+        filters = cast(Mapping[str, object], input_value or {})
+        vehicle_id = filters.get("vehicleId")
+        if not vehicle_id:
+            raise HTTPException(status_code=400, detail="vehicleId is required")
+        try:
+            parsed_vehicle_id = UUID(str(vehicle_id))
+            reading = float(filters["reading"])
+        except (KeyError, TypeError, ValueError):
+            raise HTTPException(status_code=400, detail="vehicleId and reading are required") from None
+        if reading < 0:
+            raise HTTPException(status_code=400, detail="reading must be non-negative")
+        source = str(filters.get("source", ""))
+        if source not in {"MANUAL_DRIVER", "GPS_API", "MECHANIC"}:
+            raise HTTPException(status_code=400, detail="Invalid odometer source")
+        if user.role not in {"SUPERADMIN", "FLEET_MANAGER", "MECHANIC", "TECHNICIAN", "DRIVER"}:
+            raise HTTPException(status_code=403, detail="Odometer access required")
+        async with session.begin():
+            vehicle_result = await session.execute(
+                text(
+                    'select * from "vehicles" where "id" = :vehicle_id '
+                    'and "orgId" = :org_id for update'
+                ),
+                {"vehicle_id": str(parsed_vehicle_id), "org_id": user.org_id},
+            )
+            vehicle = vehicle_result.mappings().first()
+            if vehicle is None:
+                raise HTTPException(status_code=404, detail="Vehicle not found")
+            if user.role == "DRIVER":
+                assignment = await session.execute(
+                    text(
+                        'select 1 from "vehicle_assignments" where "orgId" = :org_id '
+                        'and "vehicleId" = :vehicle_id and "driverId" = :driver_id '
+                        'and "active" = true'
+                    ),
+                    {
+                        "org_id": user.org_id,
+                        "vehicle_id": str(parsed_vehicle_id),
+                        "driver_id": user.id,
+                    },
+                )
+                if assignment.first() is None:
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Vehicle is not assigned to this driver",
+                    )
+            current = float(vehicle["currentOdometer"] or 0)
+            latest_result = await session.execute(
+                text(
+                    'select "reading", "createdAt" from "odometer_logs" '
+                    'where "vehicleId" = :vehicle_id order by "createdAt" desc limit 1'
+                ),
+                {"vehicle_id": str(parsed_vehicle_id)},
+            )
+            latest = latest_result.mappings().first()
+            baseline = max(current, float(latest["reading"]) if latest else current)
+            elapsed_days = 1
+            if latest and latest["createdAt"]:
+                elapsed_days = max(
+                    1,
+                    (datetime.now(timezone.utc) - latest["createdAt"].replace(tzinfo=timezone.utc)).days,
+                )
+            limit = max(1, elapsed_days) * 1000
+            if reading < baseline:
+                raise HTTPException(status_code=400, detail="Odometer readings cannot move backwards.")
+            if reading - baseline > limit:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Odometer increase exceeds the {limit} km limit for the elapsed period.",
+                )
+            log_result = await session.execute(
+                text(
+                    'insert into "odometer_logs" '
+                    '("id", "vehicleId", "driverId", "reading", "source", '
+                    '"isFlagged", "createdAt") values '
+                    '(:id, :vehicle_id, :driver_id, :reading, :source, false, now()) '
+                    'returning *'
+                ),
+                {
+                    "id": str(uuid4()),
+                    "vehicle_id": str(parsed_vehicle_id),
+                    "driver_id": user.id,
+                    "reading": reading,
+                    "source": source,
+                },
+            )
+            updated_result = await session.execute(
+                text(
+                    'update "vehicles" set "currentOdometer" = :reading, '
+                    '"updatedAt" = now() where "id" = :vehicle_id '
+                    'and "orgId" = :org_id returning *'
+                ),
+                {
+                    "reading": reading,
+                    "vehicle_id": str(parsed_vehicle_id),
+                    "org_id": user.org_id,
+                },
+            )
+            log = log_result.mappings().one()
+            updated_vehicle = updated_result.mappings().one()
+            await session.execute(
+                text(
+                    'insert into "audit_events" '
+                    '("id", "orgId", "actorId", "actorRole", "action", "entityType", '
+                    '"entityId", "summary", "metadata", "createdAt") values '
+                    '(:id, :org_id, :actor_id, :actor_role, :action, :entity_type, '
+                    ':entity_id, :summary, :metadata, now())'
+                ),
+                {
+                    "id": str(uuid4()),
+                    "org_id": user.org_id,
+                    "actor_id": user.id,
+                    "actor_role": user.role,
+                    "action": "ODOMETER_READING_UPDATED",
+                    "entity_type": "VEHICLE",
+                    "entity_id": str(parsed_vehicle_id),
+                    "summary": f"Odometer reading updated to {reading} km",
+                    "metadata": json.dumps(
+                        {
+                            "previousReading": current,
+                            "newReading": reading,
+                            "source": source,
+                        }
+                    ),
+                },
+            )
+        return {"vehicle": dict(updated_vehicle), "odometerLog": dict(log)}
     if procedure == "vehicles.health":
         filters = cast(Mapping[str, object], input_value or {})
         vehicle_id = filters.get("vehicleId")
