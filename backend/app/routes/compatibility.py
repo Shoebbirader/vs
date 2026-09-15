@@ -38,6 +38,26 @@ from .documents import (
 from .audit import list_audit_events
 from .billing import billing_invoices, billing_plans, billing_payments, billing_status
 from .finance import financial_metrics, maintenance_performance
+from .inventory import (
+    PartAdjustment,
+    PartIssue,
+    PartReceive,
+    PartReservation,
+    PartTransfer,
+    ReservationReturn,
+    adjust_part,
+    issue_part,
+    receive_part,
+    reserve_part,
+    return_reserved_part,
+    transfer_part,
+)
+from .maintenance import (
+    WorkOrderBulkUpdate,
+    WorkOrderStatusUpdate,
+    bulk_update_work_orders,
+    update_work_order_status,
+)
 from .planning import maintenance_planning
 from .profile import (
     OrganizationSettingsUpdate,
@@ -348,6 +368,116 @@ async def _dispatch(
         return await archive_document(
             UUID(str(document_id)),
             DocumentArchive(reason=str(filters.get("reason", "Archived from frontend"))),
+            current_user,
+            session,
+        )
+    if procedure in {
+        "inventory.receive",
+        "inventory.issue",
+        "inventory.transfer",
+        "inventory.adjust",
+        "reservePart",
+    }:
+        filters = cast(Mapping[str, object], input_value or {})
+        part_id = filters.get("id") or filters.get("partId")
+        if not part_id:
+            raise HTTPException(status_code=400, detail="partId is required")
+        parsed_part_id = UUID(str(part_id))
+        if procedure == "inventory.receive":
+            return await receive_part(
+                parsed_part_id,
+                PartReceive(
+                    quantity=int(filters.get("quantity", 0)),
+                    unit_cost=float(filters["unitCost"]) if filters.get("unitCost") is not None else None,
+                    reason=str(filters.get("reason", "")),
+                ),
+                current_user,
+                session,
+            )
+        if procedure == "inventory.issue":
+            return await issue_part(
+                parsed_part_id,
+                PartIssue(
+                    quantity=int(filters.get("quantity", 0)),
+                    reason=str(filters.get("reason", "")),
+                    work_order_id=(
+                        UUID(str(filters["workOrderId"])) if filters.get("workOrderId") else None
+                    ),
+                ),
+                current_user,
+                session,
+            )
+        if procedure == "inventory.transfer":
+            return await transfer_part(
+                parsed_part_id,
+                PartTransfer(
+                    to_bin_location=str(filters.get("toBinLocation", "")),
+                    reason=str(filters.get("reason", "")),
+                ),
+                current_user,
+                session,
+            )
+        if procedure == "inventory.adjust":
+            return await adjust_part(
+                parsed_part_id,
+                PartAdjustment(
+                    expected_quantity_on_hand=int(filters.get("expectedQuantityOnHand", 0)),
+                    delta=int(filters.get("delta", 0)),
+                    reason=str(filters.get("reason", "")),
+                ),
+                current_user,
+                session,
+            )
+        return await reserve_part(
+            parsed_part_id,
+            PartReservation(
+                work_order_id=UUID(str(filters["workOrderId"])),
+                quantity=int(filters.get("quantity", 0)),
+                reason=str(filters.get("reason", "Reserved for work order")),
+            ),
+            current_user,
+            session,
+        )
+    if procedure == "returnReservedPart":
+        filters = cast(Mapping[str, object], input_value or {})
+        return await return_reserved_part(
+            ReservationReturn(
+                reservation_id=UUID(str(filters["reservationId"])),
+                quantity=int(filters.get("quantity", 0)),
+                reason=str(filters.get("reason", "Returned unused reserved stock")),
+            ),
+            current_user,
+            session,
+        )
+    if procedure == "workOrders.updateStatus":
+        filters = cast(Mapping[str, object], input_value or {})
+        work_order_id = filters.get("id") or filters.get("workOrderId")
+        if not work_order_id:
+            raise HTTPException(status_code=400, detail="workOrderId is required")
+        return await update_work_order_status(
+            UUID(str(work_order_id)),
+            WorkOrderStatusUpdate(
+                status=str(filters.get("status", "")),
+                expected_updated_at=_date_input(filters.get("expectedUpdatedAt")),
+            ),
+            current_user,
+            session,
+        )
+    if procedure == "workOrders.bulkUpdate":
+        filters = cast(Mapping[str, object], input_value or {})
+        return await bulk_update_work_orders(
+            WorkOrderBulkUpdate(
+                work_order_ids=[UUID(str(item)) for item in filters.get("workOrderIds", [])],
+                priority=str(filters["priority"]) if filters.get("priority") is not None else None,
+                assigned_mechanic_id=(
+                    UUID(str(filters["assignedMechanicId"]))
+                    if filters.get("assignedMechanicId")
+                    else None
+                ),
+                scheduled_for=_date_input(filters.get("scheduledFor")),
+                archive=bool(filters["archive"]) if filters.get("archive") is not None else None,
+                cancel=bool(filters.get("cancel", False)),
+            ),
             current_user,
             session,
         )
