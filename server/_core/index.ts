@@ -13,8 +13,7 @@ import {
 } from "../observability";
 import { createRateLimiter } from "../rateLimit";
 import { db, fleetDb } from "../db";
-import { sql } from "drizzle-orm";
-import { isRazorpayWebhookEnabled, verifyRazorpayWebhook } from "../razorpay";
+import { processRazorpayWebhook } from "../razorpay";
 import { getReadiness } from "../health";
 
 function isPortAvailable(port: number): Promise<boolean> {
@@ -50,92 +49,16 @@ async function startServer() {
     "/api/razorpay/webhook",
     express.raw({ type: "application/json", limit: "2mb" }),
     async (req, res) => {
-      if (!isRazorpayWebhookEnabled()) {
-        res.status(404).json({ error: "Webhook processing is disabled" });
-        return;
-      }
       const rawBody = Buffer.isBuffer(req.body)
         ? req.body.toString("utf8")
         : "";
-      if (!verifyRazorpayWebhook(rawBody, req.header("x-razorpay-signature"))) {
-        res
-          .status(400)
-          .json({
-            error: "Invalid webhook signature",
-            requestId: res.locals.requestId ?? "unknown",
-          });
-        return;
-      }
-      const eventId = req.header("x-razorpay-event-id");
-      if (!eventId || eventId.length > 200) {
-        res
-          .status(400)
-          .json({
-            error: "Missing or invalid webhook event id",
-            requestId: res.locals.requestId ?? "unknown",
-          });
-        return;
-      }
-      let payload: {
-        event?: string;
-        payload?: {
-          subscription?: { entity?: { notes?: { orgId?: string } } };
-        };
-      };
-      try {
-        payload = JSON.parse(rawBody);
-      } catch {
-        res
-          .status(400)
-          .json({
-            error: "Invalid webhook JSON",
-            requestId: res.locals.requestId ?? "unknown",
-          });
-        return;
-      }
-      const eventType = payload.event ?? "unknown";
-      const recorded = await db.execute(
-        sql.raw(
-          `INSERT INTO "razorpay_webhook_events" ("event_id", "event_type") VALUES ('${eventId.replaceAll("'", "''")}', '${eventType.replaceAll("'", "''")}') ON CONFLICT ("event_id") DO NOTHING RETURNING "id"`
-        )
-      );
-      if (!recorded.rows.length) {
-        res.status(200).json({ received: true, eventId, duplicate: true });
-        return;
-      }
-      const orgId = payload.payload?.subscription?.entity?.notes?.orgId;
-      if (
-        orgId &&
-        [
-          "subscription.activated",
-          "subscription.charged",
-          "subscription.pending",
-          "subscription.halted",
-        ].includes(payload.event ?? "")
-      ) {
-        const billingStatus =
-          payload.event === "subscription.halted"
-            ? "SUSPENDED"
-            : payload.event === "subscription.pending"
-              ? "PAYMENT_GRACE"
-              : "ACTIVE";
-        await fleetDb.organization.update({
-          where: { id: orgId },
-          data: {
-            billingStatus,
-            paymentFailedAt:
-              billingStatus === "PAYMENT_GRACE" ? new Date() : null,
-            suspendedAt: billingStatus === "SUSPENDED" ? new Date() : null,
-          },
-        });
-      }
-      res
-        .status(200)
-        .json({
-          received: true,
-          eventId,
-          mode: process.env.RAZORPAY_LIVE_ENABLED === "true" ? "LIVE" : "TEST",
-        });
+      const result = await processRazorpayWebhook({
+        rawBody,
+        signature: req.header("x-razorpay-signature"),
+        eventId: req.header("x-razorpay-event-id"),
+        requestId: res.locals.requestId,
+      });
+      res.status(result.status).json(result.body);
     }
   );
   // Configure body parser with larger size limit for file uploads
