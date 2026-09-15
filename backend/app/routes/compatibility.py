@@ -964,6 +964,92 @@ async def _dispatch(
                 ],
             }
         ]
+    if procedure == "maintenanceTemplates.applyTemplate":
+        if user.role not in {"SUPERADMIN", "FLEET_MANAGER"}:
+            raise HTTPException(
+                status_code=403,
+                detail="Maintenance template access required",
+            )
+        filters = cast(Mapping[str, object], input_value or {})
+        vehicle_id = filters.get("vehicleId")
+        template_id = filters.get("templateId")
+        if not vehicle_id or template_id != "CITY_BUS":
+            raise HTTPException(status_code=400, detail="vehicleId and a valid templateId are required")
+        template = [
+            ("Engine Oil", "OIL_FILTER", 10000, 8000),
+            ("Brakes", "BRAKE_SYSTEM", 50000, 40000),
+            ("Tires", "TIRE", 60000, 50000),
+        ]
+        async with session.begin():
+            vehicle_result = await session.execute(
+                text(
+                    'select "id", "currentOdometer" from "vehicles" '
+                    'where "id" = :vehicle_id and "orgId" = :org_id for update'
+                ),
+                {"vehicle_id": str(vehicle_id), "org_id": user.org_id},
+            )
+            vehicle = vehicle_result.mappings().first()
+            if vehicle is None:
+                raise HTTPException(status_code=404, detail="Vehicle not found")
+            existing_result = await session.execute(
+                text(
+                    'select "name" from "components" where "vehicleId" = :vehicle_id'
+                ),
+                {"vehicle_id": str(vehicle_id)},
+            )
+            existing_names = {str(row["name"]) for row in existing_result.mappings()}
+            additions = [item for item in template if item[0] not in existing_names]
+            for name, component_type, life_km, threshold_km in additions:
+                await session.execute(
+                    text(
+                        'insert into "components" '
+                        '("id", "vehicleId", "name", "componentType", "installationDate", '
+                        '"expectedLifeKm", "lastServicedOdometer", "alertThresholdKm", "status") '
+                        'values (:id, :vehicle_id, :name, :component_type, now(), '
+                        ':life_km, :odometer, :threshold_km, \'ACTIVE\')'
+                    ),
+                    {
+                        "id": str(uuid4()),
+                        "vehicle_id": str(vehicle_id),
+                        "name": name,
+                        "component_type": component_type,
+                        "life_km": life_km,
+                        "odometer": float(vehicle["currentOdometer"] or 0),
+                        "threshold_km": threshold_km,
+                    },
+                )
+            await session.execute(
+                text(
+                    'insert into "audit_events" '
+                    '("id", "orgId", "actorId", "actorRole", "action", "entityType", '
+                    '"entityId", "summary", "metadata", "createdAt") values '
+                    '(:id, :org_id, :actor_id, :actor_role, :action, :entity_type, '
+                    ':entity_id, :summary, :metadata, now())'
+                ),
+                {
+                    "id": str(uuid4()),
+                    "org_id": user.org_id,
+                    "actor_id": user.id,
+                    "actor_role": user.role,
+                    "action": "MAINTENANCE_TEMPLATE_APPLIED",
+                    "entity_type": "VEHICLE",
+                    "entity_id": str(vehicle_id),
+                    "summary": f"Applied {template_id} maintenance template",
+                    "metadata": json.dumps(
+                        {
+                            "templateId": template_id,
+                            "added": [item[0] for item in additions],
+                            "skippedExisting": len(template) - len(additions),
+                        }
+                    ),
+                },
+            )
+        return {
+            "vehicleId": str(vehicle_id),
+            "templateId": str(template_id),
+            "added": len(additions),
+            "skippedExisting": len(template) - len(additions),
+        }
     if procedure == "components.create":
         filters = cast(Mapping[str, object], input_value or {})
         return await create_component(
