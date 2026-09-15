@@ -177,6 +177,13 @@ function dataColumns(data: AnyRecord) {
       ].includes(key)
   );
 }
+function requireColumns(operation: string, columns: string[]) {
+  if (columns.length === 0) throw new Error(`${operation} requires at least one column`);
+}
+function requireWhereId(operation: string, where: AnyRecord = {}) {
+  if (where.id === undefined || where.id === null)
+    throw new Error(`${operation} requires an id`);
+}
 const auditedTables = new Set([
   "organizations",
   "users",
@@ -241,6 +248,7 @@ function model(modelName: string, executor: SqlExecutor = db) {
     async create(options: QueryOptions) {
       const data = { ...(options.data ?? {}) };
       const keys = dataColumns(data);
+      requireColumns("create", keys);
       const result = await executor.execute(
         sql`INSERT INTO ${identifier(table)} (${sql.join(
           keys.map(identifier),
@@ -259,7 +267,10 @@ function model(modelName: string, executor: SqlExecutor = db) {
     },
     async update(options: QueryOptions) {
       const data = options.data ?? {};
-      const set = dataColumns(data)
+      requireWhereId("update", options.where);
+      const columns = dataColumns(data);
+      requireColumns("update", columns);
+      const set = columns
         .map(k => {
           const v = data[k];
           return v && typeof v === "object" && v.decrement !== undefined
@@ -286,7 +297,11 @@ function model(modelName: string, executor: SqlExecutor = db) {
     },
     async updateMany(options: QueryOptions) {
       const data = options.data ?? {};
-      const set = dataColumns(data)
+      if (!options.where || Object.keys(options.where).length === 0)
+        throw new Error("updateMany requires a where clause");
+      const columns = dataColumns(data);
+      requireColumns("updateMany", columns);
+      const set = columns
         .map(k => {
           const v = data[k];
           return v && typeof v === "object" && v.decrement !== undefined
@@ -309,6 +324,7 @@ function model(modelName: string, executor: SqlExecutor = db) {
       return { count: result.rowCount ?? 0 };
     },
     async delete(options: QueryOptions) {
+      requireWhereId("delete", options.where);
       const result = await executor.execute(
         sql`DELETE FROM ${identifier(table)} WHERE ${identifier("id")} = ${options.where.id} RETURNING *`
       );

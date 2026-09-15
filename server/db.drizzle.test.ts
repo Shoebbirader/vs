@@ -21,6 +21,14 @@ describe("Drizzle FleetOps data layer", () => {
     expect(source).toContain("sql`${identifier(k)} = ${normalize(v)}`");
   });
 
+  it("guards destructive or empty compatibility operations", () => {
+    const source = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
+    expect(source).toContain('requireColumns("create", keys)');
+    expect(source).toContain('requireColumns("update", columns)');
+    expect(source).toContain('updateMany requires a where clause');
+    expect(source).toContain('requireWhereId("delete", options.where)');
+  });
+
   it("exposes the PostgreSQL client and FleetOps table definitions", () => {
     expect(typeof db.execute).toBe("function");
     expect(fleetDb).toBeDefined();
