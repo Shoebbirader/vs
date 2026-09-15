@@ -2328,15 +2328,37 @@ export const appRouter = router({
                 "Complete and save every execution checklist item before review.",
             });
         }
-        const updated = await fleetDb.workOrder.update({
-          where: { id: order.id },
-          data: {
-            status: input.status,
-            ...(input.status === "IN_PROGRESS" && !order.startedAt
-              ? { startedAt: new Date() }
-              : {}),
-          },
-        });
+        const data = {
+          status: input.status,
+          ...(input.status === "IN_PROGRESS" && !order.startedAt
+            ? { startedAt: new Date() }
+            : {}),
+        };
+        let updated;
+        if (input.expectedUpdatedAt) {
+          const changed = await fleetDb.workOrder.updateMany({
+            where: {
+              id: order.id,
+              orgId: ctx.fleetopsUser.orgId,
+              updatedAt: input.expectedUpdatedAt,
+            },
+            data,
+          });
+          if (!changed.count)
+            throw new TRPCError({
+              code: "CONFLICT",
+              message:
+                "This work order changed elsewhere. Refresh the queue before updating its status.",
+            });
+          updated = await fleetDb.workOrder.findFirst({
+            where: { id: order.id, orgId: ctx.fleetopsUser.orgId },
+          });
+        } else {
+          updated = await fleetDb.workOrder.update({
+            where: { id: order.id },
+            data,
+          });
+        }
         await recordAudit(ctx, {
           action: "WORK_ORDER_STATUS_CHANGED",
           entityType: "WORK_ORDER",
