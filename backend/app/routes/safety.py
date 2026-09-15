@@ -29,6 +29,41 @@ class InspectionSummary(BaseModel):
     created_at: datetime
 
 
+class DriverAssignment(BaseModel):
+    vehicle_id: UUID
+    vin: str
+    license_plate: str
+    make: str
+    model: str
+
+
+@router.get("/driver/assignment", response_model=DriverAssignment | None)
+async def current_assignment(
+    current_user: TenantUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> DriverAssignment | None:
+    result = await session.execute(
+        text(
+            'select v."id", v."vin", v."licensePlate", v."make", v."model" '
+            'from "vehicle_assignments" a join "vehicles" v '
+            'on v."id" = a."vehicleId" and v."orgId" = a."orgId" '
+            'where a."orgId" = :org_id and a."driverId" = :driver_id '
+            'and a."active" = true limit 1'
+        ),
+        {"org_id": current_user.org_id, "driver_id": current_user.id},
+    )
+    row = result.mappings().first()
+    if row is None:
+        return None
+    return DriverAssignment(
+        vehicle_id=row["id"],
+        vin=row["vin"],
+        license_plate=row["licensePlate"],
+        make=row["make"],
+        model=row["model"],
+    )
+
+
 @router.post("/driver/inspections", response_model=InspectionSummary, status_code=201)
 async def create_inspection(
     payload: InspectionCreate,
