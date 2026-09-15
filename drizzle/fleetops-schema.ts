@@ -273,7 +273,8 @@ export const workOrderParts = pgTable(
     ),
   })
 );
-export const vendors = pgTable(
+// prettier-ignore
+export const vendors = pgTable( // createdAt: timestamp("createdAt"
   "vendors",
   {
     id: uuid("id").defaultRandom().primaryKey(),

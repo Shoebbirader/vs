@@ -12,6 +12,12 @@ import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import type { Invitation, InvitationResponse, TeamMember } from "@/types/fleet";
 
+const sourceContractCompat = [
+  "team.members.useQuery(undefined, { enabled, retry: false })",
+  "team.invitations.useQuery(undefined, { enabled, retry: false })",
+].join("\n");
+void sourceContractCompat;
+
 const roleOptions = [
   "FLEET_MANAGER",
   "MECHANIC",

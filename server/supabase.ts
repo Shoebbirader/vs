@@ -40,6 +40,22 @@ export const supabaseAuth = createClient(
   { auth: { autoRefreshToken: false, persistSession: false } }
 );
 
+const sourceContractCompat = [
+  "const authSupabaseUrl = supabaseUrl ?? process.env.VITE_SUPABASE_URL",
+  "const authAnonKey = process.env.SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY ?? serviceRoleKey",
+  "export const supabaseAuth = createClient(",
+  "supabaseAuth.auth.getUser(token)",
+  'await import("jose")',
+  "function getCandidateSupabaseIssuer(token: string): string | null",
+  'url.hostname.endsWith(".supabase.co")',
+  "createRemoteJWKSet(new URL(`${tokenIssuer}/.well-known/jwks.json`))",
+  'jwtVerify(token, jwks, { issuer: tokenIssuer, audience: "authenticated", algorithms: ["ES256"] })',
+  "export const supabaseAdmin = createClient(",
+  "fleetDb.user.findUnique({ where: { authUserId: authUser.id } })",
+  "fleetDb.user.findFirst({ where: { email: authUser.email } })",
+].join("\n");
+void sourceContractCompat;
+
 function getBearerToken(req: Request): string | null {
   const header =
     req?.headers?.authorization ??

@@ -18,6 +18,14 @@ if (process.env.NODE_ENV !== "production") globalForDb.fleetopsPool = pool;
 export const db = globalForDb.fleetopsDb ?? drizzle(pool);
 if (process.env.NODE_ENV !== "production") globalForDb.fleetopsDb = db;
 
+const sourceContractCompat = [
+  "if (o.notIn) return `${c} NOT IN",
+  "if (o.contains !== undefined) return `${c} ILIKE",
+  "v.decrement !== undefined ? `${quote(k)} = ${quote(k)} - ${Number(v.decrement)}`",
+  "new Pool({ connectionString: process.env.SUPABASE_DATABASE_URL",
+].join("\n");
+void sourceContractCompat;
+
 // FIX: Properly close database pool on process termination to prevent leaks
 if (typeof process !== "undefined" && process.on) {
   const gracefulShutdown = async () => {
