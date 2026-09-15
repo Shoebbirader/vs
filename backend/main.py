@@ -1,3 +1,6 @@
-from app.main import app
+from fastapi import FastAPI
 
-__all__ = ["app"]
+from app.main import create_app
+
+
+app: FastAPI = create_app()
