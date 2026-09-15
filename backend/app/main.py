@@ -16,6 +16,8 @@ from .routes.safety import router as safety_router
 from .routes.v2 import router as v2_router
 from .routes.vendors import router as vendors_router
 from .routes.team import router as team_router
+from .routes.notifications import router as notifications_router
+from .routes.audit import router as audit_router
 
 
 def create_app() -> FastAPI:
@@ -42,6 +44,8 @@ def create_app() -> FastAPI:
     application.include_router(safety_router)
     application.include_router(vendors_router)
     application.include_router(team_router)
+    application.include_router(notifications_router)
+    application.include_router(audit_router)
     return application
 
 
