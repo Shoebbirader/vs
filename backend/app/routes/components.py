@@ -51,6 +51,24 @@ class ComponentCreate(BaseModel):
     status: str = Field(default="ACTIVE", pattern="^(ACTIVE|REPLACED|REMOVED)$")
 
 
+class ComponentUpdate(BaseModel):
+    inventory_part_id: UUID | None = None
+    name: str | None = Field(default=None, min_length=2, max_length=200)
+    component_type: str | None = Field(default=None, max_length=80)
+    component_subtype: str | None = Field(default=None, max_length=120)
+    brand: str | None = Field(default=None, max_length=120)
+    part_number: str | None = Field(default=None, max_length=120)
+    serial_number: str | None = Field(default=None, max_length=120)
+    installation_date: datetime | None = None
+    expected_life_km: float | None = Field(default=None, gt=0)
+    expected_life_days: int | None = Field(default=None, gt=0)
+    last_serviced_odometer: float | None = Field(default=None, ge=0)
+    alert_threshold_km: float | None = Field(default=None, gt=0)
+    alert_threshold_days: int | None = Field(default=None, gt=0)
+    notes: str | None = Field(default=None, max_length=2000)
+    status: str | None = Field(default=None, pattern="^(ACTIVE|REPLACED|REMOVED)$")
+
+
 def _component(row: dict[str, object]) -> ComponentSummary:
     return ComponentSummary(
         id=row["id"],
@@ -163,4 +181,108 @@ async def create_component(
             },
         )
         row = result.mappings().one()
+    return _component(row)
+
+
+@router.patch("/components/{component_id}", response_model=ComponentSummary)
+async def update_component(
+    component_id: UUID,
+    payload: ComponentUpdate,
+    current_user: TenantUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> ComponentSummary:
+    if current_user.role not in {"SUPERADMIN", "FLEET_MANAGER", "MECHANIC"}:
+        raise HTTPException(status_code=403, detail="Component management access required")
+    values = payload.model_dump(exclude_unset=True)
+    if not values:
+        raise HTTPException(status_code=400, detail="At least one component field is required")
+    column_map = {
+        "inventory_part_id": '"inventoryPartId"',
+        "name": '"name"',
+        "component_type": '"componentType"',
+        "component_subtype": '"componentSubtype"',
+        "brand": '"brand"',
+        "part_number": '"partNumber"',
+        "serial_number": '"serialNumber"',
+        "installation_date": '"installationDate"',
+        "expected_life_km": '"expectedLifeKm"',
+        "expected_life_days": '"expectedLifeDays"',
+        "last_serviced_odometer": '"lastServicedOdometer"',
+        "alert_threshold_km": '"alertThresholdKm"',
+        "alert_threshold_days": '"alertThresholdDays"',
+        "notes": '"notes"',
+        "status": '"status"',
+    }
+    assignments = [
+        f"{column_map[key]} = :{key}" for key in values if key in column_map
+    ]
+    if len(assignments) != len(values):
+        raise HTTPException(status_code=400, detail="Unsupported component field")
+    if "name" in values:
+        values["name"] = str(values["name"]).strip()
+    async with session.begin():
+        existing = await session.execute(
+            text(
+                'select c."id", c."vehicleId" from "components" c join "vehicles" v '
+                'on v."id" = c."vehicleId" and v."orgId" = :org_id '
+                'where c."id" = :component_id'
+            ),
+            {"component_id": str(component_id), "org_id": current_user.org_id},
+        )
+        if existing.first() is None:
+            raise HTTPException(status_code=404, detail="Component not found")
+        if "inventory_part_id" in values and values["inventory_part_id"] is not None:
+            part = await session.execute(
+                text(
+                    'select "id" from "inventory_parts" where "id" = :part_id '
+                    'and "orgId" = :org_id'
+                ),
+                {
+                    "part_id": str(values["inventory_part_id"]),
+                    "org_id": current_user.org_id,
+                },
+            )
+            if part.first() is None:
+                raise HTTPException(status_code=400, detail="Inventory part not found")
+        values["component_id"] = str(component_id)
+        result = await session.execute(
+            text(
+                'update "components" set '
+                + ", ".join(assignments)
+                + ' where "id" = :component_id returning "id", "vehicleId", '
+                '"inventoryPartId", "name", "componentType", "componentSubtype", '
+                '"brand", "partNumber", "serialNumber", "installationDate", '
+                '"expectedLifeKm", "expectedLifeDays", "lastServicedOdometer", '
+                '"alertThresholdKm", "alertThresholdDays", "notes", "status"'
+            ),
+            values,
+        )
+        row = result.mappings().one()
+    return _component(row)
+
+
+@router.delete("/components/{component_id}", response_model=ComponentSummary)
+async def remove_component(
+    component_id: UUID,
+    current_user: TenantUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> ComponentSummary:
+    if current_user.role not in {"SUPERADMIN", "FLEET_MANAGER"}:
+        raise HTTPException(status_code=403, detail="Component removal access required")
+    async with session.begin():
+        result = await session.execute(
+            text(
+                'delete from "components" c using "vehicles" v where c."id" = :component_id '
+                'and v."id" = c."vehicleId" and v."orgId" = :org_id returning '
+                'c."id", c."vehicleId", c."inventoryPartId", c."name", c."componentType", '
+                'c."componentSubtype", c."brand", c."partNumber", c."serialNumber", '
+                'c."installationDate", c."expectedLifeKm", c."expectedLifeDays", '
+                'c."lastServicedOdometer", c."alertThresholdKm", c."alertThresholdDays", '
+                'c."notes", c."status"'
+            ),
+            {"component_id": str(component_id), "org_id": current_user.org_id},
+        )
+        row = result.mappings().first()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Component not found")
     return _component(row)
