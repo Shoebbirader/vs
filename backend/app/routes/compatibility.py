@@ -336,6 +336,62 @@ async def _dispatch(
                 },
             )
         return dict(updated)
+    if procedure == "vehicles.remove":
+        if user.role not in {"SUPERADMIN", "FLEET_MANAGER"}:
+            raise HTTPException(status_code=403, detail="Fleet management access required")
+        filters = cast(Mapping[str, object], input_value or {})
+        vehicle_id = filters.get("id") or filters.get("vehicleId")
+        if not vehicle_id:
+            raise HTTPException(status_code=400, detail="vehicleId is required")
+        try:
+            parsed_vehicle_id = UUID(str(vehicle_id))
+        except ValueError:
+            raise HTTPException(status_code=400, detail="vehicleId must be a UUID") from None
+        async with session.begin():
+            current_result = await session.execute(
+                text(
+                    'select * from "vehicles" where "id" = :vehicle_id '
+                    'and "orgId" = :org_id for update'
+                ),
+                {"vehicle_id": str(parsed_vehicle_id), "org_id": user.org_id},
+            )
+            current = current_result.mappings().first()
+            if current is None:
+                raise HTTPException(status_code=404, detail="Vehicle not found in your organization")
+            deleted_result = await session.execute(
+                text(
+                    'delete from "vehicles" where "id" = :vehicle_id '
+                    'and "orgId" = :org_id returning *'
+                ),
+                {"vehicle_id": str(parsed_vehicle_id), "org_id": user.org_id},
+            )
+            deleted = deleted_result.mappings().first()
+            await session.execute(
+                text(
+                    'insert into "audit_events" '
+                    '("id", "orgId", "actorId", "actorRole", "action", "entityType", '
+                    '"entityId", "summary", "metadata", "createdAt") values '
+                    '(:id, :org_id, :actor_id, :actor_role, :action, :entity_type, '
+                    ':entity_id, :summary, :metadata, now())'
+                ),
+                {
+                    "id": str(uuid4()),
+                    "org_id": user.org_id,
+                    "actor_id": user.id,
+                    "actor_role": user.role,
+                    "action": "VEHICLE_DELETED",
+                    "entity_type": "VEHICLE",
+                    "entity_id": str(parsed_vehicle_id),
+                    "summary": f'{current["vin"]} / {current["licensePlate"]} deleted from the fleet',
+                    "metadata": json.dumps(
+                        {
+                            "vin": current["vin"],
+                            "licensePlate": current["licensePlate"],
+                        }
+                    ),
+                },
+            )
+        return dict(deleted) if deleted else None
     if procedure == "vehicles.odometerHistory":
         return await _odometer_history(user, session)
     if procedure == "vehicles.health":
