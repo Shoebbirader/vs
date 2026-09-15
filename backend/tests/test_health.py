@@ -53,6 +53,7 @@ def test_v2_docs_are_available_outside_production() -> None:
     assert "/api/v2/notifications/{notification_id}/escalate" in response.json()["paths"]
     assert "/api/v2/notifications/{notification_id}/resolve" in response.json()["paths"]
     assert "/api/v2/audit" in response.json()["paths"]
+    assert "/api/v2/automation/evaluate" in response.json()["paths"]
     assert "/api/v2/inventory/parts" in response.json()["paths"]
     assert "/api/v2/documents" in response.json()["paths"]
     assert "/api/v2/vendors" in response.json()["paths"]
