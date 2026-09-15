@@ -1105,6 +1105,7 @@ export const appRouter = router({
         const invite = await findInvitationByToken(input.token, {
           email: authUser.email,
           acceptedAt: null,
+          revokedAt: null,
           expiresAt: { gt: new Date() },
         });
         if (!invite)
@@ -1113,6 +1114,20 @@ export const appRouter = router({
             message: "Invitation is invalid, expired, or already redeemed.",
           });
         const user = await fleetDb.$transaction(async (tx: any) => {
+          const claimed = await tx.invitation.updateMany({
+            where: {
+              id: invite.id,
+              acceptedAt: null,
+              revokedAt: null,
+              expiresAt: { gt: new Date() },
+            },
+            data: { acceptedAt: new Date() },
+          });
+          if (!claimed.count)
+            throw new TRPCError({
+              code: "CONFLICT",
+              message: "Invitation was already redeemed or revoked.",
+            });
           const joined = await tx.user.upsert({
             where: { authUserId: authUser.id },
             update: {
@@ -1138,10 +1153,6 @@ export const appRouter = router({
                     authUser.email!.split("@")[0]
                 ),
             },
-          });
-          await tx.invitation.update({
-            where: { id: invite.id },
-            data: { acceptedAt: new Date() },
           });
           return joined;
         });
@@ -5463,33 +5474,36 @@ export const appRouter = router({
             code: "NOT_FOUND",
             message: "Driver or vehicle not found in this organization.",
           });
-        const conflicting = await fleetDb.vehicleAssignment.findMany({
-          where: { orgId: ctx.fleetopsUser.orgId, active: true },
-        });
-        const closed = conflicting.filter(
-          (item: any) =>
-            item.driverId === input.driverId ||
-            item.vehicleId === input.vehicleId
+        const { assignment, closed } = await fleetDb.$transaction(
+          async (tx: any) => {
+            const conflicting = await tx.vehicleAssignment.findMany({
+              where: { orgId: ctx.fleetopsUser.orgId, active: true },
+            });
+            const closed = conflicting.filter(
+              (item: any) =>
+                item.driverId === input.driverId ||
+                item.vehicleId === input.vehicleId
+            );
+            for (const item of closed) {
+              await tx.vehicleAssignment.update({
+                where: { id: item.id },
+                data: { active: false },
+              });
+            }
+            const assignment = await tx.vehicleAssignment.create({
+              data: {
+                id: crypto.randomUUID(),
+                orgId: ctx.fleetopsUser.orgId,
+                vehicleId: input.vehicleId,
+                driverId: input.driverId,
+                active: input.active,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+              },
+            });
+            return { assignment, closed };
+          }
         );
-        await Promise.all(
-          closed.map((item: any) =>
-            fleetDb.vehicleAssignment.update({
-              where: { id: item.id },
-              data: { active: false },
-            })
-          )
-        );
-        const assignment = await fleetDb.vehicleAssignment.create({
-          data: {
-            id: crypto.randomUUID(),
-            orgId: ctx.fleetopsUser.orgId,
-            vehicleId: input.vehicleId,
-            driverId: input.driverId,
-            active: input.active,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          },
-        });
         await recordAudit(ctx, {
           action: closed.length ? "VEHICLE_REASSIGNED" : "VEHICLE_ASSIGNED",
           entityType: "VEHICLE_ASSIGNMENT",
