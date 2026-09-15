@@ -558,6 +558,150 @@ async def _dispatch(
             user,
             session,
         )
+    if procedure == "driver.submitPreTripChecklist":
+        if user.role not in {"DRIVER", "SUPERADMIN"}:
+            raise HTTPException(status_code=403, detail="Driver access required")
+        filters = cast(Mapping[str, object], input_value or {})
+        vehicle_id = filters.get("vehicleId")
+        raw_results = filters.get("results")
+        if not vehicle_id or not isinstance(raw_results, list) or not raw_results:
+            raise HTTPException(status_code=400, detail="vehicleId and results are required")
+        if len(raw_results) > 100:
+            raise HTTPException(status_code=400, detail="At most 100 checklist results are allowed")
+        try:
+            parsed_vehicle_id = UUID(str(vehicle_id))
+        except ValueError:
+            raise HTTPException(status_code=400, detail="vehicleId must be a UUID") from None
+        checklist = {
+            "ext-001": ("Tire Condition", "EXTERIOR", True),
+            "ext-002": ("Lights", "EXTERIOR", True),
+            "ext-003": ("Mirrors", "EXTERIOR", True),
+            "ext-004": ("Wipers", "EXTERIOR", False),
+            "int-001": ("Seatbelts", "INTERIOR", True),
+            "int-002": ("Dashboard Lights", "INTERIOR", True),
+            "int-003": ("Windshield", "INTERIOR", True),
+            "int-004": ("Controls", "INTERIOR", True),
+            "mech-001": ("Engine Start", "MECHANICAL", True),
+            "mech-002": ("Brakes", "MECHANICAL", True),
+            "mech-003": ("Steering", "MECHANICAL", True),
+            "safe-001": ("Emergency Kit", "SAFETY", True),
+            "safe-002": ("Fire Extinguisher", "SAFETY", True),
+            "safe-003": ("Spare Tire", "SAFETY", True),
+        }
+        results: list[dict[str, object]] = []
+        for item in raw_results:
+            if not isinstance(item, Mapping):
+                raise HTTPException(status_code=400, detail="Invalid checklist result")
+            item_id = str(item.get("itemId", ""))
+            notes = item.get("notes")
+            if item_id not in checklist or not isinstance(item.get("passed"), bool):
+                raise HTTPException(status_code=400, detail="Invalid checklist result")
+            if notes is not None and (not isinstance(notes, str) or len(notes) > 1000):
+                raise HTTPException(status_code=400, detail="Checklist notes are invalid")
+            results.append(
+                {
+                    "itemId": item_id,
+                    "passed": item["passed"],
+                    "notes": notes,
+                }
+            )
+        required_ids = {item_id for item_id, item in checklist.items() if item[2]}
+        missing = required_ids - {str(item["itemId"]) for item in results}
+        if missing:
+            names = ", ".join(checklist[item_id][0] for item_id in sorted(missing))
+            raise HTTPException(
+                status_code=400,
+                detail=f"Missing required checklist items: {names}",
+            )
+        passed_items = sum(bool(item["passed"]) for item in results)
+        failed_items = len(results) - passed_items
+        async with session.begin():
+            vehicle_result = await session.execute(
+                text(
+                    'select "id" from "vehicles" where "id" = :vehicle_id '
+                    'and "orgId" = :org_id for update'
+                ),
+                {"vehicle_id": str(parsed_vehicle_id), "org_id": user.org_id},
+            )
+            if vehicle_result.first() is None:
+                raise HTTPException(status_code=404, detail="Vehicle not found")
+            if user.role == "DRIVER":
+                assignment = await session.execute(
+                    text(
+                        'select 1 from "vehicle_assignments" where "orgId" = :org_id '
+                        'and "vehicleId" = :vehicle_id and "driverId" = :driver_id '
+                        'and "active" = true'
+                    ),
+                    {
+                        "org_id": user.org_id,
+                        "vehicle_id": str(parsed_vehicle_id),
+                        "driver_id": user.id,
+                    },
+                )
+                if assignment.first() is None:
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Vehicle is not assigned to this driver",
+                    )
+            work_orders_created = 0
+            for item in results:
+                if item["passed"] or not item["notes"]:
+                    continue
+                title, section, _ = checklist[str(item["itemId"])]
+                await session.execute(
+                    text(
+                        'insert into "work_orders" '
+                        '("id", "orgId", "vehicleId", "title", "description", '
+                        '"priority", "status", "createdAt", "updatedAt") values '
+                        '(:id, :org_id, :vehicle_id, :title, :description, '
+                        ':priority, \'OPEN\', now(), now())'
+                    ),
+                    {
+                        "id": str(uuid4()),
+                        "org_id": user.org_id,
+                        "vehicle_id": str(parsed_vehicle_id),
+                        "title": f"Pre-trip Check Failed: {title}",
+                        "description": f"Driver reported issue during pre-trip inspection: {item['notes']}",
+                        "priority": "HIGH" if section in {"SAFETY", "MECHANICAL"} else "MEDIUM",
+                    },
+                )
+                work_orders_created += 1
+            checklist_id = str(uuid4())
+            await session.execute(
+                text(
+                    'insert into "audit_events" '
+                    '("id", "orgId", "actorId", "actorRole", "action", "entityType", '
+                    '"entityId", "summary", "metadata", "createdAt") values '
+                    '(:id, :org_id, :actor_id, :actor_role, :action, :entity_type, '
+                    ':entity_id, :summary, :metadata, now())'
+                ),
+                {
+                    "id": str(uuid4()),
+                    "org_id": user.org_id,
+                    "actor_id": user.id,
+                    "actor_role": user.role,
+                    "action": "PRE_TRIP_CHECKLIST_SUBMITTED",
+                    "entity_type": "VEHICLE",
+                    "entity_id": str(parsed_vehicle_id),
+                    "summary": f"Pre-trip checklist: {passed_items} passed, {failed_items} failed",
+                    "metadata": json.dumps(
+                        {
+                            "checklistId": checklist_id,
+                            "passedItems": passed_items,
+                            "failedItems": failed_items,
+                            "workOrdersCreated": work_orders_created,
+                            "results": [item for item in results if not item["passed"]],
+                        }
+                    ),
+                },
+            )
+        return {
+            "checklistId": checklist_id,
+            "vehicleId": str(parsed_vehicle_id),
+            "passedItems": passed_items,
+            "failedItems": failed_items,
+            "workOrdersCreated": work_orders_created,
+        }
     if procedure == "vehicleIssues.create":
         filters = cast(Mapping[str, object], input_value or {})
         return await create_vehicle_issue(
