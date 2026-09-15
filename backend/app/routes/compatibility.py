@@ -2388,6 +2388,66 @@ async def _dispatch(
                 },
             )
         return dict(updated)
+    if procedure == "workOrders.updateChecklist":
+        if user.role not in {"MECHANIC", "TECHNICIAN"}:
+            raise HTTPException(status_code=403, detail="Mechanic access required")
+        filters = cast(Mapping[str, object], input_value or {})
+        work_order_id = filters.get("workOrderId") or filters.get("id")
+        items = filters.get("items")
+        if not work_order_id or not isinstance(items, list) or not 1 <= len(items) <= 30:
+            raise HTTPException(status_code=400, detail="workOrderId and 1-30 checklist items are required")
+        try:
+            parsed_work_order_id = UUID(str(work_order_id))
+        except ValueError:
+            raise HTTPException(status_code=400, detail="workOrderId must be a UUID") from None
+        normalized_items: list[dict[str, object]] = []
+        for item in items:
+            if not isinstance(item, Mapping):
+                raise HTTPException(status_code=400, detail="Invalid checklist item")
+            item_id = str(item.get("id", ""))
+            title = str(item.get("title", "")).strip()
+            completed = item.get("completed")
+            if not 1 <= len(item_id) <= 80 or not 2 <= len(title) <= 160 or not isinstance(completed, bool):
+                raise HTTPException(status_code=400, detail="Invalid checklist item")
+            normalized_items.append(
+                {"id": item_id, "title": title, "completed": completed}
+            )
+        async with session.begin():
+            current_result = await session.execute(
+                text(
+                    'select * from "work_orders" where "id" = :work_order_id '
+                    'and "orgId" = :org_id and "assignedMechanicId" = :mechanic_id '
+                    'for update'
+                ),
+                {
+                    "work_order_id": str(parsed_work_order_id),
+                    "org_id": user.org_id,
+                    "mechanic_id": user.id,
+                },
+            )
+            current = current_result.mappings().first()
+            if current is None:
+                raise HTTPException(status_code=404, detail="Work order is not assigned to you")
+            await session.execute(
+                text(
+                    'insert into "audit_events" '
+                    '("id", "orgId", "actorId", "actorRole", "action", "entityType", '
+                    '"entityId", "summary", "metadata", "createdAt") values '
+                    '(:id, :org_id, :actor_id, :actor_role, '
+                    '\'WORK_ORDER_CHECKLIST_UPDATED\', \'WORK_ORDER\', :entity_id, '
+                    ':summary, :metadata, now())'
+                ),
+                {
+                    "id": str(uuid4()),
+                    "org_id": user.org_id,
+                    "actor_id": user.id,
+                    "actor_role": user.role,
+                    "entity_id": str(parsed_work_order_id),
+                    "summary": f'Checklist updated for {current["title"]}',
+                    "metadata": json.dumps({"items": normalized_items}),
+                },
+            )
+        return {"workOrderId": str(parsed_work_order_id), "items": normalized_items}
     if procedure == "workOrders.bulkUpdate":
         filters = cast(Mapping[str, object], input_value or {})
         return await bulk_update_work_orders(
