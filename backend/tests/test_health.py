@@ -30,6 +30,8 @@ def test_v2_docs_are_available_outside_production() -> None:
     assert "/api/v2/onboarding/invitation" in response.json()["paths"]
     assert "/api/v2/onboarding/accept-invitation" in response.json()["paths"]
     assert "/api/v2/components/{component_id}" in response.json()["paths"]
+    assert "/api/v2/work-orders/{work_order_id}/status" in response.json()["paths"]
+    assert "/api/v2/work-orders/bulk" in response.json()["paths"]
     assert "/api/v2/inventory/parts" in response.json()["paths"]
     assert "/api/v2/documents" in response.json()["paths"]
     assert "/api/v2/vendors" in response.json()["paths"]
