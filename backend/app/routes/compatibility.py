@@ -41,8 +41,24 @@ from .documents import (
     update_document,
 )
 from .audit import list_audit_events
-from .billing import billing_invoices, billing_plans, billing_payments, billing_status
-from .finance import financial_metrics, maintenance_performance
+from .billing import (
+    activate_starter,
+    billing_invoices,
+    billing_plans,
+    billing_payments,
+    billing_status,
+)
+from .finance import (
+    Decision,
+    FinancialCreate,
+    ReconcileRecord,
+    approve_record,
+    create_financial,
+    financial_metrics,
+    maintenance_performance,
+    reconcile_record,
+    reverse_record,
+)
 from .inventory import (
     PartAdjustment,
     PartIssue,
@@ -603,6 +619,82 @@ async def _dispatch(
         )
     if procedure == "financials.metrics":
         return await financial_metrics(user, session)
+    if procedure == "financials.create":
+        filters = cast(Mapping[str, object], input_value or {})
+        return await create_financial(
+            FinancialCreate(
+                vehicle_id=UUID(str(filters["vehicleId"])),
+                type=str(filters.get("type", "")),
+                category=str(filters.get("category", "")),
+                amount=float(filters.get("amount", 0)),
+                transaction_date=_date_input(filters.get("transactionDate"))
+                or datetime.now(timezone.utc),
+                tax_amount=float(filters.get("taxAmount", 0)),
+                gstin=str(filters["gstin"]) if filters.get("gstin") else None,
+                tax_category=(
+                    str(filters["taxCategory"])
+                    if filters.get("taxCategory")
+                    else None
+                ),
+                invoice_number=(
+                    str(filters["invoiceNumber"])
+                    if filters.get("invoiceNumber")
+                    else None
+                ),
+                vendor=str(filters["vendor"]) if filters.get("vendor") else None,
+                payment_method=(
+                    str(filters["paymentMethod"])
+                    if filters.get("paymentMethod")
+                    else None
+                ),
+                cost_center_type=(
+                    str(filters["costCenterType"])
+                    if filters.get("costCenterType")
+                    else None
+                ),
+                cost_center_id=(
+                    UUID(str(filters["costCenterId"]))
+                    if filters.get("costCenterId")
+                    else None
+                ),
+                tds_amount=float(filters.get("tdsAmount", 0)),
+            ),
+            user,
+            session,
+        )
+    if procedure == "financials.reconcileRecord":
+        filters = cast(Mapping[str, object], input_value or {})
+        record_id = filters.get("id")
+        if not record_id:
+            raise HTTPException(status_code=400, detail="id is required")
+        return await reconcile_record(
+            UUID(str(record_id)),
+            ReconcileRecord(reconciliation_ref=str(filters.get("reconciliationRef", ""))),
+            user,
+            session,
+        )
+    if procedure == "financials.approve":
+        filters = cast(Mapping[str, object], input_value or {})
+        record_id = filters.get("id")
+        if not record_id:
+            raise HTTPException(status_code=400, detail="id is required")
+        return await approve_record(
+            UUID(str(record_id)),
+            Decision(reason=str(filters.get("reason", ""))),
+            user,
+            session,
+        )
+    if procedure == "financials.reverse":
+        filters = cast(Mapping[str, object], input_value or {})
+        record_id = filters.get("id")
+        if not record_id:
+            raise HTTPException(status_code=400, detail="id is required")
+        return await reverse_record(
+            UUID(str(record_id)),
+            Decision(reason=str(filters.get("reason", ""))),
+            user,
+            session,
+        )
     if procedure == "reports.maintenancePerformance":
         filters = cast(Mapping[str, object], input_value or {})
         return await maintenance_performance(
@@ -652,6 +744,8 @@ async def _dispatch(
         return await billing_invoices(user, session)
     if procedure == "billing.payments":
         return await billing_payments(user, session)
+    if procedure == "billingTest.activateStarter":
+        return await activate_starter(user, session)
     if procedure == "audit.list":
         filters = cast(Mapping[str, object], input_value or {})
         return await list_audit_events(
