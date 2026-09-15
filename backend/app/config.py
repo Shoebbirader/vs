@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     supabase_url: str | None = Field(default=None, alias="SUPABASE_URL")
     supabase_anon_key: str | None = Field(default=None, alias="SUPABASE_ANON_KEY")
     supabase_database_url: str | None = Field(default=None, alias="SUPABASE_DATABASE_URL")
+    public_app_url: str | None = Field(default=None, alias="PUBLIC_APP_URL")
 
     @property
     def production(self) -> bool:
