@@ -558,6 +558,133 @@ async def _dispatch(
             user,
             session,
         )
+    if procedure == "driver.preTripChecklist":
+        if user.role not in {"DRIVER", "SUPERADMIN"}:
+            raise HTTPException(status_code=403, detail="Driver access required")
+        filters = cast(Mapping[str, object], input_value or {})
+        vehicle_id = filters.get("vehicleId")
+        try:
+            parsed_vehicle_id = UUID(str(vehicle_id))
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail="vehicleId must be a UUID") from None
+        async with session.begin():
+            vehicle_result = await session.execute(
+                text(
+                    'select "id" from "vehicles" where "id" = :vehicle_id '
+                    'and "orgId" = :org_id'
+                ),
+                {"vehicle_id": str(parsed_vehicle_id), "org_id": user.org_id},
+            )
+            if vehicle_result.first() is None:
+                raise HTTPException(status_code=404, detail="Vehicle not found")
+            if user.role == "DRIVER":
+                assignment = await session.execute(
+                    text(
+                        'select 1 from "vehicle_assignments" where "orgId" = :org_id '
+                        'and "vehicleId" = :vehicle_id and "driverId" = :driver_id '
+                        'and "active" = true'
+                    ),
+                    {
+                        "org_id": user.org_id,
+                        "vehicle_id": str(parsed_vehicle_id),
+                        "driver_id": user.id,
+                    },
+                )
+                if assignment.first() is None:
+                    raise HTTPException(status_code=403, detail="Vehicle is not assigned to this driver")
+        return [
+            {
+                "id": item_id,
+                "section": section,
+                "title": title,
+                "description": description,
+                "required": required,
+            }
+            for item_id, section, title, description, required in [
+                ("ext-001", "EXTERIOR", "Tire Condition", "Check all tires for proper inflation, wear, and damage", True),
+                ("ext-002", "EXTERIOR", "Lights", "Verify headlights, taillights, and indicators are working", True),
+                ("ext-003", "EXTERIOR", "Mirrors", "Check side mirrors and rear-view mirror are properly positioned", True),
+                ("ext-004", "EXTERIOR", "Wipers", "Check windshield wipers and washers operate correctly", False),
+                ("int-001", "INTERIOR", "Seatbelts", "Verify all seatbelts latch and retract correctly", True),
+                ("int-002", "INTERIOR", "Dashboard Lights", "Check warning lights and gauges before departure", True),
+                ("int-003", "INTERIOR", "Windshield", "Check the windshield for cracks or visibility issues", True),
+                ("int-004", "INTERIOR", "Controls", "Verify horn, indicators, and cabin controls work", True),
+                ("mech-001", "MECHANICAL", "Engine Start", "Confirm the engine starts normally without unusual noise", True),
+                ("mech-002", "MECHANICAL", "Brakes", "Test service and parking brakes before departure", True),
+                ("mech-003", "MECHANICAL", "Steering", "Check steering response and unusual vibration", True),
+                ("safe-001", "SAFETY", "Emergency Kit", "Confirm the emergency kit is present and stocked", True),
+                ("safe-002", "SAFETY", "Fire Extinguisher", "Confirm the fire extinguisher is present and in date", True),
+                ("safe-003", "SAFETY", "Spare Tire", "Confirm the spare tire and tools are available", True),
+            ]
+        ]
+    if procedure == "driver.issueHistory":
+        if user.role not in {"DRIVER", "SUPERADMIN"}:
+            raise HTTPException(status_code=403, detail="Driver access required")
+        filters = cast(Mapping[str, object], input_value or {})
+        try:
+            parsed_vehicle_id = UUID(str(filters.get("vehicleId")))
+            limit = int(filters.get("limit", 50))
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail="vehicleId must be a UUID and limit must be an integer") from None
+        if not 1 <= limit <= 100:
+            raise HTTPException(status_code=400, detail="limit must be between 1 and 100")
+        async with session.begin():
+            vehicle_result = await session.execute(
+                text(
+                    'select "id" from "vehicles" where "id" = :vehicle_id '
+                    'and "orgId" = :org_id'
+                ),
+                {"vehicle_id": str(parsed_vehicle_id), "org_id": user.org_id},
+            )
+            if vehicle_result.first() is None:
+                raise HTTPException(status_code=404, detail="Vehicle not found")
+            if user.role == "DRIVER":
+                assignment = await session.execute(
+                    text(
+                        'select 1 from "vehicle_assignments" where "orgId" = :org_id '
+                        'and "vehicleId" = :vehicle_id and "driverId" = :driver_id '
+                        'and "active" = true'
+                    ),
+                    {
+                        "org_id": user.org_id,
+                        "vehicle_id": str(parsed_vehicle_id),
+                        "driver_id": user.id,
+                    },
+                )
+                if assignment.first() is None:
+                    raise HTTPException(status_code=403, detail="Vehicle is not assigned to this driver")
+            events_result = await session.execute(
+                text(
+                    'select "actorId", "createdAt", "summary", "metadata" from "audit_events" '
+                    'where "orgId" = :org_id and "entityType" = \'VEHICLE\' '
+                    'and "entityId" = :vehicle_id and "action" = \'DRIVER_ISSUE_REPORTED\' '
+                    'order by "createdAt" desc limit :limit'
+                ),
+                {
+                    "org_id": user.org_id,
+                    "vehicle_id": str(parsed_vehicle_id),
+                    "limit": limit,
+                },
+            )
+            history = []
+            for event in events_result.mappings():
+                try:
+                    metadata = json.loads(event["metadata"] or "{}")
+                except (TypeError, json.JSONDecodeError):
+                    metadata = {}
+                history.append(
+                    {
+                        "issueId": metadata.get("issueId", "unknown"),
+                        "reportedBy": event["actorId"] or "UNKNOWN",
+                        "reportedAt": event["createdAt"],
+                        "title": metadata.get("title") or event["summary"] or "Unknown issue",
+                        "description": metadata.get("description", ""),
+                        "priority": metadata.get("priority", "MEDIUM"),
+                        "category": metadata.get("category", "OTHER"),
+                        "workOrderCreated": bool(metadata.get("workOrderId")),
+                    }
+                )
+        return history
     if procedure == "driver.submitPreTripChecklist":
         if user.role not in {"DRIVER", "SUPERADMIN"}:
             raise HTTPException(status_code=403, detail="Driver access required")
