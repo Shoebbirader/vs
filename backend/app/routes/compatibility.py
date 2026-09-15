@@ -1,6 +1,7 @@
 import json
 import re
 from collections.abc import Mapping
+from datetime import datetime
 from typing import cast
 from uuid import UUID
 
@@ -14,6 +15,10 @@ from .fleet import dashboard_summary, list_vehicles
 from .inventory import list_parts
 from .maintenance import list_work_orders
 from .notifications import list_notifications
+from .components import list_components
+from .documents import list_document_versions, list_documents
+from .planning import maintenance_planning
+from .profile import get_organization_settings, get_profile
 
 router = APIRouter(prefix="/api/trpc", tags=["frontend-compatibility"])
 
@@ -41,6 +46,17 @@ def _input_value(raw_input: str | None, index: int) -> object:
             return item["json"]
         return item
     return payload
+
+
+def _date_input(value: object) -> datetime | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise HTTPException(status_code=400, detail="Date filters must be ISO strings")
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail="Date filters must be ISO strings") from error
 
 
 async def _dispatch(
@@ -81,6 +97,41 @@ async def _dispatch(
             notification_status=str(filters.get("status", "ALL")),
             vehicle_id=UUID(str(filters["vehicleId"])) if filters.get("vehicleId") else None,
             current_user=user,
+            session=session,
+        )
+    if procedure == "profile.get":
+        return await get_profile(current_user, session)
+    if procedure == "organizationSettings.get":
+        return await get_organization_settings(current_user, session)
+    if procedure == "documents.list":
+        filters = cast(Mapping[str, object], input_value or {})
+        return await list_documents(
+            include_archived=bool(filters.get("includeArchived", False)),
+            current_user=current_user,
+            session=session,
+        )
+    if procedure == "documents.versions":
+        filters = cast(Mapping[str, object], input_value or {})
+        document_id = filters.get("documentId")
+        if not document_id:
+            raise HTTPException(status_code=400, detail="documentId is required")
+        return await list_document_versions(UUID(str(document_id)), current_user, session)
+    if procedure == "components.list":
+        filters = cast(Mapping[str, object], input_value or {})
+        vehicle_id = filters.get("vehicleId")
+        return await list_components(
+            vehicle_id=UUID(str(vehicle_id)) if vehicle_id else None,
+            current_user=current_user,
+            session=session,
+        )
+    if procedure == "planning.maintenance":
+        filters = cast(Mapping[str, object], input_value or {})
+        from_date = filters.get("from")
+        to_date = filters.get("to")
+        return await maintenance_planning(
+            from_date=_date_input(from_date),
+            to_date=_date_input(to_date),
+            current_user=current_user,
             session=session,
         )
     raise HTTPException(status_code=404, detail=f"Python compatibility route not migrated: {procedure}")
