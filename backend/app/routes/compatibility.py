@@ -118,6 +118,7 @@ from .safety import (
     list_fuel_logs,
     list_inspections,
 )
+from .storage import signed_url
 from .team import (
     InviteMember,
     RevokeInvitation,
@@ -409,6 +410,30 @@ async def _dispatch(
         if not document_id:
             raise HTTPException(status_code=400, detail="documentId is required")
         return await list_document_versions(UUID(str(document_id)), user, session)
+    if procedure == "documents.access":
+        filters = cast(Mapping[str, object], input_value or {})
+        document_id = filters.get("documentId")
+        if not document_id:
+            raise HTTPException(status_code=400, detail="documentId is required")
+        result = await session.execute(
+            text(
+                'select "fileKey" from "documents" where "id" = :document_id '
+                'and "orgId" = :org_id and "archivedAt" is null'
+            ),
+            {"document_id": str(document_id), "org_id": user.org_id},
+        )
+        row = result.mappings().first()
+        if row is None or not row["fileKey"]:
+            raise HTTPException(status_code=404, detail="Document file not found")
+        expires_in = filters.get("expiresIn", 3600)
+        if not isinstance(expires_in, int):
+            raise HTTPException(status_code=400, detail="expiresIn must be an integer")
+        access = await signed_url(
+            key=str(row["fileKey"]),
+            expires_in=expires_in,
+            current_user=user,
+        )
+        return {"url": access.signed_url, "expiresIn": access.expires_in}
     if procedure == "components.list":
         filters = cast(Mapping[str, object], input_value or {})
         vehicle_id = filters.get("vehicleId")
