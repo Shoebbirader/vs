@@ -51,18 +51,19 @@ class EventPublisher {
     try {
       const handlers = this.handlers.get(event.type) || [];
       
-      // Fire all handlers in parallel, but don't wait (non-blocking)
-      Promise.all(
-        handlers.map((handler) =>
-          handler(event, context).catch((err) => {
-            console.error(`Error in event handler for ${event.type}:`, err);
-          })
-        )
-      ).catch(() => {
-        // Silently catch - we don't want handler errors blocking the caller
-      });
-
-      success = true;
+      const results = await Promise.allSettled(
+        handlers.map(handler => handler(event, context))
+      );
+      const failures = results.filter(
+        (result): result is PromiseRejectedResult => result.status === "rejected"
+      );
+      if (failures.length > 0) {
+        error = `${failures.length} event handler(s) failed`;
+        failures.forEach(result => {
+          console.error(`Error in event handler for ${event.type}:`, result.reason);
+        });
+      }
+      success = failures.length === 0;
     } catch (err) {
       error = err instanceof Error ? err.message : String(err);
       console.error(`Event publishing error for ${event.type}:`, error);

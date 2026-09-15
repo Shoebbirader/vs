@@ -756,9 +756,9 @@ export const appRouter = router({
         const added = CITY_BUS_MAINTENANCE_TEMPLATE.filter(
           template => !names.has(template.name)
         );
-        await Promise.all(
-          added.map(template =>
-            fleetDb.component.create({
+        await fleetDb.$transaction(async (tx: any) => {
+          for (const template of added) {
+            await tx.component.create({
               data: {
                 id: crypto.randomUUID(),
                 vehicleId: vehicle.id,
@@ -774,9 +774,9 @@ export const appRouter = router({
                 lastServicedOdometer: Number(vehicle.currentOdometer),
                 alertThresholdKm: template.alertThresholdKm,
               },
-            })
-          )
-        );
+            });
+          }
+        });
         await recordAudit(ctx, {
           action: "MAINTENANCE_TEMPLATE_APPLIED",
           entityType: "VEHICLE",
@@ -4014,12 +4014,13 @@ export const appRouter = router({
               "Every SKU must be unique and must not already exist in this organization.",
           });
 
-        // FIX: Add error handling to Promise.all() for inventory import
         let created: any[] = [];
         try {
-          created = await Promise.all(
-            candidates.map(item =>
-              fleetDb.inventoryPart.create({
+          created = await fleetDb.$transaction(async (tx: any) => {
+            const rows: any[] = [];
+            for (const item of candidates) {
+              rows.push(
+                await tx.inventoryPart.create({
                 data: {
                   id: crypto.randomUUID(),
                   orgId: ctx.fleetopsUser.orgId,
@@ -4030,9 +4031,11 @@ export const appRouter = router({
                   minReorderLevel: Number(item.row.minReorderLevel),
                   unitCost: Number(item.row.unitCost ?? item.row.unitCostInr),
                 },
-              })
-            )
-          );
+                })
+              );
+            }
+            return rows;
+          });
         } catch (error) {
           console.error(
             "[INVENTORY_IMPORT_ERROR] Failed to create inventory parts from CSV:",
@@ -4044,7 +4047,6 @@ export const appRouter = router({
               "Failed to create inventory parts. Some SKUs may have been duplicated or contain invalid data.",
           });
         }
-
         await recordAudit(ctx, {
           action: "INVENTORY_IMPORT_CSV",
           entityType: "INVENTORY_PART",
@@ -6091,9 +6093,11 @@ export const appRouter = router({
             message:
               "Every row must reference an organization vehicle and must not duplicate an existing compliance document.",
           });
-        const created = await Promise.all(
-          candidates.map(item =>
-            fleetDb.document.create({
+        const created = await fleetDb.$transaction(async (tx: any) => {
+          const rows: any[] = [];
+          for (const item of candidates) {
+            rows.push(
+              await tx.document.create({
               data: {
                 id: crypto.randomUUID(),
                 orgId: ctx.fleetopsUser.orgId,
@@ -6104,9 +6108,11 @@ export const appRouter = router({
                 fileUrl: item.row.fileUrl || undefined,
                 createdAt: new Date(),
               },
-            })
-          )
-        );
+              })
+            );
+          }
+          return rows;
+        });
         await recordAudit(ctx, {
           action: "DOCUMENT_IMPORT_CSV",
           entityType: "DOCUMENT",
