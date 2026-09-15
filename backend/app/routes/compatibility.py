@@ -2704,6 +2704,143 @@ async def _dispatch(
                 },
             )
         return {"completed": dict(completed), "partsCost": parts_cost}
+    if procedure == "workOrders.approve":
+        if user.role not in {"SUPERADMIN", "FLEET_MANAGER"}:
+            raise HTTPException(status_code=403, detail="Fleet management access required")
+        filters = cast(Mapping[str, object], input_value or {})
+        work_order_id = filters.get("workOrderId") or filters.get("id")
+        if not work_order_id:
+            raise HTTPException(status_code=400, detail="workOrderId is required")
+        try:
+            parsed_work_order_id = UUID(str(work_order_id))
+        except ValueError:
+            raise HTTPException(status_code=400, detail="workOrderId must be a UUID") from None
+        async with session.begin():
+            order_result = await session.execute(
+                text(
+                    'select * from "work_orders" where "id" = :work_order_id '
+                    'and "orgId" = :org_id and "status" = \'READY_FOR_REVIEW\' for update'
+                ),
+                {"work_order_id": str(parsed_work_order_id), "org_id": user.org_id},
+            )
+            order = order_result.mappings().first()
+            if order is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Only work orders ready for review can be approved.",
+                )
+            vehicle_result = await session.execute(
+                text(
+                    'select * from "vehicles" where "id" = :vehicle_id '
+                    'and "orgId" = :org_id for update'
+                ),
+                {"vehicle_id": order["vehicleId"], "org_id": user.org_id},
+            )
+            vehicle = vehicle_result.mappings().first()
+            if vehicle is None:
+                raise HTTPException(status_code=404, detail="The work order vehicle is not available")
+            checklist_result = await session.execute(
+                text(
+                    'select "metadata" from "audit_events" where "orgId" = :org_id '
+                    'and "entityType" = \'WORK_ORDER\' and "entityId" = :work_order_id '
+                    'and "action" = \'WORK_ORDER_CHECKLIST_UPDATED\' '
+                    'order by "createdAt" desc limit 1'
+                ),
+                {"org_id": user.org_id, "work_order_id": str(parsed_work_order_id)},
+            )
+            checklist_row = checklist_result.mappings().first()
+            try:
+                checklist_items = json.loads(checklist_row["metadata"] or "{}").get("items", [])
+            except (TypeError, json.JSONDecodeError):
+                checklist_items = []
+            if not checklist_items or any(not item.get("completed") for item in checklist_items):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Complete every execution checklist item before approval.",
+                )
+            parts_result = await session.execute(
+                text(
+                    'select coalesce(sum("qtyUsed" * "unitPrice"), 0) as "partsCost" '
+                    'from "work_order_parts" where "workOrderId" = :work_order_id'
+                ),
+                {"work_order_id": str(parsed_work_order_id)},
+            )
+            parts_cost = float(parts_result.scalar() or 0)
+            settings_result = await session.execute(
+                text(
+                    'select "laborRatePerHour" from "organization_settings" '
+                    'where "orgId" = :org_id'
+                ),
+                {"org_id": user.org_id},
+            )
+            labor_rate = float(settings_result.scalar() or 0)
+            labor_cost = labor_rate * float(order["laborHours"] or 0)
+            updated_result = await session.execute(
+                text(
+                    'update "work_orders" set "status" = \'COMPLETED\', '
+                    '"completedAt" = now(), "updatedAt" = now() '
+                    'where "id" = :work_order_id and "orgId" = :org_id returning *'
+                ),
+                {"work_order_id": str(parsed_work_order_id), "org_id": user.org_id},
+            )
+            approved = updated_result.mappings().one()
+            if vehicle["status"] == "MAINTENANCE":
+                await session.execute(
+                    text(
+                        'update "vehicles" set "status" = \'ACTIVE\', "updatedAt" = now() '
+                        'where "id" = :vehicle_id and "orgId" = :org_id'
+                    ),
+                    {"vehicle_id": order["vehicleId"], "org_id": user.org_id},
+                )
+            if parts_cost + labor_cost > 0:
+                await session.execute(
+                    text(
+                        'insert into "financial_records" '
+                        '("id", "orgId", "vehicleId", "type", "category", "amount", '
+                        '"transactionDate", "costCenterType", "costCenterId", "vendor", '
+                        '"approvalStatus", "approvedById", "approvalReason", "createdAt") '
+                        'values (:id, :org_id, :vehicle_id, \'EXPENSE\', '
+                        '\'MAINTENANCE_PARTS\', :amount, now(), \'WORK_ORDER\', '
+                        ':work_order_id, :vendor, \'APPROVED\', :approved_by, '
+                        ':reason, now())'
+                    ),
+                    {
+                        "id": str(uuid4()),
+                        "org_id": user.org_id,
+                        "vehicle_id": order["vehicleId"],
+                        "amount": parts_cost + labor_cost,
+                        "work_order_id": str(parsed_work_order_id),
+                        "vendor": "Inventory",
+                        "approved_by": user.id,
+                        "reason": f"Approved costs for {order['title']}",
+                    },
+                )
+            await session.execute(
+                text(
+                    'insert into "audit_events" '
+                    '("id", "orgId", "actorId", "actorRole", "action", "entityType", '
+                    '"entityId", "summary", "metadata", "createdAt") values '
+                    '(:id, :org_id, :actor_id, :actor_role, \'WORK_ORDER_APPROVED\', '
+                    '\'WORK_ORDER\', :entity_id, :summary, :metadata, now())'
+                ),
+                {
+                    "id": str(uuid4()),
+                    "org_id": user.org_id,
+                    "actor_id": user.id,
+                    "actor_role": user.role,
+                    "entity_id": str(parsed_work_order_id),
+                    "summary": f'Work order approved and completed: {order["title"]}',
+                    "metadata": json.dumps(
+                        {
+                            "checklistItems": len(checklist_items),
+                            "partsCost": parts_cost,
+                            "laborCost": labor_cost,
+                            "laborRatePerHour": labor_rate,
+                        }
+                    ),
+                },
+            )
+        return dict(approved)
     if procedure == "workOrders.bulkUpdate":
         filters = cast(Mapping[str, object], input_value or {})
         return await bulk_update_work_orders(
