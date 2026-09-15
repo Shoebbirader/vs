@@ -47,6 +47,8 @@ from .billing import (
     billing_plans,
     billing_payments,
     billing_status,
+    create_test_order,
+    generate_invoice,
 )
 from .finance import (
     Decision,
@@ -809,6 +811,14 @@ async def _dispatch(
         return await billing_invoices(user, session)
     if procedure == "billing.payments":
         return await billing_payments(user, session)
+    if procedure == "billing.generateInvoice":
+        return await generate_invoice(user, session)
+    if procedure == "billing.createTestOrder":
+        filters = cast(Mapping[str, object], input_value or {})
+        invoice_id = filters.get("invoiceId")
+        if not invoice_id:
+            raise HTTPException(status_code=400, detail="invoiceId is required")
+        return await create_test_order(UUID(str(invoice_id)), user, session)
     if procedure == "billingTest.activateStarter":
         return await activate_starter(user, session)
     if procedure == "audit.list":
