@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_db_session
 from ..tenant import TenantUser, get_current_user
-from .fleet import dashboard_summary, list_vehicles
+from .fleet import VehicleCreate, create_vehicle, dashboard_summary, list_vehicles
 from .inventory import list_parts
 from .maintenance import list_work_orders
 from .notifications import (
@@ -58,9 +58,11 @@ from .inventory import (
     transfer_part,
 )
 from .maintenance import (
+    WorkOrderCreate,
     WorkOrderBulkUpdate,
     WorkOrderStatusUpdate,
     bulk_update_work_orders,
+    create_work_order,
     update_work_order_status,
 )
 from .planning import maintenance_planning
@@ -140,6 +142,21 @@ async def _dispatch(
         return await dashboard_summary(user, session)
     if procedure == "vehicles.list":
         return await list_vehicles(user, session)
+    if procedure == "vehicles.create":
+        filters = cast(Mapping[str, object], input_value or {})
+        return await create_vehicle(
+            VehicleCreate(
+                vin=str(filters.get("vin", "")),
+                license_plate=str(filters.get("licensePlate", "")),
+                make=str(filters.get("make", "")),
+                model=str(filters.get("model", "")),
+                year=int(filters.get("year", 0)),
+                current_odometer=float(filters.get("currentOdometer", 0)),
+                status=str(filters.get("status", "ACTIVE")),
+            ),
+            user,
+            session,
+        )
     if procedure == "vehicles.odometerHistory":
         return await _odometer_history(user, session)
     if procedure == "vehicles.health":
@@ -157,6 +174,23 @@ async def _dispatch(
             work_order_status=str(status) if status else None,
             current_user=user,
             session=session,
+        )
+    if procedure == "workOrders.create":
+        filters = cast(Mapping[str, object], input_value or {})
+        return await create_work_order(
+            WorkOrderCreate(
+                vehicle_id=UUID(str(filters["vehicleId"])),
+                title=str(filters.get("title", "")),
+                description=(
+                    str(filters["description"])
+                    if filters.get("description") is not None
+                    else None
+                ),
+                priority=str(filters.get("priority", "")),
+                scheduled_for=_date_input(filters.get("scheduledFor")),
+            ),
+            user,
+            session,
         )
     if procedure == "inventory.list":
         return await list_parts(user, session)
