@@ -206,6 +206,136 @@ async def _dispatch(
             user,
             session,
         )
+    if procedure == "vehicles.update":
+        if user.role not in {"SUPERADMIN", "FLEET_MANAGER"}:
+            raise HTTPException(status_code=403, detail="Fleet management access required")
+        filters = cast(Mapping[str, object], input_value or {})
+        vehicle_id = filters.get("id")
+        required = ("vin", "licensePlate", "make", "model", "year", "currentOdometer")
+        if not vehicle_id or any(filters.get(field) is None for field in required):
+            raise HTTPException(status_code=400, detail="Vehicle id and required fields are needed")
+        try:
+            parsed_vehicle_id = UUID(str(vehicle_id))
+            year = int(filters["year"])
+            current_odometer = float(filters["currentOdometer"])
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail="Vehicle fields are invalid") from None
+        vin = str(filters["vin"]).strip().upper()
+        license_plate = str(filters["licensePlate"]).strip().upper()
+        make = str(filters["make"]).strip()
+        model = str(filters["model"]).strip()
+        if len(vin) < 5 or len(vin) > 32 or len(license_plate) < 3 or len(license_plate) > 32:
+            raise HTTPException(status_code=400, detail="Vehicle identity fields are invalid")
+        if len(make) < 2 or len(model) < 2 or year < 1980 or year > 2100 or current_odometer < 0:
+            raise HTTPException(status_code=400, detail="Vehicle details are invalid")
+        status_value = filters.get("status")
+        if status_value is not None and str(status_value) not in {"ACTIVE", "OUT_OF_SERVICE", "MAINTENANCE"}:
+            raise HTTPException(status_code=400, detail="Vehicle status is invalid")
+        vehicle_type = filters.get("vehicleType")
+        if vehicle_type is not None and str(vehicle_type) not in {
+            "BUS",
+            "MINIBUS",
+            "TRUCK",
+            "VAN",
+            "CAR",
+            "OTHER",
+        }:
+            raise HTTPException(status_code=400, detail="Vehicle type is invalid")
+        async with session.begin():
+            current_result = await session.execute(
+                text(
+                    'select * from "vehicles" where "id" = :vehicle_id '
+                    'and "orgId" = :org_id for update'
+                ),
+                {"vehicle_id": str(parsed_vehicle_id), "org_id": user.org_id},
+            )
+            current = current_result.mappings().first()
+            if current is None:
+                raise HTTPException(status_code=404, detail="Vehicle not found in your organization")
+            duplicate_result = await session.execute(
+                text(
+                    'select "id" from "vehicles" where "orgId" = :org_id '
+                    'and ("vin" = :vin or "licensePlate" = :license_plate) '
+                    'and "id" <> :vehicle_id'
+                ),
+                {
+                    "org_id": user.org_id,
+                    "vin": vin,
+                    "license_plate": license_plate,
+                    "vehicle_id": str(parsed_vehicle_id),
+                },
+            )
+            duplicate = duplicate_result.mappings().first()
+            if duplicate is not None:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Another vehicle already uses this VIN or registration number",
+                )
+            values: dict[str, object] = {
+                "vin": vin,
+                "license_plate": license_plate,
+                "make": make,
+                "model": model,
+                "year": year,
+                "current_odometer": current_odometer,
+            }
+            assignments = [
+                '"vin" = :vin',
+                '"licensePlate" = :license_plate',
+                '"make" = :make',
+                '"model" = :model',
+                '"year" = :year',
+                '"currentOdometer" = :current_odometer',
+            ]
+            optional_columns = {
+                "chassisNumber": "chassis_number",
+                "engineNumber": "engine_number",
+                "vehicleType": "vehicle_type",
+                "assignedRoute": "assigned_route",
+                "depotLocation": "depot_location",
+                "status": "status",
+            }
+            for input_key, parameter in optional_columns.items():
+                if input_key in filters:
+                    values[parameter] = filters[input_key]
+                    assignments.append(f'"{input_key}" = :{parameter}')
+            updated_result = await session.execute(
+                text(
+                    'update "vehicles" set ' + ", ".join(assignments) +
+                    ', "updatedAt" = now() where "id" = :vehicle_id '
+                    'and "orgId" = :org_id returning *'
+                ),
+                {**values, "vehicle_id": str(parsed_vehicle_id), "org_id": user.org_id},
+            )
+            updated = updated_result.mappings().one()
+            await session.execute(
+                text(
+                    'insert into "audit_events" '
+                    '("id", "orgId", "actorId", "actorRole", "action", "entityType", '
+                    '"entityId", "summary", "metadata", "createdAt") values '
+                    '(:id, :org_id, :actor_id, :actor_role, :action, :entity_type, '
+                    ':entity_id, :summary, :metadata, now())'
+                ),
+                {
+                    "id": str(uuid4()),
+                    "org_id": user.org_id,
+                    "actor_id": user.id,
+                    "actor_role": user.role,
+                    "action": "VEHICLE_UPDATED",
+                    "entity_type": "VEHICLE",
+                    "entity_id": str(parsed_vehicle_id),
+                    "summary": f"{vin} / {license_plate} details updated",
+                    "metadata": json.dumps(
+                        {
+                            "previousOdometer": current["currentOdometer"],
+                            "currentOdometer": current_odometer,
+                            "vin": vin,
+                            "licensePlate": license_plate,
+                        }
+                    ),
+                },
+            )
+        return dict(updated)
     if procedure == "vehicles.odometerHistory":
         return await _odometer_history(user, session)
     if procedure == "vehicles.health":
