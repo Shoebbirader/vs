@@ -9,6 +9,7 @@ router = APIRouter(tags=["system"])
 
 
 @router.get("/healthz")
+@router.get("/api/healthz")
 async def health(settings: Settings = Depends(get_settings)) -> dict[str, object]:
     return {
         "ok": True,
@@ -19,6 +20,7 @@ async def health(settings: Settings = Depends(get_settings)) -> dict[str, object
 
 
 @router.get("/readyz")
+@router.get("/api/readyz")
 async def readiness(settings: Settings = Depends(get_settings)) -> dict[str, object]:
     database_ok = await check_database()
     configuration_ok = settings.configuration_ready or not settings.production
