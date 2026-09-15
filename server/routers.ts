@@ -1833,23 +1833,26 @@ export const appRouter = router({
         );
         validateOdometerReading(baseline, input.reading, elapsedDays);
         const isFlagged = false;
-        const [updatedVehicle, odometerLog] = (await fleetDb.$transaction([
-          fleetDb.vehicle.update({
-            where: { id: vehicle.id },
-            data: { currentOdometer: input.reading },
-          }),
-          fleetDb.odometerLog.create({
-            data: {
-              id: crypto.randomUUID(),
-              vehicleId: vehicle.id,
-              driverId: ctx.fleetopsUser.id,
-              reading: input.reading,
-              source: input.source,
-              isFlagged,
-              createdAt: new Date(),
-            },
-          }),
-        ])) as [any, any];
+        const { updatedVehicle, odometerLog } = await fleetDb.$transaction(
+          async (tx: any) => {
+            const updatedVehicle = await tx.vehicle.update({
+              where: { id: vehicle.id },
+              data: { currentOdometer: input.reading },
+            });
+            const odometerLog = await tx.odometerLog.create({
+              data: {
+                id: crypto.randomUUID(),
+                vehicleId: vehicle.id,
+                driverId: ctx.fleetopsUser.id,
+                reading: input.reading,
+                source: input.source,
+                isFlagged,
+                createdAt: new Date(),
+              },
+            });
+            return { updatedVehicle, odometerLog };
+          }
+        );
         await evaluateVehicleMaintenance(vehicle.id, ctx.fleetopsUser.orgId);
         await recordAudit(ctx, {
           action: "ODOMETER_READING_UPDATED",

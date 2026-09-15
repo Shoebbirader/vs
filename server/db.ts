@@ -336,9 +336,8 @@ function createFleetDb(executor: SqlExecutor = db) {
 
 export const fleetDb = createFleetDb();
 export async function transaction<T>(
-  fn: ((tx: any) => Promise<T>) | Promise<T>[]
-): Promise<T | unknown[]> {
-  if (Array.isArray(fn)) return Promise.all(fn);
+  fn: (tx: any) => Promise<T>
+): Promise<T> {
   return db.transaction(async tx => fn(createFleetDb(tx)));
 }
 

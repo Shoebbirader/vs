@@ -15,6 +15,7 @@ import { createRateLimiter } from "../rateLimit";
 import { db, fleetDb } from "../db";
 import { sql } from "drizzle-orm";
 import { isRazorpayWebhookEnabled, verifyRazorpayWebhook } from "../razorpay";
+import { getReadiness } from "../health";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -38,6 +39,13 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 async function startServer() {
   const app = express();
   const server = createServer(app);
+  app.get(["/healthz", "/api/healthz"], (_req, res) => {
+    res.status(200).json({ ok: true, service: "FleetOps API" });
+  });
+  app.get(["/readyz", "/api/readyz"], async (_req, res) => {
+    const readiness = await getReadiness();
+    res.status(readiness.ok ? 200 : 503).json(readiness);
+  });
   app.post(
     "/api/razorpay/webhook",
     express.raw({ type: "application/json", limit: "2mb" }),
