@@ -2,12 +2,12 @@ import { chromium } from "@playwright/test";
 import fs from "node:fs/promises";
 import path from "node:path";
 
-const baseUrl = (process.env.FLEETOPS_RECORDING_BASE_URL ?? "https://fleetops-v2.vercel.app").replace(/\/$/, "");
-const outputDir = process.env.FLEETOPS_RECORDING_OUTPUT_DIR ?? "/home/ubuntu/webdev-static-assets/vahansync-workflow-recording/actions";
+const baseUrl = (process.env.VAHANSYNC_RECORDING_BASE_URL ?? "https://vahansync.com").replace(/\/$/, "");
+const outputDir = process.env.VAHANSYNC_RECORDING_OUTPUT_DIR ?? "/home/ubuntu/webdev-static-assets/vahansync-workflow-recording/actions";
 const stateDir = path.join(outputDir, ".session-state");
 const viewport = { width: 1280, height: 720 };
-const runLabel = process.env.FLEETOPS_ACTION_LABEL ?? `Route-readiness torque confirmation ${new Date().toISOString().slice(0, 10)}`;
-const actionStep = process.env.FLEETOPS_ACTION_STEP ?? "all";
+const runLabel = process.env.VAHANSYNC_ACTION_LABEL ?? `Route-readiness torque confirmation ${new Date().toISOString().slice(0, 10)}`;
+const actionStep = process.env.VAHANSYNC_ACTION_STEP ?? "all";
 const shouldRun = (step) => actionStep === "all" || actionStep === step;
 
 const roles = {
@@ -18,8 +18,8 @@ const roles = {
 };
 
 function credentials(role) {
-  const email = process.env[`FLEETOPS_RECORDING_${role.key}_EMAIL`];
-  const password = process.env[`FLEETOPS_RECORDING_${role.key}_PASSWORD`];
+  const email = process.env[`VAHANSYNC_RECORDING_${role.key}_EMAIL`];
+  const password = process.env[`VAHANSYNC_RECORDING_${role.key}_PASSWORD`];
   if (!email || !password) throw new Error(`Missing runtime-only credentials for ${role.label}.`);
   return { email, password };
 }

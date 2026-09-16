@@ -27,6 +27,13 @@ import {
 import { assertRazorpayTestMode, createRazorpayTestOrder } from "./razorpay";
 import { sendInvitationEmail } from "./invitation-email";
 import { vehicleIdentity } from "./vehicle-identity";
+import {
+  getDriverAssignment,
+  getPreTripChecklist,
+  getVehicleIssueHistory,
+  submitPreTripChecklist,
+  submitVehicleIssue,
+} from "./drivers";
 const Priority = {
   LOW: "LOW",
   MEDIUM: "MEDIUM",
@@ -241,10 +248,76 @@ export function assertWritable(org: {
       throw new TRPCError({
         code: "FORBIDDEN",
         message:
-          "Your trial has expired. Upgrade your FleetOps plan to continue writing data.",
+          "Your trial has expired. Upgrade your VahanSync plan to continue writing data.",
       });
     }
   }
+}
+
+type IdempotencyContext = {
+  fleetopsUser: { orgId: string; id: string };
+};
+
+function mutationHash(input: unknown) {
+  return createHash("sha256")
+    .update(JSON.stringify(input))
+    .digest("hex");
+}
+
+async function beginMutation(
+  tx: any,
+  ctx: IdempotencyContext,
+  mutationId: string | undefined,
+  procedure: string,
+  requestHash: string
+): Promise<{ recordId?: string; replay?: unknown }> {
+  if (!mutationId) return {};
+  const record = {
+    id: crypto.randomUUID(),
+    orgId: ctx.fleetopsUser.orgId,
+    userId: ctx.fleetopsUser.id,
+    idempotencyKey: mutationId,
+    procedure,
+    requestHash,
+    status: "PROCESSING",
+    expiresAt: new Date(Date.now() + 7 * 86_400_000),
+    createdAt: new Date(),
+  };
+  const inserted = await tx.idempotencyRecord.createIfAbsent({ data: record });
+  if (inserted) return { recordId: record.id };
+  {
+    const existing = await tx.idempotencyRecord.findFirst({
+      where: {
+        orgId: record.orgId,
+        userId: record.userId,
+        idempotencyKey: record.idempotencyKey,
+        procedure,
+      },
+    });
+    if (!existing || existing.requestHash !== requestHash)
+      throw new TRPCError({
+        code: "CONFLICT",
+        message: "This idempotency key was already used for different input.",
+      });
+    if (existing.status === "COMPLETED" && existing.resultJson)
+      return { replay: JSON.parse(existing.resultJson) };
+    throw new TRPCError({
+      code: "CONFLICT",
+      message: "This mutation is already being processed. Retry shortly.",
+    });
+  }
+}
+
+async function completeMutation(tx: any, recordId: string | undefined, result: unknown) {
+  if (!recordId) return;
+  await tx.idempotencyRecord.update({
+    where: { id: recordId },
+    data: {
+      status: "COMPLETED",
+      resultJson: JSON.stringify(result),
+      completedAt: new Date(),
+    },
+  });
 }
 
 async function assertVehicleCapacity(orgId: string, maxVehicles: number) {
@@ -252,7 +325,7 @@ async function assertVehicleCapacity(orgId: string, maxVehicles: number) {
   if (count >= maxVehicles)
     throw new TRPCError({
       code: "FORBIDDEN",
-      message: `Vehicle limit reached (${maxVehicles}). Upgrade your FleetOps plan to add more vehicles.`,
+      message: `Vehicle limit reached (${maxVehicles}). Upgrade your VahanSync plan to add more vehicles.`,
     });
 }
 
@@ -1954,6 +2027,7 @@ export const appRouter = router({
           vehicleId: z.string().uuid(),
           reading: z.number().min(0),
           source: z.enum(["MANUAL_DRIVER", "GPS_API", "MECHANIC"]),
+          mutationId: z.string().uuid().optional(),
         })
       )
       .mutation(async ({ ctx, input }) => {
@@ -1994,8 +2068,16 @@ export const appRouter = router({
         );
         validateOdometerReading(baseline, input.reading, elapsedDays);
         const isFlagged = false;
-        const { updatedVehicle, odometerLog } = await fleetDb.$transaction(
+        const result = await fleetDb.$transaction(
           async (tx: any) => {
+            const mutation = await beginMutation(
+              tx,
+              ctx,
+              input.mutationId,
+              "vehicles.updateOdometer",
+              mutationHash({ ...input, mutationId: undefined })
+            );
+            if (mutation.replay) return { replay: mutation.replay };
             const updatedVehicle = await tx.vehicle.update({
               where: { id: vehicle.id },
               data: { currentOdometer: input.reading },
@@ -2011,9 +2093,13 @@ export const appRouter = router({
                 createdAt: new Date(),
               },
             });
-            return { updatedVehicle, odometerLog };
+            const result = { vehicle: updatedVehicle, odometerLog };
+            await completeMutation(tx, mutation.recordId, result);
+            return result;
           }
         );
+        if ("replay" in result) return result.replay;
+        const { vehicle: updatedVehicle, odometerLog } = result;
         await evaluateVehicleMaintenance(vehicle.id, ctx.fleetopsUser.orgId);
         await recordAudit(ctx, {
           action: "ODOMETER_READING_UPDATED",
@@ -4251,6 +4337,83 @@ export const appRouter = router({
       }),
   }),
   driver: router({
+    assignment: fleetOpsProcedure.query(async ({ ctx }) => {
+      requireRole(ctx.fleetopsUser.role, ["DRIVER", "SUPERADMIN"]);
+      return getDriverAssignment(ctx.fleetopsUser.id, ctx.fleetopsUser.orgId);
+    }),
+    preTripChecklist: fleetOpsProcedure
+      .input(z.object({ vehicleId: z.string().uuid() }))
+      .query(async ({ ctx, input }) => {
+        requireRole(ctx.fleetopsUser.role, ["DRIVER", "SUPERADMIN"]);
+        await assertDriverVehicle(ctx, input.vehicleId);
+        return getPreTripChecklist(
+          input.vehicleId,
+          ctx.fleetopsUser.orgId
+        );
+      }),
+    submitPreTripChecklist: fleetOpsProcedure
+      .input(
+        z.object({
+          vehicleId: z.string().uuid(),
+          results: z
+            .array(
+              z.object({
+                itemId: z.string().min(1).max(40),
+                passed: z.boolean(),
+                notes: z.string().max(1000).optional(),
+              })
+            )
+            .min(1)
+            .max(100),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        requireRole(ctx.fleetopsUser.role, ["DRIVER", "SUPERADMIN"]);
+        await assertDriverVehicle(ctx, input.vehicleId);
+        return submitPreTripChecklist(
+          input.vehicleId,
+          ctx.fleetopsUser.id,
+          ctx.fleetopsUser.orgId,
+          input.results
+        );
+      }),
+    issueHistory: fleetOpsProcedure
+      .input(
+        z.object({
+          vehicleId: z.string().uuid(),
+          limit: z.number().int().min(1).max(100).default(50),
+        })
+      )
+      .query(async ({ ctx, input }) => {
+        requireRole(ctx.fleetopsUser.role, ["DRIVER", "SUPERADMIN"]);
+        await assertDriverVehicle(ctx, input.vehicleId);
+        return getVehicleIssueHistory(
+          input.vehicleId,
+          ctx.fleetopsUser.orgId,
+          input.limit
+        );
+      }),
+    submitWorkflowIssue: fleetOpsProcedure
+      .input(
+        z.object({
+          vehicleId: z.string().uuid(),
+          title: z.string().trim().min(3).max(160),
+          description: z.string().trim().min(5).max(4000),
+          priority: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]),
+          category: z.string().trim().min(1).max(80),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        requireRole(ctx.fleetopsUser.role, ["DRIVER", "SUPERADMIN"]);
+        assertWritable(ctx.fleetopsUser.org);
+        await assertDriverVehicle(ctx, input.vehicleId);
+        return submitVehicleIssue(
+          input.vehicleId,
+          ctx.fleetopsUser.id,
+          ctx.fleetopsUser.orgId,
+          input
+        );
+      }),
     inspections: fleetOpsProcedure.query(async ({ ctx }) =>
       fleetDb.dvirInspection.findMany({
         where: { orgId: ctx.fleetopsUser.orgId, driverId: ctx.fleetopsUser.id },
@@ -4267,6 +4430,7 @@ export const appRouter = router({
           notes: z.string().max(2000).optional(),
           photoData: z.string().max(2_000_000).optional(),
           photoContentType: z.string().optional(),
+          mutationId: z.string().uuid().optional(),
         })
       )
       .mutation(async ({ ctx, input }) => {
@@ -4293,7 +4457,16 @@ export const appRouter = router({
           photoUrl = uploaded.url;
           photoKey = uploaded.key;
         }
-        const inspection = await fleetDb.dvirInspection.create({
+        const result = await fleetDb.$transaction(async (tx: any) => {
+          const mutation = await beginMutation(
+            tx,
+            ctx,
+            input.mutationId,
+            "driver.createInspection",
+            mutationHash({ ...input, mutationId: undefined })
+          );
+          if (mutation.replay) return { replay: mutation.replay };
+          const inspection = await tx.dvirInspection.create({
           data: {
             id: crypto.randomUUID(),
             orgId: ctx.fleetopsUser.orgId,
@@ -4306,7 +4479,12 @@ export const appRouter = router({
             photoKey,
             createdAt: new Date(),
           },
+          });
+          await completeMutation(tx, mutation.recordId, inspection);
+          return { inspection };
         });
+        if ("replay" in result) return result.replay;
+        const { inspection } = result;
         const managers = await fleetDb.user.findMany({
           where: { orgId: ctx.fleetopsUser.orgId, role: "FLEET_MANAGER" },
         });
@@ -4358,6 +4536,7 @@ export const appRouter = router({
           station: z.string().max(200).optional(),
           receiptData: z.string().max(2_000_000).optional(),
           receiptContentType: z.string().optional(),
+          mutationId: z.string().uuid().optional(),
         })
       )
       .mutation(async ({ ctx, input }) => {
@@ -4404,7 +4583,15 @@ export const appRouter = router({
               input.receiptContentType ?? "image/jpeg"
             )
           ).url;
-        const log = await fleetDb.$transaction(async (tx: any) => {
+        const result = await fleetDb.$transaction(async (tx: any) => {
+          const mutation = await beginMutation(
+            tx,
+            ctx,
+            input.mutationId,
+            "driver.createFuelLog",
+            mutationHash({ ...input, mutationId: undefined })
+          );
+          if (mutation.replay) return { replay: mutation.replay };
           const createdLog = await tx.fuelLog.create({
             data: {
               id: crypto.randomUUID(),
@@ -4446,8 +4633,11 @@ export const appRouter = router({
             where: { id: vehicle.id },
             data: { currentOdometer: input.odometer },
           });
-          return createdLog;
+          await completeMutation(tx, mutation.recordId, createdLog);
+          return { log: createdLog };
         });
+        if ("replay" in result) return result.replay;
+        const { log } = result;
         await evaluateVehicleMaintenance(vehicle.id, ctx.fleetopsUser.orgId);
         return log;
       }),
@@ -4617,6 +4807,7 @@ export const appRouter = router({
             .default("MEDIUM"),
           photoData: z.string().max(4_000_000).optional(),
           photoContentType: z.string().startsWith("image/").optional(),
+          mutationId: z.string().uuid().optional(),
         })
       )
       .mutation(async ({ ctx, input }) => {
@@ -4645,7 +4836,16 @@ export const appRouter = router({
           photoUrl = uploaded.url;
           photoKey = uploaded.key;
         }
-        const issue = await fleetDb.vehicleIssue.create({
+        const result = await fleetDb.$transaction(async (tx: any) => {
+          const mutation = await beginMutation(
+            tx,
+            ctx,
+            input.mutationId,
+            "vehicleIssues.create",
+            mutationHash({ ...input, mutationId: undefined })
+          );
+          if (mutation.replay) return { replay: mutation.replay };
+          const issue = await tx.vehicleIssue.create({
           data: {
             id: crypto.randomUUID(),
             orgId: ctx.fleetopsUser.orgId,
@@ -4660,7 +4860,12 @@ export const appRouter = router({
             createdAt: new Date(),
             updatedAt: new Date(),
           },
+          });
+          await completeMutation(tx, mutation.recordId, issue);
+          return { issue };
         });
+        if ("replay" in result) return result.replay;
+        const { issue } = result;
         const managers = await fleetDb.user.findMany({
           where: { orgId: ctx.fleetopsUser.orgId, role: "FLEET_MANAGER" },
         });
@@ -5219,7 +5424,7 @@ export const appRouter = router({
         const origin = String(
           ctx.req?.headers?.origin ??
             process.env.PUBLIC_APP_URL ??
-            "https://fleetops-v2.vercel.app"
+            "https://vahansync.com"
         );
         const joinUrl = new URL(`/join/${token}`, origin).toString();
         const authInvite = await createAuthInvitation(normalizedEmail, joinUrl);
@@ -5275,7 +5480,7 @@ export const appRouter = router({
         const origin = String(
           ctx.req?.headers?.origin ??
             process.env.PUBLIC_APP_URL ??
-            "https://fleetops-v2.vercel.app"
+            "https://vahansync.com"
         );
         const joinUrl = new URL(`/join/${token}`, origin).toString();
         const authInvite = await createAuthInvitation(

@@ -1,0 +1,84 @@
+from fastapi.testclient import TestClient
+
+from app.main import create_app
+
+
+def test_health_endpoint() -> None:
+    client = TestClient(create_app())
+    response = client.get("/healthz")
+    assert response.status_code == 200
+    assert response.json()["ok"] is True
+
+
+def test_v2_docs_are_available_outside_production() -> None:
+    client = TestClient(create_app())
+    response = client.get("/api/v2/openapi.json")
+    assert response.status_code == 200
+    assert "/api/v2/auth/me" in response.json()["paths"]
+    assert "/api/v2/auth/context" in response.json()["paths"]
+    assert "/api/v2/vehicles" in response.json()["paths"]
+    assert response.json()["paths"]["/api/v2/vehicles"]["post"]["responses"]["201"]
+    assert "/api/v2/work-orders" in response.json()["paths"]
+    assert "/api/v2/driver/inspections" in response.json()["paths"]
+    assert "/api/v2/driver/assignment" in response.json()["paths"]
+    assert "/api/v2/driver/fuel-logs" in response.json()["paths"]
+    assert "/api/v2/vehicle-issues" in response.json()["paths"]
+    assert "/api/v2/components" in response.json()["paths"]
+    assert "/api/v2/planning/maintenance" in response.json()["paths"]
+    assert "/api/v2/profile" in response.json()["paths"]
+    assert "/api/v2/organization/settings" in response.json()["paths"]
+    assert "/api/v2/onboarding/invitation" in response.json()["paths"]
+    assert "/api/v2/onboarding/accept-invitation" in response.json()["paths"]
+    assert "/api/v2/components/{component_id}" in response.json()["paths"]
+    assert "/api/v2/work-orders/{work_order_id}/status" in response.json()["paths"]
+    assert "/api/v2/work-orders/bulk" in response.json()["paths"]
+    assert "/api/v2/inventory/parts/{part_id}/receive" in response.json()["paths"]
+    assert "/api/v2/inventory/parts/{part_id}/issue" in response.json()["paths"]
+    assert "/api/v2/inventory/parts/{part_id}/transfer" in response.json()["paths"]
+    assert "/api/v2/inventory/parts/{part_id}/adjust" in response.json()["paths"]
+    assert "/api/v2/inventory/import" in response.json()["paths"]
+    assert "/api/v2/inventory/parts/{part_id}/reserve" in response.json()["paths"]
+    assert "/api/v2/inventory/reservations/return" in response.json()["paths"]
+    assert "/api/v2/documents" in response.json()["paths"]
+    assert "/api/v2/documents/{document_id}/versions" in response.json()["paths"]
+    assert "/api/v2/documents/{document_id}" in response.json()["paths"]
+    assert "/api/v2/documents/{document_id}/archive" in response.json()["paths"]
+    assert "/api/v2/team/members" in response.json()["paths"]
+    assert "/api/v2/team/assignable-members" in response.json()["paths"]
+    assert "/api/v2/team/invitations" in response.json()["paths"]
+    assert "/api/v2/team/invitations/{invitation_id}/resend" in response.json()["paths"]
+    assert "/api/v2/team/invitations/{invitation_id}/revoke" in response.json()["paths"]
+    assert "/api/v2/notifications" in response.json()["paths"]
+    assert "/api/v2/notifications/{notification_id}/read" in response.json()["paths"]
+    assert "/api/v2/notifications/{notification_id}/escalate" in response.json()["paths"]
+    assert "/api/v2/notifications/{notification_id}/resolve" in response.json()["paths"]
+    assert "/api/v2/audit" in response.json()["paths"]
+    assert "/api/v2/automation/evaluate" in response.json()["paths"]
+    assert "/api/v2/financials" in response.json()["paths"]
+    assert "/api/v2/financials/metrics" in response.json()["paths"]
+    assert "/api/v2/financials/reconcile" in response.json()["paths"]
+    assert "/api/v2/reports/maintenance-performance" in response.json()["paths"]
+    assert "/api/v2/financials/{record_id}/approve" in response.json()["paths"]
+    assert "/api/v2/financials/{record_id}/reverse" in response.json()["paths"]
+    assert "/api/v2/financials/export-csv" in response.json()["paths"]
+    assert "/api/v2/financials/export-pdf" in response.json()["paths"]
+    assert "/api/v2/billing/plans" in response.json()["paths"]
+    assert "/api/v2/billing/status" in response.json()["paths"]
+    assert "/api/v2/billing/invoices" in response.json()["paths"]
+    assert "/api/v2/billing/payments" in response.json()["paths"]
+    assert "/api/v2/billing/invoices/generate" in response.json()["paths"]
+    assert "/api/v2/billing/invoices/{invoice_id}/test-order" in response.json()["paths"]
+    assert "/api/v2/billing-test/activate-starter" in response.json()["paths"]
+    assert "/api/v2/storage/upload" in response.json()["paths"]
+    assert "/api/v2/storage/signed-url" in response.json()["paths"]
+    assert "/api/v2/storage/object" in response.json()["paths"]
+    assert "/api/v2/inventory/parts" in response.json()["paths"]
+    assert "/api/v2/documents" in response.json()["paths"]
+    assert "/api/v2/vendors" in response.json()["paths"]
+    assert "/api/v2/purchase-orders" in response.json()["paths"]
+
+
+def test_protected_fleet_route_requires_authentication() -> None:
+    client = TestClient(create_app())
+    response = client.get("/api/v2/vehicles")
+    assert response.status_code == 401

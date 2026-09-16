@@ -29,7 +29,7 @@ Environment values must be supplied through the deployment environment. Do not c
 
 ## Deployment
 
-Production is deployed to Vercel. The primary product domain is `https://vahansync.com` when the domain is connected; the current Vercel project alias remains `https://fleetops-v2.vercel.app` until the custom domain is assigned. GitHub `main` is the source branch for deployment synchronization.
+Production is deployed to Vercel. The primary product domain is `https://vahansync.com` when the domain is connected; the Vercel project is named `vahansync-app` until the custom domain is assigned. GitHub `main` is the source branch for deployment synchronization.
 
 ## Naming note
 

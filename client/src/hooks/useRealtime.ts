@@ -32,7 +32,7 @@ export function useWebSocket(token: string | null) {
     const connect = () => {
       try {
         const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-        const wsUrl = `${protocol}//${window.location.host}?token=${encodeURIComponent(token)}`;
+        const wsUrl = `${protocol}//${window.location.host}/ws?token=${encodeURIComponent(token)}`;
         const ws = new WebSocket(wsUrl);
 
         ws.onopen = () => {

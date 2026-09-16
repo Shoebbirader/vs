@@ -74,6 +74,7 @@ const tables: Record<string, string> = {
   inventoryMovement: "inventory_movements",
   billingInvoice: "billing_invoices",
   billingPayment: "billing_payments",
+  idempotencyRecord: "idempotency_records",
 };
 const drizzleTables: Record<string, unknown> = {
   organization: fleetopsSchema.organizations,
@@ -104,6 +105,7 @@ const drizzleTables: Record<string, unknown> = {
   inventoryMovement: fleetopsSchema.inventoryMovements,
   billingInvoice: fleetopsSchema.billingInvoices,
   billingPayment: fleetopsSchema.billingPayments,
+  idempotencyRecord: fleetopsSchema.idempotencyRecords,
 };
 
 type AnyRecord = Record<string, any>;
@@ -266,6 +268,21 @@ function model(modelName: string, executor: SqlExecutor = db) {
       );
       return result.rows[0] as AnyRecord;
     },
+    async createIfAbsent(options: QueryOptions) {
+      const data = { ...(options.data ?? {}) };
+      const keys = dataColumns(data);
+      requireColumns("createIfAbsent", keys);
+      const result = await executor.execute(
+        sql`INSERT INTO ${identifier(table)} (${sql.join(
+          keys.map(identifier),
+          sql`, `
+        )}) VALUES (${sql.join(
+          keys.map(k => sql`${normalize(data[k])}`),
+          sql`, `
+        )}) ON CONFLICT DO NOTHING RETURNING *`
+      );
+      return (result.rows[0] as AnyRecord | undefined) ?? null;
+    },
     async createMany(options: QueryOptions) {
       const rows = (options.data ?? []) as AnyRecord[];
       for (const row of rows) await this.create({ data: row });
@@ -333,6 +350,14 @@ function model(modelName: string, executor: SqlExecutor = db) {
         sql`DELETE FROM ${identifier(table)} WHERE ${identifier("id")} = ${options.where.id} RETURNING *`
       );
       return result.rows[0] as AnyRecord;
+    },
+    async deleteMany(options: QueryOptions = {}) {
+      if (!options.where || Object.keys(options.where).length === 0)
+        throw new Error("deleteMany requires a where clause");
+      const result = await executor.execute(
+        sql`DELETE FROM ${identifier(table)}${whereClause(options.where)}`
+      );
+      return { count: result.rowCount ?? 0 };
     },
     async aggregate(options: QueryOptions = {}) {
       const sumField = options._sum ? Object.keys(options._sum)[0] : "amount";

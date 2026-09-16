@@ -17,7 +17,7 @@ describe("low-inventory automation", () => {
 
   it("creates a draft PO and notifies the Inventory Manager for a below-threshold part", async () => {
     mocks.inventoryPart.findMany.mockResolvedValue([{ id: "part-1", orgId: "org-1", sku: "TIRE-LEFT", name: "Left tire", quantityOnHand: 1, minReorderLevel: 5, unitCost: 7200 }]);
-    mocks.vendor.findFirst.mockResolvedValue({ id: "vendor-1", name: "FleetOps auto-reorder queue" });
+    mocks.vendor.findFirst.mockResolvedValue({ id: "vendor-1", name: "VahanSync auto-reorder queue" });
     mocks.purchaseOrder.create.mockResolvedValue({ id: "po-1" });
     mocks.notification.findFirst.mockResolvedValue(null);
     mocks.user.findMany.mockResolvedValue([{ id: "inventory-manager-1", role: "INVENTORY_MANAGER" }]);

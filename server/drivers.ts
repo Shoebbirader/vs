@@ -35,14 +35,19 @@ export function validateDriverState(driver: any, vehicle: any, action: "CHECK_IN
  * Get pre-trip checklist items for a vehicle
  * Returns items driver must check before starting journey
  */
-export async function getPreTripChecklist(vehicleId: string): Promise<Array<{
+export async function getPreTripChecklist(
+  vehicleId: string,
+  orgId: string
+): Promise<Array<{
   id: string;
   section: "EXTERIOR" | "INTERIOR" | "MECHANICAL" | "SAFETY";
   title: string;
   description: string;
   required: boolean;
 }>> {
-  const vehicle = await fleetDb.vehicle.findFirst({ where: { id: vehicleId } });
+  const vehicle = await fleetDb.vehicle.findFirst({
+    where: { id: vehicleId, orgId },
+  });
   if (!vehicle) {
     throw new TRPCError({ code: "NOT_FOUND", message: "Vehicle not found" });
   }
@@ -183,7 +188,7 @@ export async function submitPreTripChecklist(vehicleId: string, driverId: string
   }
 
   // Get checklist to verify required items
-  const checklist = await getPreTripChecklist(vehicleId);
+  const checklist = await getPreTripChecklist(vehicleId, orgId);
   const requiredItems = checklist.filter((item) => item.required);
 
   // Check that all required items were evaluated
@@ -298,6 +303,7 @@ export async function submitVehicleIssue(vehicleId: string, driverId: string, or
         summary: `Issue: ${input.title}`,
         metadata: JSON.stringify({
           issueId,
+          title: input.title,
           category: input.category,
           priority: input.priority,
           description: input.description,
@@ -415,20 +421,20 @@ export async function getDriverAssignment(driverId: string, orgId: string): Prom
     throw new TRPCError({ code: "NOT_FOUND", message: "Driver not found" });
   }
 
-  // Get assigned vehicle (simplified - in production might track shift assignments)
-  // For now, check if driver has recent work orders
-  const recentOrders = await fleetDb.workOrder.findMany({
+  const assignment = await fleetDb.vehicleAssignment.findFirst({
     where: {
       orgId,
-      status: { notIn: ["COMPLETED", "CANCELLED"] },
+      driverId,
+      active: true,
     },
-    include: { vehicle: true },
-    orderBy: { createdAt: "desc" },
-    take: 1,
   });
 
-  const assignedVehicleId = (recentOrders as any[])[0]?.vehicleId;
-  const vehicleInfo = (recentOrders as any[])[0]?.vehicle;
+  const assignedVehicleId = assignment?.vehicleId;
+  const vehicleInfo = assignedVehicleId
+    ? await fleetDb.vehicle.findFirst({
+        where: { id: assignedVehicleId, orgId },
+      })
+    : undefined;
 
   // Count active issues
   const activeIssues = assignedVehicleId

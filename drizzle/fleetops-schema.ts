@@ -652,3 +652,37 @@ export const fuelLogs = pgTable(
     vehicleIdIdx: index("idx_fuel_logs_vehicleId").on(table.vehicleId),
   })
 );
+export const idempotencyRecords = pgTable(
+  "idempotency_records",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    orgId: uuid("orgId").notNull(),
+    userId: uuid("userId").notNull(),
+    idempotencyKey: text("idempotencyKey").notNull(),
+    procedure: text("procedure").notNull(),
+    requestHash: text("requestHash").notNull(),
+    status: text("status").notNull().default("PROCESSING"),
+    resultJson: text("resultJson"),
+    completedAt: timestamp("completedAt", { withTimezone: true }),
+    expiresAt: timestamp("expiresAt", { withTimezone: true }).notNull(),
+    createdAt: timestamp("createdAt", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  table => ({
+    scopeIdx: index("idx_idempotency_records_scope").on(
+      table.orgId,
+      table.userId,
+      table.idempotencyKey
+    ),
+    procedureIdx: index("idx_idempotency_records_procedure").on(
+      table.procedure
+    ),
+    scopeUnique: uniqueIndex("uq_idempotency_records_scope").on(
+      table.orgId,
+      table.userId,
+      table.idempotencyKey,
+      table.procedure
+    ),
+  })
+);

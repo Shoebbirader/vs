@@ -2,13 +2,13 @@ import { createClient } from "@supabase/supabase-js";
 const supabaseUrl = process.env.SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const anonKey = process.env.VITE_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY;
-const baseUrl = process.env.FLEETOPS_BASE_URL ?? "https://fleetops-elktaacw.manus.space";
+const baseUrl = process.env.VAHANSYNC_BASE_URL ?? "https://vahansync.com";
 const admin = createClient(supabaseUrl, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
 const anon = createClient(supabaseUrl, anonKey, { auth: { autoRefreshToken: false, persistSession: false } });
 const runId = Date.now().toString(36);
-const ownerEmail = `fleetops.screenshot.owner.${runId}@example.com`;
-const invitedEmail = `fleetops.screenshot.inventory.${runId}@example.com`;
-const password = `FleetOpsScreenshot!${runId}A`;
+const ownerEmail = `vahansync.screenshot.owner.${runId}@example.com`;
+const invitedEmail = `vahansync.screenshot.inventory.${runId}@example.com`;
+const password = `VahanSyncScreenshot!${runId}A`;
 async function trpc(path, token, input, method = "POST") { const query = encodeURIComponent(JSON.stringify({ 0: { json: input } })); const url = `${baseUrl}/api/trpc/${path}?batch=1${method === "GET" ? `&input=${query}` : ""}`; const r = await fetch(url, { method, headers: { "content-type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: method === "GET" ? undefined : JSON.stringify({ 0: { json: input } }) }); const p = await r.json(); if (!r.ok || p?.[0]?.error) throw new Error(`${path}: ${JSON.stringify(p).slice(0, 700)}`); return p?.[0]?.result?.data?.json ?? p?.[0]?.result?.data; }
 async function signIn(email) { const { data, error } = await anon.auth.signInWithPassword({ email, password }); if (error || !data.session) throw error ?? new Error("No session"); return data.session.access_token; }
 let ownerId, invitedId, orgId, invitationId;

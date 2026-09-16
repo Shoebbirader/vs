@@ -6,7 +6,7 @@ const { Pool } = pg;
 const supabaseUrl = process.env.SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const anonKey = process.env.VITE_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY;
-const baseUrl = (process.env.FLEETOPS_FIRST_LOGIN_BASE_URL ?? "https://fleetops-v2.vercel.app").replace(/\/$/, "");
+const baseUrl = (process.env.VAHANSYNC_FIRST_LOGIN_BASE_URL ?? "https://vahansync.com").replace(/\/$/, "");
 
 if (!supabaseUrl || !serviceKey || !anonKey || !process.env.SUPABASE_DATABASE_URL) {
   throw new Error("Supabase server, browser, and database configuration is required for the disposable first-login verification.");

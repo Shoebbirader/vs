@@ -71,4 +71,15 @@ describe("component maintenance automation", () => {
     expect(payload).not.toContain("secret-value");
     spy.mockRestore();
   });
+
+  it("removes expired idempotency records during the scheduled sweep", async () => {
+    mocks.organization.findMany.mockResolvedValue([]);
+    (mocks as any).idempotencyRecord = { deleteMany: vi.fn() };
+
+    await evaluateAllOrganizations();
+
+    expect((mocks as any).idempotencyRecord.deleteMany).toHaveBeenCalledWith({
+      where: { expiresAt: { lt: expect.any(Date) } },
+    });
+  });
 });

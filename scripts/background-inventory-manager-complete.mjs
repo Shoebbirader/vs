@@ -5,16 +5,16 @@ const { Pool } = pg;
 const supabaseUrl = process.env.SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const anonKey = process.env.VITE_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY;
-const baseUrl = process.env.FLEETOPS_BASE_URL ?? "https://fleetops-elktaacw.manus.space";
+const baseUrl = process.env.VAHANSYNC_BASE_URL ?? "https://vahansync.com";
 if (!supabaseUrl || !serviceKey || !anonKey) throw new Error("Supabase server and browser keys are required");
 
 const admin = createClient(supabaseUrl, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
 const anon = createClient(supabaseUrl, anonKey, { auth: { autoRefreshToken: false, persistSession: false } });
 const pool = new Pool({ connectionString: process.env.SUPABASE_DATABASE_URL, ssl: { rejectUnauthorized: false } });
 const runId = Date.now().toString(36);
-const ownerEmail = `fleetops.e2e.inventory-owner.${runId}@example.com`;
-const invitedEmail = `fleetops.e2e.inventory-manager.${runId}@example.com`;
-const password = `FleetOpsInventoryE2E!${runId}A`;
+const ownerEmail = `vahansync.e2e.inventory-owner.${runId}@example.com`;
+const invitedEmail = `vahansync.e2e.inventory-manager.${runId}@example.com`;
+const password = `VahanSyncInventoryE2E!${runId}A`;
 const results = [];
 let ownerId;
 let invitedId;
@@ -58,21 +58,21 @@ async function check(name, fn) {
 
 try {
   const owner = await check("Create temporary Superadmin Auth user", async () => {
-    const { data, error } = await admin.auth.admin.createUser({ email: ownerEmail, password, email_confirm: true, user_metadata: { fullName: "FleetOps E2E Owner", needsOnboarding: true } });
+    const { data, error } = await admin.auth.admin.createUser({ email: ownerEmail, password, email_confirm: true, user_metadata: { fullName: "VahanSync E2E Owner", needsOnboarding: true } });
     if (error || !data.user) throw error ?? new Error("No owner user returned");
     ownerId = data.user.id;
     return data.user.id;
   });
   const ownerToken = await check("Sign in temporary Superadmin", () => signIn(ownerEmail));
-  const ownerContext = await check("Bootstrap or load organization", () => tRPC("onboarding.bootstrap", ownerToken, { orgName: `FleetOps E2E ${runId}`, fullName: "FleetOps E2E Owner" }));
+  const ownerContext = await check("Bootstrap or load organization", () => tRPC("onboarding.bootstrap", ownerToken, { orgName: `VahanSync E2E ${runId}`, fullName: "VahanSync E2E Owner" }));
   orgId = ownerContext.id ? ownerContext.orgId : undefined;
   const summary = await check("Load protected dashboard summary", () => tRPC("dashboard.summary", ownerToken, null, "GET"));
   if (!summary?.org?.id) throw new Error("Dashboard summary did not return an organization");
   orgId = summary.org.id;
-  await check("Complete organization onboarding", () => tRPC("onboarding.complete", ownerToken, { orgName: `FleetOps E2E ${runId}`, fullName: "FleetOps E2E Owner" }));
+  await check("Complete organization onboarding", () => tRPC("onboarding.complete", ownerToken, { orgName: `VahanSync E2E ${runId}`, fullName: "VahanSync E2E Owner" }));
 
   const invited = await check("Create temporary Inventory Manager Auth user", async () => {
-    const { data, error } = await admin.auth.admin.createUser({ email: invitedEmail, password, email_confirm: true, user_metadata: { fullName: "FleetOps E2E Inventory Manager" } });
+    const { data, error } = await admin.auth.admin.createUser({ email: invitedEmail, password, email_confirm: true, user_metadata: { fullName: "VahanSync E2E Inventory Manager" } });
     if (error || !data.user) throw error ?? new Error("No invited user returned");
     invitedId = data.user.id;
     return data.user.id;
@@ -84,7 +84,7 @@ try {
   const details = await check("Resolve organization-bound invitation details", () => tRPC("onboarding.inviteDetails", undefined, { token: invitation.tokenHash }, "GET"));
   if (details.email !== invitedEmail || details.role !== "INVENTORY_MANAGER" || details.organization.id !== orgId) throw new Error("Invitation details were not organization-bound");
   const invitedToken = await check("Sign in temporary invited user", () => signIn(invitedEmail));
-  const joined = await check("Redeem invitation as invited user", () => tRPC("onboarding.acceptInvite", invitedToken, { token: invitation.tokenHash, fullName: "FleetOps E2E Inventory Manager" }));
+  const joined = await check("Redeem invitation as invited user", () => tRPC("onboarding.acceptInvite", invitedToken, { token: invitation.tokenHash, fullName: "VahanSync E2E Inventory Manager" }));
   if (joined.role !== "INVENTORY_MANAGER" || joined.orgId !== orgId) throw new Error("Redeemed Inventory Manager role or organization mismatch");
 
   const inventory = await check("Inventory Manager can list inventory", () => tRPC("inventory.list", invitedToken, null, "GET"));
@@ -92,7 +92,7 @@ try {
   const part = await check("Inventory Manager can create an inventory part", () => tRPC("inventory.create", invitedToken, { sku: `E2E-${runId}`, name: "E2E Brake Pad", binLocation: "A-01", quantityOnHand: 1, minReorderLevel: 5, unitCost: 1250 }));
   inventoryPartId = part.id;
   const vendor = await check("Load generated auto-reorder vendor", async () => {
-    const result = await pool.query(`SELECT id FROM vendors WHERE "orgId" = $1 AND name = $2 ORDER BY "createdAt" DESC LIMIT 1`, [orgId, "FleetOps auto-reorder queue"]);
+    const result = await pool.query(`SELECT id FROM vendors WHERE "orgId" = $1 AND name = $2 ORDER BY "createdAt" DESC LIMIT 1`, [orgId, "VahanSync auto-reorder queue"]);
     if (!result.rows[0]?.id) throw new Error("Auto-reorder vendor was not created");
     vendorId = result.rows[0].id;
     return vendorId;

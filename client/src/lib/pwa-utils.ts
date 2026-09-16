@@ -14,6 +14,7 @@ export async function registerServiceWorker() {
     });
 
     console.log("Service Worker registered successfully:", registration);
+    await registration.update();
 
     // Listen for updates
     registration.addEventListener("updatefound", () => {
@@ -22,9 +23,8 @@ export async function registerServiceWorker() {
 
       newWorker.addEventListener("statechange", () => {
         if (newWorker.state === "activated") {
-          // Notify user about app update
           console.log("Service Worker updated and activated");
-          // You can trigger a UI notification here
+          if (navigator.serviceWorker.controller) window.location.reload();
         }
       });
     });

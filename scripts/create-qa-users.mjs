@@ -39,7 +39,7 @@ async function waitForProfile(client, authUserId) {
     if (result.rows[0]) return result.rows[0];
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
-  throw new Error(`No FleetOps profile was created for Auth user ${authUserId}`);
+  throw new Error(`No VahanSync profile was created for Auth user ${authUserId}`);
 }
 
 try {

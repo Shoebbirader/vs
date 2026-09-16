@@ -27,6 +27,13 @@ describe("Drizzle FleetOps data layer", () => {
     expect(source).toContain('requireColumns("update", columns)');
     expect(source).toContain('updateMany requires a where clause');
     expect(source).toContain('requireWhereId("delete", options.where)');
+    expect(source).toContain("deleteMany requires a where clause");
+  });
+
+  it("supports conflict-free idempotency inserts", () => {
+    const source = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
+    expect(source).toContain("async createIfAbsent");
+    expect(source).toContain("ON CONFLICT DO NOTHING RETURNING *");
   });
 
   it("exposes the PostgreSQL client and FleetOps table definitions", () => {

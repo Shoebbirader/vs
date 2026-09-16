@@ -15,6 +15,8 @@ import { createRateLimiter } from "../rateLimit";
 import { db, fleetDb } from "../db";
 import { processRazorpayWebhook } from "../razorpay";
 import { getReadiness } from "../health";
+import { attachEventHandlers } from "./events.middleware";
+import { realtimeServer } from "../realtime";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -38,8 +40,10 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 async function startServer() {
   const app = express();
   const server = createServer(app);
+  attachEventHandlers(app);
+  realtimeServer.attach(server);
   app.get(["/healthz", "/api/healthz"], (_req, res) => {
-    res.status(200).json({ ok: true, service: "FleetOps API" });
+    res.status(200).json({ ok: true, service: "VahanSync API" });
   });
   app.get(["/readyz", "/api/readyz"], async (_req, res) => {
     const readiness = await getReadiness();
